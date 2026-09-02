@@ -1,0 +1,778 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="color-scheme" content="light">
+  <meta name="description" content="Сравнительный отчёт по 10 GitHub-проектам для agentic red teaming: атаки на память, состояние и инструменты ИИ-агентов.">
+  <title>Top 10 GitHub-аналогов // Agentic Red Teaming</title>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:ital,wght@0,400;0,500;0,600;0,700;0,800;1,400&display=swap');
+
+    :root {
+      --paper: #f7f7f5;
+      --paper-2: #ececea;
+      --ink: #101010;
+      --mid: #5d5d59;
+      --line: #b9b9b4;
+      --soft-line: #d8d8d3;
+      --white: #ffffff;
+      --sidebar: 18rem;
+      --font: "JetBrains Mono", "SFMono-Regular", Consolas, monospace;
+    }
+
+    * { box-sizing: border-box; }
+    html { scroll-behavior: smooth; scroll-padding-top: 1.5rem; }
+    body {
+      margin: 0;
+      background: var(--paper);
+      color: var(--ink);
+      font-family: var(--font);
+      font-size: 15px;
+      line-height: 1.65;
+      font-variant-ligatures: contextual;
+    }
+    body::before {
+      content: "";
+      position: fixed;
+      inset: 0;
+      pointer-events: none;
+      opacity: .035;
+      z-index: 99;
+      background-image: radial-gradient(var(--ink) .55px, transparent .65px);
+      background-size: 4px 4px;
+    }
+    ::selection { background: var(--ink); color: var(--paper); }
+    a { color: inherit; text-decoration-thickness: 1px; text-underline-offset: .2em; }
+    a:hover { text-decoration-style: double; }
+    button { font: inherit; }
+    p, ul, ol { max-width: 82ch; }
+    p { margin: 0 0 1rem; }
+    ul, ol { padding-left: 1.25rem; }
+    li + li { margin-top: .42rem; }
+    strong { font-weight: 800; }
+    code { font: inherit; font-size: .88em; background: var(--paper-2); padding: .08em .32em; }
+
+    .progress { position: fixed; inset: 0 auto auto 0; z-index: 200; height: 3px; width: 0; background: var(--ink); }
+    .layout { display: grid; grid-template-columns: var(--sidebar) minmax(0, 1fr); min-height: 100vh; }
+
+    .rail {
+      position: sticky;
+      top: 0;
+      height: 100vh;
+      overflow-y: auto;
+      padding: 1.4rem 1.2rem 2rem;
+      background: var(--paper-2);
+      border-right: 1px solid var(--ink);
+    }
+    .rail-brand { display: grid; grid-template-columns: 2.5rem 1fr; gap: .75rem; align-items: start; padding-bottom: 1.2rem; border-bottom: 3px solid var(--ink); }
+    .rail-brand b { display: grid; place-items: center; width: 2.5rem; height: 2.5rem; background: var(--ink); color: var(--paper); font-size: 1.15rem; }
+    .rail-brand span { font-size: .69rem; line-height: 1.45; font-weight: 700; text-transform: uppercase; letter-spacing: .06em; }
+    .rail-label { margin: 1.35rem 0 .45rem; color: var(--mid); font-size: .63rem; letter-spacing: .1em; text-transform: uppercase; }
+    .toc { display: grid; }
+    .toc a {
+      display: grid;
+      grid-template-columns: 1.8rem 1fr;
+      gap: .4rem;
+      padding: .46rem .2rem;
+      color: var(--mid);
+      border-bottom: 1px solid var(--soft-line);
+      font-size: .73rem;
+      line-height: 1.35;
+      text-decoration: none;
+    }
+    .toc a::before { content: attr(data-n); color: var(--ink); font-weight: 700; }
+    .toc a:hover, .toc a.active { color: var(--ink); background: var(--white); }
+    .rail-actions { display: grid; gap: .5rem; margin-top: 1.3rem; }
+    .rail button {
+      width: 100%;
+      min-height: 2.55rem;
+      border: 1px solid var(--ink);
+      border-radius: 0;
+      background: transparent;
+      color: var(--ink);
+      text-align: left;
+      padding: .55rem .7rem;
+      cursor: pointer;
+      font-size: .72rem;
+    }
+    .rail button:hover { background: var(--ink); color: var(--paper); }
+    .rail-meta { margin-top: 1.2rem; color: var(--mid); font-size: .62rem; line-height: 1.55; }
+
+    main { min-width: 0; }
+    .cover {
+      min-height: 100vh;
+      display: grid;
+      grid-template-rows: auto 1fr auto;
+      padding: clamp(1.5rem, 5vw, 5rem) clamp(1.25rem, 6vw, 6.5rem) 2rem;
+      background: var(--ink);
+      color: var(--paper);
+      border-bottom: 1px solid var(--ink);
+    }
+    .cover-top { display: flex; justify-content: space-between; gap: 2rem; font-size: .68rem; letter-spacing: .08em; text-transform: uppercase; }
+    .cover-top span:last-child { text-align: right; }
+    .cover-core { align-self: center; padding: 4rem 0; }
+    .eyebrow { font-size: .72rem; letter-spacing: .14em; text-transform: uppercase; }
+    h1 { max-width: 12ch; margin: 1.2rem 0 1.8rem; font-size: clamp(3.2rem, 8.3vw, 9rem); line-height: .84; letter-spacing: -.085em; text-transform: uppercase; }
+    .cover-deck { max-width: 61ch; color: #cfcfcb; font-size: clamp(.95rem, 1.45vw, 1.25rem); }
+    .cover-bottom { display: grid; grid-template-columns: 1.2fr .8fr; gap: clamp(2rem, 6vw, 7rem); border-top: 1px solid #555; padding-top: 1.25rem; }
+    .cover-bottom p { margin: 0; color: #d5d5d1; font-size: .78rem; }
+    .cover-index { display: grid; grid-template-columns: repeat(3, 1fr); gap: 1px; background: #555; }
+    .cover-index div { background: var(--ink); padding: .2rem .8rem; }
+    .cover-index b { display: block; font-size: 1.55rem; }
+    .cover-index span { color: #aaa; font-size: .58rem; text-transform: uppercase; }
+
+    .section { padding: clamp(3.5rem, 7vw, 7rem) clamp(1.25rem, 6vw, 6.5rem); border-bottom: 1px solid var(--ink); }
+    .section:nth-of-type(odd) { background: var(--white); }
+    .section-head { display: grid; grid-template-columns: minmax(6rem, .28fr) minmax(0, 1.72fr); gap: 1.5rem; margin-bottom: 2.8rem; align-items: start; }
+    .section-code { font-size: .7rem; letter-spacing: .1em; }
+    h2 { max-width: 20ch; margin: 0; font-size: clamp(2rem, 5.5vw, 5.5rem); line-height: .94; letter-spacing: -.055em; text-transform: uppercase; }
+    .section-deck { max-width: 71ch; margin-top: 1.2rem; color: var(--mid); font-size: 1rem; }
+    h3 { margin: 2.4rem 0 .85rem; font-size: clamp(1.25rem, 2.2vw, 2rem); line-height: 1.15; letter-spacing: -.025em; }
+    h4 { margin: 1.4rem 0 .55rem; font-size: .8rem; letter-spacing: .08em; text-transform: uppercase; }
+
+    .thesis-grid { display: grid; grid-template-columns: 1.15fr .85fr; gap: clamp(2rem, 5vw, 6rem); align-items: start; }
+    .thesis { padding-top: 1rem; border-top: 5px solid var(--ink); font-size: clamp(1.25rem, 2.4vw, 2rem); line-height: 1.35; letter-spacing: -.025em; }
+    .definition-list { margin: 0; border-top: 1px solid var(--ink); }
+    .definition-list div { display: grid; grid-template-columns: 8rem 1fr; gap: 1rem; padding: .82rem 0; border-bottom: 1px solid var(--soft-line); }
+    .definition-list dt { font-weight: 800; font-size: .72rem; }
+    .definition-list dd { margin: 0; color: var(--mid); font-size: .76rem; }
+
+    .formula {
+      margin: 2.3rem 0;
+      padding: 1.4rem;
+      color: var(--paper);
+      background: var(--ink);
+      overflow-x: auto;
+      font-size: clamp(.8rem, 1.5vw, 1.08rem);
+      white-space: nowrap;
+    }
+    .method-grid { display: grid; grid-template-columns: repeat(3, 1fr); border-top: 2px solid var(--ink); border-left: 1px solid var(--ink); }
+    .method-grid article { min-height: 13rem; padding: 1.15rem; border-right: 1px solid var(--ink); border-bottom: 1px solid var(--ink); }
+    .method-grid small { display: block; margin-bottom: 2.5rem; color: var(--mid); }
+    .method-grid b { display: block; font-size: 1.1rem; }
+    .method-grid p { margin-top: .55rem; color: var(--mid); font-size: .74rem; }
+    .method-note { margin-top: 1rem; color: var(--mid); font-size: .7rem; }
+
+    .controls { display: flex; flex-wrap: wrap; gap: .5rem; margin: 0 0 1.2rem; }
+    .controls button {
+      border: 1px solid var(--ink);
+      border-radius: 0;
+      background: transparent;
+      color: var(--ink);
+      padding: .48rem .68rem;
+      cursor: pointer;
+      font-size: .7rem;
+    }
+    .controls button[aria-pressed="true"], .controls button:hover { background: var(--ink); color: var(--paper); }
+    .table-wrap { width: 100%; overflow-x: auto; border-top: 4px solid var(--ink); }
+    table { width: 100%; min-width: 65rem; border-collapse: collapse; font-size: .72rem; }
+    th, td { padding: .82rem .65rem; border-bottom: 1px solid var(--soft-line); vertical-align: top; text-align: left; }
+    th { position: sticky; top: 0; background: var(--paper); color: var(--mid); text-transform: uppercase; letter-spacing: .05em; }
+    tbody tr:hover td { background: var(--paper-2); }
+    .table-rank { font-size: 1.2rem; font-weight: 800; }
+    .repo-link { font-weight: 800; }
+    .stars { font-variant-numeric: tabular-nums; white-space: nowrap; }
+    .score-cell { display: grid; grid-template-columns: 2.6rem 5rem; gap: .55rem; align-items: center; font-weight: 800; }
+    .score-track { height: .55rem; border: 1px solid var(--ink); }
+    .score-fill { height: 100%; width: var(--score); background: var(--ink); }
+    .tag { display: inline-block; padding: .12rem .34rem; border: 1px solid var(--line); white-space: nowrap; font-size: .62rem; }
+
+    .matrix-wrap { overflow-x: auto; border-top: 4px solid var(--ink); }
+    .matrix { min-width: 64rem; display: grid; grid-template-columns: 14rem repeat(6, minmax(6.4rem, 1fr)); }
+    .matrix > div { min-height: 3.25rem; display: grid; place-items: center; padding: .65rem; border-right: 1px solid var(--soft-line); border-bottom: 1px solid var(--soft-line); text-align: center; font-size: .68rem; }
+    .matrix .head { background: var(--ink); color: var(--paper); text-transform: uppercase; letter-spacing: .04em; }
+    .matrix .label { place-items: center start; font-weight: 800; text-align: left; }
+    .yes { font-weight: 800; }
+    .partial { color: var(--mid); }
+    .no { color: #aaa; }
+
+    .rank-list { border-top: 5px solid var(--ink); }
+    .rank-item { padding: 3.2rem 0; border-bottom: 1px solid var(--ink); }
+    .rank-top { display: grid; grid-template-columns: 5rem minmax(13rem, .55fr) minmax(0, 1.45fr); gap: 1.4rem; align-items: start; }
+    .rank-number { font-size: clamp(2.8rem, 5vw, 5.4rem); line-height: .85; font-weight: 800; letter-spacing: -.08em; }
+    .rank-title h3 { margin: 0 0 .55rem; font-size: clamp(1.45rem, 2.8vw, 2.65rem); }
+    .rank-meta { display: flex; flex-wrap: wrap; gap: .35rem; color: var(--mid); font-size: .65rem; }
+    .rank-score { margin-top: 1rem; display: grid; grid-template-columns: 1fr auto; gap: .7rem; align-items: center; font-size: .65rem; }
+    .rank-score .score-track { height: .72rem; }
+    .rank-body > p:first-child { margin-top: 0; }
+    .rank-body p, .rank-body li { font-size: .82rem; }
+    .flow { margin: 1rem 0; padding: .8rem 0; border-top: 1px dashed var(--ink); border-bottom: 1px dashed var(--ink); font-size: .7rem !important; line-height: 1.6; }
+    .compare { display: grid; grid-template-columns: 1fr 1fr; gap: 1.5rem; margin-top: 1.25rem; }
+    .compare > div { padding-top: .85rem; border-top: 2px solid var(--ink); }
+    .compare h4 { margin-top: 0; }
+    .compare p { margin: 0; color: var(--mid); }
+    .verdict-line { margin-top: 1.25rem; padding: .8rem 1rem; background: var(--paper-2); font-size: .75rem; }
+
+    .baseline-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 1px; background: var(--ink); border: 1px solid var(--ink); }
+    .baseline-grid article { background: var(--paper); padding: clamp(1.2rem, 2.5vw, 2rem); }
+    .baseline-grid h3 { margin-top: 0; }
+    .baseline-grid ul { margin-bottom: 0; font-size: .8rem; }
+    .truth-table { margin-top: 2rem; border-top: 3px solid var(--ink); }
+    .truth-row { display: grid; grid-template-columns: 1fr 1fr 1.4fr; gap: 1rem; padding: .9rem 0; border-bottom: 1px solid var(--soft-line); font-size: .72rem; }
+    .truth-row.head { color: var(--mid); text-transform: uppercase; letter-spacing: .05em; }
+    .truth-row b { font-size: .72rem; }
+
+    .architecture { display: grid; grid-template-columns: repeat(5, minmax(9rem, 1fr)); overflow-x: auto; padding-bottom: 1rem; }
+    .arch-step { position: relative; min-height: 14rem; padding: 1rem 1.5rem 1rem 1rem; border: 1px solid var(--ink); background: var(--paper); }
+    .arch-step:not(:last-child)::after { content: "→"; position: absolute; z-index: 2; right: -.82rem; top: 50%; width: 1.6rem; text-align: center; background: var(--paper); font-weight: 800; }
+    .arch-step small { display: block; margin-bottom: 2.2rem; }
+    .arch-step b { display: block; font-size: .92rem; }
+    .arch-step p { margin: .7rem 0 0; color: var(--mid); font-size: .68rem; }
+    .arch-step.dark { background: var(--ink); color: var(--paper); }
+    .arch-step.dark p { color: #bdbdb8; }
+    .arch-step.dark::after { background: var(--ink); }
+    .take-list { counter-reset: take; margin-top: 2rem; border-top: 2px solid var(--ink); }
+    .take { counter-increment: take; display: grid; grid-template-columns: 3rem minmax(0, 1fr); gap: 1rem; padding: 1rem 0; border-bottom: 1px solid var(--soft-line); }
+    .take::before { content: counter(take, decimal-leading-zero); font-weight: 800; }
+    .take p { margin: 0; font-size: .78rem; }
+
+    .source-list { border-top: 3px solid var(--ink); }
+    .source-item { display: grid; grid-template-columns: 3rem minmax(14rem, .65fr) minmax(0, 1.35fr); gap: 1rem; padding: .85rem 0; border-bottom: 1px solid var(--soft-line); font-size: .69rem; }
+    .source-item span { color: var(--mid); }
+    .caveat { margin-top: 2rem; padding: 1.2rem; border: 1px solid var(--ink); font-size: .72rem; }
+    footer { padding: 2rem clamp(1.25rem, 6vw, 6.5rem); background: var(--ink); color: #bbb; font-size: .65rem; }
+    footer b { color: var(--paper); }
+
+    @media (max-width: 980px) {
+      .layout { grid-template-columns: 1fr; }
+      .rail { position: relative; height: auto; border-right: 0; border-bottom: 1px solid var(--ink); }
+      .toc { grid-template-columns: repeat(3, 1fr); gap: .3rem; }
+      .toc a { border: 1px solid var(--soft-line); }
+      .rail-actions, .rail-meta, .rail-label { display: none; }
+      .cover { min-height: 48rem; }
+      .rank-top { grid-template-columns: 4.2rem 1fr; }
+      .rank-body { grid-column: 2; }
+    }
+    @media (max-width: 700px) {
+      body { font-size: 14px; }
+      .toc { grid-template-columns: 1fr 1fr; }
+      .cover-top, .cover-bottom, .section-head, .thesis-grid, .method-grid, .baseline-grid { grid-template-columns: 1fr; }
+      .cover-index { margin-top: 1rem; }
+      .method-grid { border-top: 1px solid var(--ink); }
+      .method-grid article { min-height: 0; }
+      .rank-top { grid-template-columns: 3.2rem minmax(0, 1fr); }
+      .rank-body { grid-column: 1 / -1; }
+      .compare { grid-template-columns: 1fr; }
+      .truth-row { grid-template-columns: 1fr; gap: .3rem; }
+      .truth-row.head { display: none; }
+      h1 { font-size: clamp(3rem, 17vw, 5rem); }
+    }
+    @media print {
+      @page { size: A4; margin: 14mm; }
+      body { background: white; font-size: 9pt; }
+      body::before, .rail, .progress, .controls { display: none !important; }
+      .layout { display: block; }
+      .cover { min-height: 260mm; break-after: page; print-color-adjust: exact; -webkit-print-color-adjust: exact; }
+      .section { padding: 16mm 0; }
+      .rank-item, .method-grid, .matrix-wrap, .table-wrap, .baseline-grid, .source-item { break-inside: avoid; }
+      .rank-top { grid-template-columns: 12mm 42mm 1fr; }
+      a { text-decoration: none; }
+    }
+    @media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto; } }
+  </style>
+</head>
+<body>
+  <div class="progress" aria-hidden="true"></div>
+  <div class="layout">
+    <aside class="rail" aria-label="Навигация по отчёту">
+      <div class="rail-brand">
+        <b>RT</b>
+        <span>Agentic<br>Red Teaming<br>GitHub / 2026</span>
+      </div>
+      <div class="rail-label">Содержание</div>
+      <nav class="toc">
+        <a href="#summary" data-n="01">Вывод</a>
+        <a href="#method" data-n="02">Методика</a>
+        <a href="#ranking" data-n="03">Рейтинг</a>
+        <a href="#matrix" data-n="04">Матрица</a>
+        <a href="#profiles" data-n="05">10 профилей</a>
+        <a href="#baseline" data-n="06">Против harness</a>
+        <a href="#proposal" data-n="07">Что строить</a>
+        <a href="#sources" data-n="08">Источники</a>
+      </nav>
+      <div class="rail-actions">
+        <button type="button" onclick="window.print()">[ PDF ] Печать / сохранить</button>
+        <button type="button" id="topButton">[ ↑ ] В начало</button>
+      </div>
+      <div class="rail-meta">
+        Срез GitHub: 02.09.2026<br>
+        10 репозиториев<br>
+        Все оценки сравнительные<br>
+        JetBrains Mono / B&amp;W
+      </div>
+    </aside>
+
+    <main>
+      <header class="cover">
+        <div class="cover-top">
+          <span>ALFA-BANK CASE / DESK RESEARCH</span>
+          <span>SNAPSHOT<br>02—09—2026</span>
+        </div>
+        <div class="cover-core">
+          <div class="eyebrow">[ сравнительный технический отчёт ]</div>
+          <h1>Top 10<br>Agentic<br>Red Team</h1>
+          <p class="cover-deck">GitHub-аналоги инструмента для многошаговой компрометации памяти, состояния и инструментов ИИ-агентов — и честный разбор того, что они дают сверх сильной модели в универсальном coding-agent harness.</p>
+        </div>
+        <div class="cover-bottom">
+          <p><strong>Главный вывод:</strong> лучший прототип для хакатона — не ещё один каталог jailbreak-промптов. Это воспроизводимый runtime эксперимента, где сильная модель строит гипотезы, а отдельные адаптеры, журнал событий и state-oracle доказывают реальный ущерб.</p>
+          <div class="cover-index">
+            <div><b>10</b><span>проектов</span></div>
+            <div><b>6</b><span>осей сравнения</span></div>
+            <div><b>1</b><span>архитектура</span></div>
+          </div>
+        </div>
+      </header>
+
+      <section class="section" id="summary">
+        <div class="section-head">
+          <div class="section-code">01 / ВЫВОД</div>
+          <div>
+            <h2>Рынок закрывает части, не весь цикл</h2>
+            <p class="section-deck">Популярные сканеры хорошо генерируют и оценивают атаки. Agent-бенчмарки умеют проверять фактические tool calls. Memory-проекты видят сохранённое состояние. Но связка «межсессионная атака → изменение памяти → триггер → вредоносный tool call → state diff → ASR» почти нигде не является готовой сквозной абстракцией.</p>
+          </div>
+        </div>
+        <div class="thesis-grid">
+          <p class="thesis">Claude Code + сильная модель — уже отличный <em>исследователь атак</em>. Но без независимого исполнителя и oracle он одновременно придумывает эксперимент, проводит его, ведёт заметки и выносит вердикт. Это быстро, но плохо масштабируется в доказательство.</p>
+          <dl class="definition-list">
+            <div><dt>SCANNER</dt><dd>Даёт масштаб, каталог атак, генерацию payload’ов, CI и отчётность.</dd></div>
+            <div><dt>EVAL RUNTIME</dt><dd>Даёт повторяемый запуск, sandbox, трассу и машинные scorer’ы.</dd></div>
+            <div><dt>AGENT BENCH</dt><dd>Даёт инструменты, контролируемую среду и ground truth по побочным эффектам.</dd></div>
+            <div><dt>MEMORY LAYER</dt><dd>Даёт provenance, проверки записи/чтения, snapshots и rollback.</dd></div>
+          </dl>
+        </div>
+        <h3>Короткая рекомендация</h3>
+        <p>Для MVP разумнее всего взять <strong>PyRIT или Promptfoo</strong> как слой кампаний и генерации, заимствовать у <strong>Inspect AI</strong> модель воспроизводимого запуска и event log, у <strong>AgentDojo / ASB</strong> — проверку реального состояния среды, а у <strong>OWASP Agent Memory Guard</strong> — provenance и snapshot/diff памяти. Сильный coding-agent harness оставить внутри системы как адаптивного attack planner, но не как источник истины.</p>
+      </section>
+
+      <section class="section" id="method">
+        <div class="section-head">
+          <div class="section-code">02 / МЕТОДИКА</div>
+          <div>
+            <h2>Как составлен рейтинг</h2>
+            <p class="section-deck">Сначала отобраны проекты, которые реально можно использовать или расширить для AI/agent red teaming. Затем рассчитан сравнительный балл. Он нужен для навигации, а не для объявления абсолютного победителя.</p>
+          </div>
+        </div>
+        <div class="method-grid">
+          <article><small>WEIGHT / 45%</small><b>Близость к кейсу</b><p>Многошаговость, tool calls, состояние среды, persistent memory, отложенный триггер, trace и state-level oracle.</p></article>
+          <article><small>WEIGHT / 35%</small><b>GitHub-сигнал</b><p>Логарифмически нормализованное число звёзд: зрелость экосистемы важна, но 25k звёзд не должны в 150 раз перевешивать узкий memory benchmark.</p></article>
+          <article><small>WEIGHT / 20%</small><b>Актуальность</b><p>Дата последнего push на 02.09.2026. Активность — полезный сигнал поддержки, но не гарантия качества конкретной функции.</p></article>
+        </div>
+        <div class="formula">SCORE = 0.45 × RELEVANCE + 0.35 × LOG(STARS) + 0.20 × RECENCY</div>
+        <p class="method-note">Звёзды и даты получены через GitHub API 2 сентября 2026 года. Числа динамические. Relevance — редакционная оценка применимости именно к кейсу Альфа-Банка, а не общая оценка качества проекта.</p>
+      </section>
+
+      <section class="section" id="ranking">
+        <div class="section-head">
+          <div class="section-code">03 / РЕЙТИНГ</div>
+          <div>
+            <h2>Top 10</h2>
+            <p class="section-deck">По умолчанию — интегральный порядок. Таблицу можно пересортировать: популярность покажет рыночный стандарт, relevance — исследовательскую близость к кейсу, freshness — активность разработки.</p>
+          </div>
+        </div>
+        <div class="controls" aria-label="Сортировка рейтинга">
+          <button type="button" data-sort="score" aria-pressed="true">Итоговый балл</button>
+          <button type="button" data-sort="stars" aria-pressed="false">GitHub stars</button>
+          <button type="button" data-sort="relevance" aria-pressed="false">Релевантность</button>
+          <button type="button" data-sort="freshness" aria-pressed="false">Свежесть push</button>
+        </div>
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>#</th><th>Репозиторий</th><th>Класс</th><th>Stars</th><th>Последний push</th><th>Релев.</th><th>Итог</th></tr></thead>
+            <tbody id="rankingRows">
+              <tr data-score="96" data-stars="24750" data-relevance="90" data-freshness="20260902"><td class="table-rank">01</td><td><a class="repo-link" href="https://github.com/promptfoo/promptfoo">promptfoo/promptfoo</a></td><td><span class="tag">scanner + eval</span></td><td class="stars">★ 24,750</td><td>02.09.2026</td><td>9.0 / 10</td><td><div class="score-cell"><span>96</span><span class="score-track"><span class="score-fill" style="--score:96%"></span></span></div></td></tr>
+              <tr data-score="84" data-stars="4393" data-relevance="90" data-freshness="20260902"><td class="table-rank">02</td><td><a class="repo-link" href="https://github.com/microsoft/PyRIT">microsoft/PyRIT</a></td><td><span class="tag">orchestrator</span></td><td class="stars">★ 4,393</td><td>02.09.2026</td><td>9.0 / 10</td><td><div class="score-cell"><span>84</span><span class="score-track"><span class="score-fill" style="--score:84%"></span></span></div></td></tr>
+              <tr data-score="81" data-stars="5801" data-relevance="80" data-freshness="20260902"><td class="table-rank">03</td><td><a class="repo-link" href="https://github.com/Giskard-AI/giskard-oss">Giskard-AI/giskard-oss</a></td><td><span class="tag">scanner + checks</span></td><td class="stars">★ 5,801</td><td>02.09.2026</td><td>8.0 / 10</td><td><div class="score-cell"><span>81</span><span class="score-track"><span class="score-fill" style="--score:81%"></span></span></div></td></tr>
+              <tr data-score="80" data-stars="2648" data-relevance="90" data-freshness="20260821"><td class="table-rank">04</td><td><a class="repo-link" href="https://github.com/confident-ai/deepteam">confident-ai/deepteam</a></td><td><span class="tag">agent red team</span></td><td class="stars">★ 2,648</td><td>21.08.2026</td><td>9.0 / 10</td><td><div class="score-cell"><span>80</span><span class="score-track"><span class="score-fill" style="--score:80%"></span></span></div></td></tr>
+              <tr data-score="78" data-stars="2686" data-relevance="85" data-freshness="20260902"><td class="table-rank">05</td><td><a class="repo-link" href="https://github.com/UKGovernmentBEIS/inspect_ai">UKGovernmentBEIS/inspect_ai</a></td><td><span class="tag">eval runtime</span></td><td class="stars">★ 2,686</td><td>02.09.2026</td><td>8.5 / 10</td><td><div class="score-cell"><span>78</span><span class="score-track"><span class="score-fill" style="--score:78%"></span></span></div></td></tr>
+              <tr data-score="73" data-stars="9092" data-relevance="55" data-freshness="20260825"><td class="table-rank">06</td><td><a class="repo-link" href="https://github.com/NVIDIA/garak">NVIDIA/garak</a></td><td><span class="tag">vuln scanner</span></td><td class="stars">★ 9,092</td><td>25.08.2026</td><td>5.5 / 10</td><td><div class="score-cell"><span>73</span><span class="score-track"><span class="score-fill" style="--score:73%"></span></span></div></td></tr>
+              <tr data-score="66" data-stars="789" data-relevance="95" data-freshness="20260602"><td class="table-rank">07</td><td><a class="repo-link" href="https://github.com/ethz-spylab/agentdojo">ethz-spylab/agentdojo</a></td><td><span class="tag">agent benchmark</span></td><td class="stars">★ 789</td><td>02.06.2026</td><td>9.5 / 10</td><td><div class="score-cell"><span>66</span><span class="score-track"><span class="score-fill" style="--score:66%"></span></span></div></td></tr>
+              <tr data-score="65" data-stars="165" data-relevance="100" data-freshness="20260902"><td class="table-rank">08</td><td><a class="repo-link" href="https://github.com/OWASP/www-project-agent-memory-guard">OWASP/Agent Memory Guard</a></td><td><span class="tag">memory security</span></td><td class="stars">★ 165</td><td>02.09.2026</td><td>10 / 10</td><td><div class="score-cell"><span>65</span><span class="score-track"><span class="score-fill" style="--score:65%"></span></span></div></td></tr>
+              <tr data-score="60" data-stars="1982" data-relevance="50" data-freshness="20260901"><td class="table-rank">09</td><td><a class="repo-link" href="https://github.com/msoedov/agentic_security">msoedov/agentic_security</a></td><td><span class="tag">fuzzer + UI</span></td><td class="stars">★ 1,982</td><td>01.09.2026</td><td>5.0 / 10</td><td><div class="score-cell"><span>60</span><span class="score-track"><span class="score-fill" style="--score:60%"></span></span></div></td></tr>
+              <tr data-score="57" data-stars="295" data-relevance="100" data-freshness="20260416"><td class="table-rank">10</td><td><a class="repo-link" href="https://github.com/agiresearch/ASB">agiresearch/ASB</a></td><td><span class="tag">research bench</span></td><td class="stars">★ 295</td><td>16.04.2026</td><td>10 / 10</td><td><div class="score-cell"><span>57</span><span class="score-track"><span class="score-fill" style="--score:57%"></span></span></div></td></tr>
+            </tbody>
+          </table>
+        </div>
+        <div class="caveat"><strong>Почему не чистая сортировка по stars?</strong> Тогда PurpleLlama оказался бы выше AgentDojo и ASB, хотя он в основном оценивает и фильтрует model-level cyber/safety риски. Для кейса важнее проекты, в которых есть среда, инструменты, память и проверка побочного эффекта. Среди близких кандидатов вне десятки: <a href="https://github.com/meta-llama/PurpleLlama">PurpleLlama</a> (★ 4,376), <a href="https://github.com/LLAMATOR-Core/llamator">LLAMATOR</a> (★ 216; полезны русскоязычные атаки и нестандартные клиенты) и <a href="https://github.com/Azure/PyRIT">Azure/PyRIT</a> — новый репозиторий, который на момент среза ещё не заменил зрелый `microsoft/PyRIT`.</div>
+      </section>
+
+      <section class="section" id="matrix">
+        <div class="section-head">
+          <div class="section-code">04 / МАТРИЦА</div>
+          <div>
+            <h2>Кто видит не только ответ</h2>
+            <p class="section-deck">«Да» означает пригодную встроенную абстракцию. «Частично» — функцию можно реализовать через callback, custom target, trace или собственный scorer. Это принципиальная разница для хакатонного MVP.</p>
+          </div>
+        </div>
+        <div class="matrix-wrap">
+          <div class="matrix" role="table" aria-label="Матрица возможностей проектов">
+            <div class="head">Проект</div><div class="head">Multi-turn</div><div class="head">Tool trace</div><div class="head">State oracle</div><div class="head">Persistent memory</div><div class="head">Auto attacks</div><div class="head">CI / report</div>
+            <div class="label">Promptfoo</div><div class="yes">ДА</div><div class="yes">ДА / OTel</div><div class="partial">частично</div><div class="partial">sessions</div><div class="yes">ДА</div><div class="yes">ДА</div>
+            <div class="label">PyRIT</div><div class="yes">ДА</div><div class="partial">через target</div><div class="partial">custom scorer</div><div class="partial">attack memory ≠ target memory</div><div class="yes">ДА</div><div class="yes">ДА</div>
+            <div class="label">Giskard v3</div><div class="yes">ДА</div><div class="yes">trace / spy</div><div class="partial">FnCheck</div><div class="partial">через target</div><div class="yes">ДА</div><div class="yes">ДА</div>
+            <div class="label">DeepTeam</div><div class="yes">ДА</div><div class="yes">ToolCall</div><div class="partial">LLM metric</div><div class="partial">context simulation</div><div class="yes">ДА</div><div class="yes">ДА</div>
+            <div class="label">Inspect AI</div><div class="yes">ДА</div><div class="yes">ДА</div><div class="yes">scorer + sandbox</div><div class="partial">custom env</div><div class="partial">eval-dependent</div><div class="yes">ДА</div>
+            <div class="label">Garak</div><div class="partial">adaptive probes</div><div class="no">НЕТ</div><div class="no">НЕТ</div><div class="no">НЕТ</div><div class="yes">ДА</div><div class="yes">ДА</div>
+            <div class="label">AgentDojo</div><div class="yes">ДА</div><div class="yes">ДА</div><div class="yes">ground truth</div><div class="partial">внутри среды</div><div class="yes">ДА</div><div class="partial">benchmark</div>
+            <div class="label">OWASP AMG</div><div class="no">не runner</div><div class="partial">tool output guard</div><div class="yes">snapshot / events</div><div class="yes">ДА</div><div class="partial">55 payloads</div><div class="partial">benchmark</div>
+            <div class="label">Agentic Security</div><div class="yes">опция</div><div class="no">НЕТ</div><div class="no">НЕТ</div><div class="no">НЕТ</div><div class="yes">ДА</div><div class="yes">ДА</div>
+            <div class="label">ASB</div><div class="yes">ДА</div><div class="yes">ДА</div><div class="yes">сценарий</div><div class="yes">memory poisoning</div><div class="yes">5 классов</div><div class="partial">research logs</div>
+          </div>
+        </div>
+      </section>
+
+      <section class="section" id="profiles">
+        <div class="section-head">
+          <div class="section-code">05 / ПРОФИЛИ</div>
+          <div>
+            <h2>Как работает каждый</h2>
+            <p class="section-deck">Для каждого проекта: механизм, реальное преимущество перед универсальным harness и пробел относительно кейса. Формулировка «лучше» здесь означает более воспроизводимое, измеримое или специализированное решение — не более умную модель.</p>
+          </div>
+        </div>
+
+        <div class="rank-list">
+          <article class="rank-item">
+            <div class="rank-top">
+              <div class="rank-number">01</div>
+              <div class="rank-title">
+                <h3><a href="https://github.com/promptfoo/promptfoo">Promptfoo</a></h3>
+                <div class="rank-meta"><span class="tag">★ 24,750</span><span class="tag">MIT</span><span class="tag">push 02.09</span></div>
+                <div class="rank-score"><span>FIT / 96</span><span class="score-track"><span class="score-fill" style="--score:96%"></span></span></div>
+              </div>
+              <div class="rank-body">
+                <p><strong>Что делает.</strong> Developer-first CLI и библиотека для eval/red-team LLM-приложений, RAG и агентов. Из YAML-конфигурации строит матрицу целей, plugins-вредоносных намерений, attack strategies и graders; выполняет тесты, считает pass/fail, хранит результаты и формирует web-отчёт.</p>
+                <p class="flow">PURPOSE → PLUGINS → STRATEGIES → TARGET/SESSION → OTEL TRACE → GRADER → FINDING</p>
+                <p><strong>Как работает для агентов.</strong> Есть stateful multi-turn стратегии Crescendo, GOAT и Hydra, косвенная инъекция через web-контент, композиция стратегий, управление сессиями и OpenTelemetry-трассировка. Траектория включает LLM-вызовы, guardrails, tools, shell-команды, ошибки и может быть передана grader’у или следующей итерации атаки.</p>
+                <div class="compare">
+                  <div><h4>Сильнее простого harness</h4><p>Даёт декларативный corpus, массовые прогоны, бюджетирование, готовые классификации, независимое grading, CI и воспроизводимый отчёт. Trace отличает обещание агента от фактического tool call.</p></div>
+                  <div><h4>Где harness всё ещё сильнее</h4><p>Сам по себе Promptfoo не знает семантику вашей БД и долговременной памяти. Межсессионный state reset, заражение другого пользователя и проверку банковского side effect придётся оформить custom provider’ом и детерминированными assertions.</p></div>
+                </div>
+                <div class="verdict-line"><strong>Для MVP:</strong> лучший готовый внешний слой кампаний и отчётности; дописать scenario/state adapter и memory diff.</div>
+              </div>
+            </div>
+          </article>
+
+          <article class="rank-item">
+            <div class="rank-top">
+              <div class="rank-number">02</div>
+              <div class="rank-title">
+                <h3><a href="https://github.com/microsoft/PyRIT">PyRIT</a></h3>
+                <div class="rank-meta"><span class="tag">★ 4,393</span><span class="tag">MIT</span><span class="tag">v1.0.1</span></div>
+                <div class="rank-score"><span>FIT / 84</span><span class="score-track"><span class="score-fill" style="--score:84%"></span></span></div>
+              </div>
+              <div class="rank-body">
+                <p><strong>Что делает.</strong> Microsoft Python Risk Identification Tool — модульный framework для автоматизации AI red teaming. Основные сущности: objective target, adversarial target, attacks/executors, prompt converters, scorers и memory эксперимента.</p>
+                <p class="flow">OBJECTIVE → EXECUTOR → CONVERTERS → TARGET ↔ ADVERSARIAL MODEL → SCORERS → MEMORY</p>
+                <p><strong>Как работает.</strong> Single-turn executor отправляет один удар; multi-turn адаптируется по ответам цели; compound executor соединяет несколько атак; workflow описывает произвольную многошаговую процедуру; benchmark прогоняет фиксированный набор. Target-адаптеры позволяют подключать не только модель, но и приложение.</p>
+                <div class="compare">
+                  <div><h4>Сильнее простого harness</h4><p>Явно разделяет цель, атакующую модель, преобразования и scorer. Хранит полный эксперимент, масштабирует кампании и позволяет повторять одну цель разными техниками вместо свободного дрейфа агента.</p></div>
+                  <div><h4>Критическая оговорка</h4><p><em>PyRIT memory</em> в первую очередь хранит историю red-team эксперимента. Это не автоматическая инспекция долговременной памяти атакуемого агента. Для кейса нужны target-side memory API, снимки и отдельные state scorers.</p></div>
+                </div>
+                <div class="verdict-line"><strong>Для MVP:</strong> наиболее естественная Python-основа для собственного multi-step executor и attack DSL.</div>
+              </div>
+            </div>
+          </article>
+
+          <article class="rank-item">
+            <div class="rank-top">
+              <div class="rank-number">03</div>
+              <div class="rank-title">
+                <h3><a href="https://github.com/Giskard-AI/giskard-oss">Giskard v3</a></h3>
+                <div class="rank-meta"><span class="tag">★ 5,801</span><span class="tag">Apache-2.0</span><span class="tag">push 02.09</span></div>
+                <div class="rank-score"><span>FIT / 81</span><span class="score-track"><span class="score-fill" style="--score:81%"></span></span></div>
+              </div>
+              <div class="rank-body">
+                <p><strong>Что делает.</strong> Переписанная v3 — async-first набор модулей для тестирования agentic systems. `giskard-checks` даёт Target → Scenario → Interaction → Check → Suite; `giskard-scan` автоматически генерирует vulnerability suite по текстовому описанию агента.</p>
+                <p class="flow">AGENT DESCRIPTION → GENERATED SUITE → SHARED TRACE → PER-STEP CHECKS → REPORT</p>
+                <p><strong>Как работает.</strong> Multi-turn Scenario последовательно вызывает агента, добавляет каждый шаг в общую trace и ставит проверку сразу после нужного взаимодействия. `FnCheck`, LLM-as-judge и spy позволяют проверять содержание, историю и внутренние вызовы. Target может быть sync/async black box и при желании возвращать trace.</p>
+                <div class="compare">
+                  <div><h4>Сильнее простого harness</h4><p>Превращает гипотезу в исполнимую спецификацию с точкой отказа. Общая trace и check после каждого шага локализуют момент компрометации; suite удобно превращается в regression test.</p></div>
+                  <div><h4>Где нужен свой слой</h4><p>Conversation state поддерживается хорошо, но долговременная память между независимыми сессиями и реальный diff хранилища не являются доменной моделью framework. Их надо передавать в trace или проверять через `FnCheck`.</p></div>
+                </div>
+                <div class="verdict-line"><strong>Для MVP:</strong> сильная основа для читаемого scenario API и пошаговых assertions.</div>
+              </div>
+            </div>
+          </article>
+
+          <article class="rank-item">
+            <div class="rank-top">
+              <div class="rank-number">04</div>
+              <div class="rank-title">
+                <h3><a href="https://github.com/confident-ai/deepteam">DeepTeam</a></h3>
+                <div class="rank-meta"><span class="tag">★ 2,648</span><span class="tag">Apache-2.0</span><span class="tag">push 21.08</span></div>
+                <div class="rank-score"><span>FIT / 80</span><span class="score-track"><span class="score-fill" style="--score:80%"></span></span></div>
+              </div>
+              <div class="rank-body">
+                <p><strong>Что делает.</strong> Специализированный framework для black-box red teaming LLM-систем. Комбинирует 50+ классов уязвимостей, 20+ single/multi-turn техник, simulator model и LLM-as-judge metrics. В актуальном каталоге есть tool metadata poisoning, cross-context retrieval, goal theft, tool orchestration abuse, autonomous drift и exploit tool agent.</p>
+                <p class="flow">VULNERABILITY → BASE ATTACK → ENHANCEMENT/PROGRESSION → AGENT + TOOLCALLS → BINARY METRIC</p>
+                <p><strong>Как работает для tool-агента.</strong> Callback возвращает не только текст, но и список `ToolCall` с именами, аргументами и output. Attack создаёт one-shot enhancement либо последовательность turns. Специализированная metric даёт бинарный балл и объяснение.</p>
+                <div class="compare">
+                  <div><h4>Сильнее простого harness</h4><p>Богатая современная taxonomy именно agentic-рисков, готовые симуляторы, единообразные метрики и масштабируемая генерация. Быстро показывает широкое покрытие жюри.</p></div>
+                  <div><h4>Где есть риск иллюзии</h4><p>Переданный `ToolCall` и LLM-judge всё ещё могут оценивать представление о действии, а не авторитетное состояние внешней системы. Memory/context poisoning часто симулируется в prompt, если вы не подключили реальное хранилище.</p></div>
+                </div>
+                <div class="verdict-line"><strong>Для MVP:</strong> лучший донор taxonomy и готовых agentic attack generators; дополнить deterministic oracle.</div>
+              </div>
+            </div>
+          </article>
+
+          <article class="rank-item">
+            <div class="rank-top">
+              <div class="rank-number">05</div>
+              <div class="rank-title">
+                <h3><a href="https://github.com/UKGovernmentBEIS/inspect_ai">Inspect AI</a></h3>
+                <div class="rank-meta"><span class="tag">★ 2,686</span><span class="tag">MIT</span><span class="tag">UK AISI</span></div>
+                <div class="rank-score"><span>FIT / 78</span><span class="score-track"><span class="score-fill" style="--score:78%"></span></span></div>
+              </div>
+              <div class="rank-body">
+                <p><strong>Что делает.</strong> Evaluation framework UK AI Security Institute. Task связывает dataset, solver/agent loop, tools, sandbox и scorer. Каждый run сохраняет подробный eval log и transcript; поддерживаются multi-turn диалоги, model grading, tool approval и более 200 готовых evals.</p>
+                <p class="flow">TASK(DATASET, SOLVER, SCORER) → SANDBOX + TOOLS → TRANSCRIPT/SPANS → EVAL LOG</p>
+                <p><strong>Как работает для внешних harness’ов.</strong> Agent Bridge может запускать собственный coding-agent scaffold, проксировать tools через MCP, ограничивать capabilities и всё равно собирать model calls, tool calls и transcript. Sandbox обеспечивает контролируемое окружение.</p>
+                <div class="compare">
+                  <div><h4>Сильнее простого harness</h4><p>Отделяет испытуемого агента от инфраструктуры оценки. Даёт sandbox, capability policy, структурный log, scorer и повторяемый task — именно то, чего не хватает набору Markdown-заметок.</p></div>
+                  <div><h4>Где harness нужен</h4><p>Inspect — не готовый генератор атак на память. Attack planner, memory adapters, межсессионный scheduler и сценарии заражения нужно реализовать как task/solver extension.</p></div>
+                </div>
+                <div class="verdict-line"><strong>Для MVP:</strong> лучший эталон runner’а, sandbox и трассировки; тяжелее, чем чистый demo, но архитектурно убедителен.</div>
+              </div>
+            </div>
+          </article>
+
+          <article class="rank-item">
+            <div class="rank-top">
+              <div class="rank-number">06</div>
+              <div class="rank-title">
+                <h3><a href="https://github.com/NVIDIA/garak">Garak</a></h3>
+                <div class="rank-meta"><span class="tag">★ 9,092</span><span class="tag">Apache-2.0</span><span class="tag">v0.16.0</span></div>
+                <div class="rank-score"><span>FIT / 73</span><span class="score-track"><span class="score-fill" style="--score:73%"></span></span></div>
+              </div>
+              <div class="rank-body">
+                <p><strong>Что делает.</strong> «Nmap для LLM»: подключает target через generator, запускает probes, при необходимости мутирует их через buffs, проверяет ответы detectors и агрегирует результаты harness/evaluator’ом. Поддерживает локальные модели, облачные API и произвольный REST.</p>
+                <p class="flow">PROBE → BUFF/MUTATION → GENERATOR/TARGET → DETECTORS → JSONL + HIT RATE</p>
+                <p><strong>Как работает.</strong> Каждый probe кодирует конкретную гипотезу — injection, encoding, leakage, jailbreak и другие. Рекомендуемые detector’ы маркируют поколения PASS/FAIL, детальный поток пишется в JSONL, а плагины расширяют цели и атаки.</p>
+                <div class="compare">
+                  <div><h4>Сильнее простого harness</h4><p>Огромный повторяемый regression corpus, единый plugin contract, batch-generation и простое подключение REST. Отличен как первый широкий baseline и источник payload’ов.</p></div>
+                  <div><h4>Почему не ядро кейса</h4><p>Архитектура исторически ориентирована на «prompt → generation → detector». Garak не знает транзакционное состояние агента, жизненный цикл двух сессий и семантику аргументов инструмента без серьёзного нового harness/plugin слоя.</p></div>
+                </div>
+                <div class="verdict-line"><strong>Для MVP:</strong> импортировать probes и detectors; не строить вокруг него всю stateful-архитектуру.</div>
+              </div>
+            </div>
+          </article>
+
+          <article class="rank-item">
+            <div class="rank-top">
+              <div class="rank-number">07</div>
+              <div class="rank-title">
+                <h3><a href="https://github.com/ethz-spylab/agentdojo">AgentDojo</a></h3>
+                <div class="rank-meta"><span class="tag">★ 789</span><span class="tag">MIT</span><span class="tag">NeurIPS 2024</span></div>
+                <div class="rank-score"><span>FIT / 66</span><span class="score-track"><span class="score-fill" style="--score:66%"></span></span></div>
+              </div>
+              <div class="rank-body">
+                <p><strong>Что делает.</strong> Динамическая среда ETH Zürich для оценки indirect prompt injection атак и защит на LLM-агентов. Набор suite’ов содержит пользовательские задачи, injection tasks, реальные по форме tools, атаки и защиты; их можно комбинировать с выбранной моделью.</p>
+                <p class="flow">USER TASK + INJECTION TASK → TOOL ENVIRONMENT → AGENT PIPELINE → SECURITY + UTILITY RESULTS</p>
+                <p><strong>Как работает.</strong> Вредоносная инструкция помещается во внешнее наблюдение, которое агент получает через tool. Успех определяется выполнением атакующей задачи в контролируемой среде, а utility — выполнением законной пользовательской задачи. Это не только анализ текста ответа.</p>
+                <div class="compare">
+                  <div><h4>Сильнее простого harness</h4><p>Есть независимый ground truth и контролируемые side effects. Можно честно сравнивать ASR защиты с потерей полезности, перебирая одинаковые tasks, attacks, defenses и модели.</p></div>
+                  <div><h4>Ограничение</h4><p>Это benchmark-среда, а не универсальный scanner произвольного production-агента. Persistent memory и сценарии банка потребуют новой suite, tools и cross-session lifecycle.</p></div>
+                </div>
+                <div class="verdict-line"><strong>Для MVP:</strong> заимствовать разделение user task / attacker goal и programmatic проверку состояния среды.</div>
+              </div>
+            </div>
+          </article>
+
+          <article class="rank-item">
+            <div class="rank-top">
+              <div class="rank-number">08</div>
+              <div class="rank-title">
+                <h3><a href="https://github.com/OWASP/www-project-agent-memory-guard">OWASP Agent Memory Guard</a></h3>
+                <div class="rank-meta"><span class="tag">★ 165</span><span class="tag">Apache-2.0</span><span class="tag">v0.3.1</span></div>
+                <div class="rank-score"><span>FIT / 65</span><span class="score-track"><span class="score-fill" style="--score:65%"></span></span></div>
+              </div>
+              <div class="rank-body">
+                <p><strong>Что делает.</strong> Узкий runtime defense и benchmark для OWASP ASI06 Memory &amp; Context Poisoning. Слой ставится между агентом и memory store, пропускает write/read через detectors и policy, а решение превращает в `allow`, `redact`, `quarantine` или `block`.</p>
+                <p class="flow">SOURCE-CLASS WRITE → DETECTORS → POLICY → MEMORY STORE → SNAPSHOT / SECURITY EVENT</p>
+                <p><strong>Как работает.</strong> Проверяет injection, secret/PII leakage, protected-key tampering, size anomaly и self-reinforcement. Каждой записи можно присвоить provenance (`external_tool`, `user_input`, `agent_authored`, `system`). Structured events, snapshots и rollback дают форензику; есть интеграции с LangChain, OpenAI Agents, AutoGen, mem0 и CrewAI.</p>
+                <div class="compare">
+                  <div><h4>Сильнее простого harness</h4><p>Markdown-память не является security boundary. AMG вводит обязательную точку контроля записи, provenance, policy enforcement и восстановление известного состояния — то, что prompt не может гарантировать.</p></div>
+                  <div><h4>Почему это не готовый red team</h4><p>Проект в первую очередь защищает и измеряет detector на фиксированном наборе payload’ов. Он не строит адаптивную кампанию, не управляет несколькими пользователями и не ищет неизвестную цепочку атаки.</p></div>
+                </div>
+                <div class="verdict-line"><strong>Для MVP:</strong> обязательный референс схемы memory event, snapshot/diff и oracle; атакующий runner строить отдельно.</div>
+              </div>
+            </div>
+          </article>
+
+          <article class="rank-item">
+            <div class="rank-top">
+              <div class="rank-number">09</div>
+              <div class="rank-title">
+                <h3><a href="https://github.com/msoedov/agentic_security">Agentic Security</a></h3>
+                <div class="rank-meta"><span class="tag">★ 1,982</span><span class="tag">Apache-2.0</span><span class="tag">v0.7.5</span></div>
+                <div class="rank-score"><span>FIT / 60</span><span class="score-track"><span class="score-fill" style="--score:60%"></span></span></div>
+              </div>
+              <div class="rank-body">
+                <p><strong>Что делает.</strong> Локальный vulnerability scanner с UI и CLI для LLM/agent endpoints. Принимает raw HTTP-spec с placeholder’ом, загружает встроенные, Hugging Face или локальные CSV-датасеты, мутирует payload’ы, параллельно отправляет запросы и сравнивает failure rate с порогом.</p>
+                <p class="flow">DATASET REGISTRY → MUTATIONS / MULTI-STEP OPTION → HTTP SPEC → FAILURE RATE → CI THRESHOLD</p>
+                <p><strong>Как работает.</strong> Поддерживает text/image/audio probes, multi-step режим, CI config, budget и интеграции с Garak, InspectAI и adaptive attacks. Удобен как оболочка над источниками атак и произвольным API.</p>
+                <div class="compare">
+                  <div><h4>Сильнее простого harness</h4><p>Очень низкий порог подключения endpoint, воспроизводимый batch-fuzzing, готовый UI, бюджеты и CI threshold. Хорош для быстрого baseline на демо.</p></div>
+                  <div><h4>Почему рейтинг ниже stars</h4><p>Основная единица всё ещё HTTP prompt/response и failure rate. Заявленная «agentic» направленность не означает встроенный state oracle, tool trajectory или persistent-memory lifecycle.</p></div>
+                </div>
+                <div class="verdict-line"><strong>Для MVP:</strong> источник UX-идей и простого HTTP adapter; недостаточно как доменная модель кейса.</div>
+              </div>
+            </div>
+          </article>
+
+          <article class="rank-item">
+            <div class="rank-top">
+              <div class="rank-number">10</div>
+              <div class="rank-title">
+                <h3><a href="https://github.com/agiresearch/ASB">Agent Security Bench</a></h3>
+                <div class="rank-meta"><span class="tag">★ 295</span><span class="tag">MIT</span><span class="tag">ICLR 2025</span></div>
+                <div class="rank-score"><span>FIT / 57</span><span class="score-track"><span class="score-fill" style="--score:57%"></span></span></div>
+              </div>
+              <div class="rank-body">
+                <p><strong>Что делает.</strong> Исследовательский benchmark атак и защит для LLM-агентов в 10 прикладных сценариях, включая инвестиции и юридические консультации. Реализует DPI, observation prompt injection, memory poisoning, mixed attack и Plan-of-Thought backdoor.</p>
+                <p class="flow">SCENARIO + YAML → USER / OBSERVATION / MEMORY / POT ATTACK → AGENT TOOLS → ASR + REFUSAL RATE</p>
+                <p><strong>Как работает.</strong> Memory poisoning внедряет вредоносные планы в извлекаемую память, чтобы агент выбрал указанные атакующим tools. OPI меняет tool observation, PoT backdoor активирует скрытое действие триггером. Конфиги управляют типом атаки, tools, моделями, чтением/записью БД и логами.</p>
+                <div class="compare">
+                  <div><h4>Сильнее простого harness</h4><p>Формализует именно те поверхности, которые нужны кейсу, и даёт воспроизводимые метрики ASR/RR на сетке моделей и защит. Это готовая научная база для threat taxonomy и demo-сценариев.</p></div>
+                  <div><h4>Почему только #10</h4><p>Небольшая экосистема, research-oriented code, привязка к AIOS и более редкая активность. Это не production-ready connector framework и не универсальная система трассировки.</p></div>
+                </div>
+                <div class="verdict-line"><strong>Для MVP:</strong> самый близкий источник attack semantics; переносить идеи и сценарии, а не обязательно весь runtime.</div>
+              </div>
+            </div>
+          </article>
+        </div>
+      </section>
+
+      <section class="section" id="baseline">
+        <div class="section-head">
+          <div class="section-code">06 / БАЗОВАЯ ЛИНИЯ</div>
+          <div>
+            <h2>Почему не только Claude Code</h2>
+            <p class="section-deck">Сильная модель с целью, описанием системы и каталогом Markdown-файлов памяти — серьёзный baseline. Его нельзя списывать со счетов. Но в red teaming ценность возникает не только из качества гипотез, а из качества доказательства.</p>
+          </div>
+        </div>
+        <div class="baseline-grid">
+          <article>
+            <h3>Где универсальный harness превосходен</h3>
+            <ul>
+              <li>Понимает новую кодовую базу и неизвестный API без заранее написанного plugin.</li>
+              <li>Строит гипотезы, меняет план после неудачи и создаёт вспомогательные скрипты.</li>
+              <li>Ведёт исследовательский журнал в Markdown и переносит выводы между сессиями.</li>
+              <li>Легко работает с документами, браузером, terminal и нестандартными каналами доставки.</li>
+              <li>Идеален для первой ручной разведки и генерации новых сценариев.</li>
+            </ul>
+          </article>
+          <article>
+            <h3>Где он перестаёт быть инструментом измерения</h3>
+            <ul>
+              <li>Свободные заметки не являются типизированным event log и не гарантируют полноту.</li>
+              <li>Модель склонна сама оценивать придуманный ею эксперимент; это не независимый oracle.</li>
+              <li>Нет гарантированного reset/seed/version pinning и изоляции параллельных кампаний.</li>
+              <li>Текст «я вызвал tool» не доказывает, что побочный эффект произошёл.</li>
+              <li>Без runner’а трудно честно считать ASR, confidence interval, utility loss и стоимость.</li>
+            </ul>
+          </article>
+        </div>
+        <div class="truth-table">
+          <div class="truth-row head"><span>Артефакт</span><span>Claude/harness baseline</span><span>Что требуется для кейса</span></div>
+          <div class="truth-row"><b>Гипотеза</b><span>Markdown: «попробовать заразить profile»</span><span>Версионированный ScenarioSpec с preconditions, channels, trigger и goal predicate.</span></div>
+          <div class="truth-row"><b>Память</b><span>Файлы рассуждений самого атакующего агента</span><span>Снимки target memory до/после, provenance каждой записи, namespace пользователя.</span></div>
+          <div class="truth-row"><b>Трасса</b><span>Console/transcript, выбранные агентом выдержки</span><span>Append-only события: prompt, retrieval, plan, tool name/args/result, memory mutation, state diff.</span></div>
+          <div class="truth-row"><b>Успех</b><span>Модель решила, что атака, вероятно, удалась</span><span>Детерминированный predicate над authoritative state; LLM-judge только как дополнительный сигнал.</span></div>
+          <div class="truth-row"><b>Повтор</b><span>«Запусти похожее ещё раз»</span><span>Seed, версии моделей/prompts, reset fixture, идентичная среда и N повторов.</span></div>
+        </div>
+        <div class="caveat"><strong>Правильная формула — hybrid.</strong> Harness отвечает за exploration: анализ приложения, построение гипотез, выбор следующего шага и минимизацию атаки. Детерминированная система отвечает за execution: жизненный цикл сессий, разрешения, события, снимки, oracle, ASR и отчёт. Если оставить только первую половину, получится впечатляющий pentest-демо, но не воспроизводимый red-team product.</div>
+      </section>
+
+      <section class="section" id="proposal">
+        <div class="section-head">
+          <div class="section-code">07 / ПРЕДЛОЖЕНИЕ</div>
+          <div>
+            <h2>Что строить для победы</h2>
+            <p class="section-deck">Дифференциатор — не «мы тоже умеем jailbreak». Дифференциатор — causal evidence: какую запись внедрили, кто её извлёк, какой plan изменился, какой tool вызван, какой state действительно пострадал.</p>
+          </div>
+        </div>
+        <div class="architecture" aria-label="Рекомендуемая архитектура">
+          <article class="arch-step"><small>01 / MAP</small><b>System Mapper</b><p>Описание агента, memory namespaces, tools, роли, разрешения, trust boundaries.</p></article>
+          <article class="arch-step"><small>02 / THINK</small><b>Attack Planner</b><p>Сильная модель строит гипотезы и компилирует их в ScenarioSpec.</p></article>
+          <article class="arch-step dark"><small>03 / RUN</small><b>Deterministic Runner</b><p>Setup → poison → close session → trigger another session → cleanup.</p></article>
+          <article class="arch-step"><small>04 / PROVE</small><b>Trace + State Oracle</b><p>Event log, memory snapshots, tool args, external DB diff, success predicate.</p></article>
+          <article class="arch-step"><small>05 / LEARN</small><b>Campaign Engine</b><p>ASR, utility, cost, minimization, replay bundle и regression suite.</p></article>
+        </div>
+        <h3>Минимальная сущность сценария</h3>
+        <div class="formula">SCENARIO = actors + sessions + delivery + steps + observations + trigger + goal_predicate + reset</div>
+        <div class="take-list">
+          <div class="take"><p><strong>Возьмите у Promptfoo</strong> plugins/strategies, session integration, OTel trajectory и привычную web-отчётность.</p></div>
+          <div class="take"><p><strong>Возьмите у PyRIT</strong> разделение objective/adversarial target, converters, multi-turn/compound executors и experiment memory.</p></div>
+          <div class="take"><p><strong>Возьмите у Inspect</strong> sandbox, capability policy, task/scorer contract и переносимые eval logs.</p></div>
+          <div class="take"><p><strong>Возьмите у AgentDojo</strong> независимые user goal и attacker goal, controllable tools, security/utility metrics.</p></div>
+          <div class="take"><p><strong>Возьмите у ASB</strong> DPI/OPI/memory/PoT taxonomy и банковско-инвестиционные сценарии.</p></div>
+          <div class="take"><p><strong>Возьмите у OWASP AMG</strong> source provenance, snapshots, quarantine, rollback и memory lifecycle.</p></div>
+        </div>
+        <h3>Demo, которое отличит вас от scanner’а</h3>
+        <p>Сессия атакующего сохраняет безобидно выглядящую запись в общем memory namespace. Сессия закрывается. Другой пользователь запускает законную задачу. Агент извлекает poisoned memory, меняет план и аргумент инструмента перевода. UI одновременно показывает: исходную запись, provenance, retrieval event, plan delta, tool call, отказ/успех permission layer, diff внешнего ledger и вычисленный goal predicate. Затем один click воспроизводит тот же сценарий на другой модели или защите и обновляет ASR.</p>
+      </section>
+
+      <section class="section" id="sources">
+        <div class="section-head">
+          <div class="section-code">08 / ИСТОЧНИКИ</div>
+          <div>
+            <h2>Репозитории и документация</h2>
+            <p class="section-deck">Использованы первичные источники: GitHub API, README, официальная документация проектов и связанные статьи авторов. Срез метаданных — 2 сентября 2026 года.</p>
+          </div>
+        </div>
+        <div class="source-list">
+          <div class="source-item"><b>01</b><a href="https://github.com/promptfoo/promptfoo">promptfoo/promptfoo</a><span><a href="https://www.promptfoo.dev/docs/red-team/agents/">agent red teaming</a> · <a href="https://www.promptfoo.dev/docs/tracing/">tracing</a> · <a href="https://www.promptfoo.dev/docs/red-team/strategies/">strategies</a></span></div>
+          <div class="source-item"><b>02</b><a href="https://github.com/microsoft/PyRIT">microsoft/PyRIT</a><span><a href="https://microsoft.github.io/PyRIT/latest/code/executor/executor/">executor model</a> · v1.0.1</span></div>
+          <div class="source-item"><b>03</b><a href="https://github.com/Giskard-AI/giskard-oss">Giskard-AI/giskard-oss</a><span><a href="https://docs.giskard.ai/oss/checks/tutorials/multi-turn">multi-turn scenarios</a> · v3 README</span></div>
+          <div class="source-item"><b>04</b><a href="https://github.com/confident-ai/deepteam">confident-ai/deepteam</a><span><a href="https://www.trydeepteam.com/guides/guide-agentic-ai-red-teaming">agentic red teaming guide</a> · <a href="https://www.trydeepteam.com/docs/red-teaming-vulnerabilities-exploit-tool-agent">tool-agent evaluation</a></span></div>
+          <div class="source-item"><b>05</b><a href="https://github.com/UKGovernmentBEIS/inspect_ai">UKGovernmentBEIS/inspect_ai</a><span><a href="https://inspect.aisi.org.uk/agent-bridge.html">Agent Bridge</a> · official README</span></div>
+          <div class="source-item"><b>06</b><a href="https://github.com/NVIDIA/garak">NVIDIA/garak</a><span><a href="https://docs.garak.ai/">official docs</a> · v0.16.0</span></div>
+          <div class="source-item"><b>07</b><a href="https://github.com/ethz-spylab/agentdojo">ethz-spylab/agentdojo</a><span><a href="https://arxiv.org/abs/2406.13352">paper</a> · <a href="https://agentdojo.spylab.ai/">docs/results</a></span></div>
+          <div class="source-item"><b>08</b><a href="https://github.com/OWASP/www-project-agent-memory-guard">OWASP Agent Memory Guard</a><span>README · security benchmark · architecture · integrations</span></div>
+          <div class="source-item"><b>09</b><a href="https://github.com/msoedov/agentic_security">msoedov/agentic_security</a><span>README · CLI/CI configuration · module integrations</span></div>
+          <div class="source-item"><b>10</b><a href="https://github.com/agiresearch/ASB">agiresearch/ASB</a><span><a href="https://arxiv.org/abs/2410.02644">ICLR paper</a> · configs · published benchmark results</span></div>
+        </div>
+        <div class="caveat"><strong>Ограничения desk research.</strong> Звёзды измеряют узнаваемость, а не security quality. Последний push может быть документацией или bot-коммитом. Оценка функций основана на публичной документации и не заменяет hands-on spike против тестового стенда. Перед выбором ядра рекомендуется реализовать один и тот же cross-session memory-poisoning сценарий на Promptfoo, PyRIT и чистом custom runner и сравнить объём glue-кода, полноту trace и стабильность replay.</div>
+      </section>
+
+      <footer><b>AGENTIC RED TEAMING / GITHUB LANDSCAPE</b><br>Подготовлено для хакатон-кейса Альфа-Банка. Чёрно-белая версия оптимизирована для экрана и печати.</footer>
+    </main>
+  </div>
+
+  <script>
+    const progress = document.querySelector('.progress');
+    const updateProgress = () => {
+      const max = document.documentElement.scrollHeight - window.innerHeight;
+      progress.style.width = `${max > 0 ? (window.scrollY / max) * 100 : 0}%`;
+    };
+    window.addEventListener('scroll', updateProgress, { passive: true });
+    updateProgress();
+
+    document.getElementById('topButton').addEventListener('click', () => window.scrollTo({ top: 0, behavior: 'smooth' }));
+
+    const sections = [...document.querySelectorAll('main section[id]')];
+    const tocLinks = [...document.querySelectorAll('.toc a')];
+    const observer = new IntersectionObserver((entries) => {
+      const visible = entries.filter(entry => entry.isIntersecting).sort((a, b) => b.intersectionRatio - a.intersectionRatio)[0];
+      if (!visible) return;
+      tocLinks.forEach(link => link.classList.toggle('active', link.getAttribute('href') === `#${visible.target.id}`));
+    }, { rootMargin: '-15% 0px -70% 0px', threshold: [0, .1, .5] });
+    sections.forEach(section => observer.observe(section));
+
+    const tbody = document.getElementById('rankingRows');
+    const sortButtons = [...document.querySelectorAll('[data-sort]')];
+    const labels = { score: 'Итоговый балл', stars: 'GitHub stars', relevance: 'Релевантность', freshness: 'Свежесть push' };
+    sortButtons.forEach(button => button.addEventListener('click', () => {
+      const key = button.dataset.sort;
+      const rows = [...tbody.querySelectorAll('tr')].sort((a, b) => Number(b.dataset[key]) - Number(a.dataset[key]));
+      rows.forEach((row, index) => {
+        row.querySelector('.table-rank').textContent = String(index + 1).padStart(2, '0');
+        tbody.appendChild(row);
+      });
+      sortButtons.forEach(item => item.setAttribute('aria-pressed', String(item === button)));
+      tbody.setAttribute('aria-label', `Сортировка: ${labels[key]}`);
+    }));
+  </script>
+</body>
+</html>

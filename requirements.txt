@@ -1,1 +1,2 @@
 pyyaml
+langfuse>=2,<3

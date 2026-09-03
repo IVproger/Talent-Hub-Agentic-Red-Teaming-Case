@@ -1,0 +1,44 @@
+# Minimal self-hosted LangFuse v2 (2 containers) for the PoC.
+# Keys are seeded headlessly via LANGFUSE_INIT_* so no browser step is needed.
+services:
+  lf-postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: postgres
+    volumes:
+      - lf-pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 3s
+      timeout: 3s
+      retries: 20
+
+  langfuse:
+    image: langfuse/langfuse:2
+    depends_on:
+      lf-postgres:
+        condition: service_healthy
+    restart: on-failure
+    ports:
+      - "3001:3000"
+    environment:
+      DATABASE_URL: postgresql://postgres:postgres@lf-postgres:5432/postgres
+      NEXTAUTH_URL: http://localhost:3001
+      NEXTAUTH_SECRET: poc-nextauth-secret
+      SALT: poc-salt
+      ENCRYPTION_KEY: "0000000000000000000000000000000000000000000000000000000000000000"
+      TELEMETRY_ENABLED: "false"
+      LANGFUSE_INIT_ORG_ID: poc
+      LANGFUSE_INIT_ORG_NAME: poc
+      LANGFUSE_INIT_PROJECT_ID: poc
+      LANGFUSE_INIT_PROJECT_NAME: agentic-redteam
+      LANGFUSE_INIT_PROJECT_PUBLIC_KEY: pk-lf-poc0000000000000000
+      LANGFUSE_INIT_PROJECT_SECRET_KEY: sk-lf-poc0000000000000000
+      LANGFUSE_INIT_USER_EMAIL: poc@example.com
+      LANGFUSE_INIT_USER_NAME: poc
+      LANGFUSE_INIT_USER_PASSWORD: pocpocpoc
+
+volumes:
+  lf-pgdata:

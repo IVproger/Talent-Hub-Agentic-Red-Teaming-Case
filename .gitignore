@@ -11,6 +11,11 @@ keys.local
 # macOS
 .DS_Store
 
-# PoC run outputs — everything produced by a vulnerability run
-# (report.md, findings.json, knowledge.jsonl and any future artifacts); regenerated per run
-poc/out/
+# Run outputs — reports, findings, traces, and any future generated artifacts.
+runs/
+
+# Personal local task workflow
+.oushtt/
+
+# Local browser screenshots from UI verification
+.playwright-cli/

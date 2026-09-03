@@ -112,7 +112,8 @@ python poc/poc_bac.py -n 5     # generate → attack → verdict → knowledge D
 ```
 
 Outputs land in `poc/out/`: `knowledge.jsonl` (records + LangFuse trace ids), `report.md`,
-`findings.json`. LangFuse creds default to the seeded PoC keys; the run works without
+`findings.json`. This directory is **gitignored** — everything a run produces is regenerated,
+never committed. LangFuse creds default to the seeded PoC keys; the run works without
 LangFuse if it is not up.
 
 **Status:** verified end to end on the live stand — ASR 100% on generated BAC payloads,

@@ -1,0 +1,19 @@
+.env
+# Самоподписанный TLS-сертификат Keycloak для локальной разработки (содержит приватный
+# ключ) — генерируется командой из комментария в docker-compose.yml при сервисе keycloak,
+# не должен уезжать в git.
+keycloak/certs/
+.venv/
+__pycache__/
+*.pyc
+.pytest_cache/
+chroma_db/
+chroma_db_mitigated/
+mongo_data/
+.DS_Store
+*.egg-info/
+memory_poisoning_stand.egg-info/
+open_deep_research.egg-info/
+pyproject.toml
+dist/
+build/

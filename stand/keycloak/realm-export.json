@@ -1,0 +1,210 @@
+{
+  "realm": "genai-stand",
+  "enabled": true,
+  "sslRequired": "none",
+  "registrationAllowed": false,
+  "clients": [
+    {
+      "clientId": "agent-service",
+      "name": "Agent technical service account",
+      "enabled": true,
+      "protocol": "openid-connect",
+      "publicClient": false,
+      "clientAuthenticatorType": "client-secret",
+      "secret": "agent-service-secret",
+      "serviceAccountsEnabled": true,
+      "standardFlowEnabled": false,
+      "directAccessGrantsEnabled": false,
+      "fullScopeAllowed": true,
+      "protocolMappers": [
+        {
+          "name": "cus",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-usermodel-attribute-mapper",
+          "consentRequired": false,
+          "config": {
+            "userinfo.token.claim": "true",
+            "user.attribute": "cus",
+            "id.token.claim": "true",
+            "access.token.claim": "true",
+            "claim.name": "cus",
+            "jsonType.label": "String"
+          }
+        }
+      ]
+    },
+    {
+      "clientId": "mcp-invest-service",
+      "name": "mcp-invest technical service account (invest-server caller)",
+      "enabled": true,
+      "protocol": "openid-connect",
+      "publicClient": false,
+      "clientAuthenticatorType": "client-secret",
+      "secret": "mcp-invest-service-secret",
+      "serviceAccountsEnabled": true,
+      "standardFlowEnabled": false,
+      "directAccessGrantsEnabled": false,
+      "fullScopeAllowed": true
+    },
+    {
+      "clientId": "streamlit-app",
+      "name": "Streamlit UI (реальный браузерный логин через oauth2-proxy)",
+      "enabled": true,
+      "protocol": "openid-connect",
+      "publicClient": false,
+      "clientAuthenticatorType": "client-secret",
+      "secret": "streamlit-app-secret",
+      "serviceAccountsEnabled": false,
+      "standardFlowEnabled": true,
+      "directAccessGrantsEnabled": false,
+      "fullScopeAllowed": true,
+      "redirectUris": ["http://localhost:8501/oauth2/callback", "http://localhost:8501/*"],
+      "webOrigins": ["http://localhost:8501"],
+      "attributes": {
+        "post.logout.redirect.uris": "+"
+      },
+      "protocolMappers": [
+        {
+          "name": "cus",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-usermodel-attribute-mapper",
+          "consentRequired": false,
+          "config": {
+            "userinfo.token.claim": "true",
+            "user.attribute": "cus",
+            "id.token.claim": "true",
+            "access.token.claim": "true",
+            "claim.name": "cus",
+            "jsonType.label": "String"
+          }
+        }
+      ]
+    },
+    {
+      "clientId": "librechat",
+      "name": "LibreChat (реальный браузерный логин, свой OIDC-флоу)",
+      "enabled": true,
+      "protocol": "openid-connect",
+      "publicClient": false,
+      "clientAuthenticatorType": "client-secret",
+      "secret": "librechat-secret",
+      "serviceAccountsEnabled": false,
+      "standardFlowEnabled": true,
+      "directAccessGrantsEnabled": false,
+      "fullScopeAllowed": true,
+      "redirectUris": ["http://localhost:3080/oauth/openid/callback"],
+      "webOrigins": ["http://localhost:3080"],
+      "attributes": {
+        "post.logout.redirect.uris": "+"
+      },
+      "protocolMappers": [
+        {
+          "name": "cus",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-usermodel-attribute-mapper",
+          "consentRequired": false,
+          "config": {
+            "userinfo.token.claim": "true",
+            "user.attribute": "cus",
+            "id.token.claim": "true",
+            "access.token.claim": "true",
+            "claim.name": "cus",
+            "jsonType.label": "String"
+          }
+        }
+      ]
+    },
+    {
+      "clientId": "streamlit-ui",
+      "name": "Streamlit UI (симулирует вход пользователя)",
+      "enabled": true,
+      "protocol": "openid-connect",
+      "publicClient": false,
+      "clientAuthenticatorType": "client-secret",
+      "secret": "streamlit-ui-secret",
+      "serviceAccountsEnabled": false,
+      "standardFlowEnabled": false,
+      "directAccessGrantsEnabled": true,
+      "fullScopeAllowed": true,
+      "protocolMappers": [
+        {
+          "name": "cus",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-usermodel-attribute-mapper",
+          "consentRequired": false,
+          "config": {
+            "userinfo.token.claim": "true",
+            "user.attribute": "cus",
+            "id.token.claim": "true",
+            "access.token.claim": "true",
+            "claim.name": "cus",
+            "jsonType.label": "String"
+          }
+        },
+        {
+          "name": "audience-agent-service",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-audience-mapper",
+          "consentRequired": false,
+          "config": {
+            "included.client.audience": "agent-service",
+            "id.token.claim": "false",
+            "access.token.claim": "true"
+          }
+        }
+      ]
+    }
+  ],
+  "users": [
+    {
+      "username": "client1001",
+      "enabled": true,
+      "email": "client1001@example.test",
+      "emailVerified": true,
+      "firstName": "Иван",
+      "lastName": "Иванов",
+      "credentials": [{"type": "password", "value": "client1001", "temporary": false}],
+      "attributes": {"cus": ["1001"]}
+    },
+    {
+      "username": "client1002",
+      "enabled": true,
+      "email": "client1002@example.test",
+      "emailVerified": true,
+      "firstName": "Мария",
+      "lastName": "Петрова",
+      "credentials": [{"type": "password", "value": "client1002", "temporary": false}],
+      "attributes": {"cus": ["1002"]}
+    },
+    {
+      "username": "client1003",
+      "enabled": true,
+      "email": "client1003@example.test",
+      "emailVerified": true,
+      "firstName": "Алексей",
+      "lastName": "Сидоров",
+      "credentials": [{"type": "password", "value": "client1003", "temporary": false}],
+      "attributes": {"cus": ["1003"]}
+    },
+    {
+      "username": "client1004",
+      "enabled": true,
+      "email": "client1004@example.test",
+      "emailVerified": true,
+      "firstName": "Ольга",
+      "lastName": "Кузнецова",
+      "credentials": [{"type": "password", "value": "client1004", "temporary": false}],
+      "attributes": {"cus": ["1004"]}
+    },
+    {
+      "username": "client1005",
+      "enabled": true,
+      "email": "client1005@example.test",
+      "emailVerified": true,
+      "firstName": "Дмитрий",
+      "lastName": "Морозов",
+      "credentials": [{"type": "password", "value": "client1005", "temporary": false}],
+      "attributes": {"cus": ["1005"]}
+    }
+  ]
+}

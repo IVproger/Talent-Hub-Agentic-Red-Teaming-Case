@@ -47,7 +47,8 @@ agentic_redteam/            the attack toolkit (committed)
 stand/                      the target, as a git SUBMODULE (see §6)
 requirements.txt            pyyaml only
 docs/                       case description, interviews, this file
-artifacts/                  research artifacts, incl. untracked artifacts/poc/ (see §8)
+artifacts/                  research artifacts (competitors, context packs)
+poc/                        PoC design docs (system card, plan, mermaid) — see §8
 ```
 
 ## 4. The attack toolkit
@@ -150,9 +151,9 @@ the toolkit with reset to remove it.
 ## 8. PoC plan (single BAC vertical slice)
 
 The next build target is a PoC that goes `mermaid + component config → LLM generates BAC
-attacks → run → deterministic verdict → LLM reflection → report`. Design docs currently live
-**untracked** in `artifacts/poc/` (`README.md`, `implementation-plan.md`, `target/arch.mmd`,
-`target/system-card.md`, `target/target.yaml`) — regenerate or commit them as needed.
+attacks → run → deterministic verdict → LLM reflection → report`. Design docs live in
+`poc/` (`README.md`, `implementation-plan.md`, `target/arch.mmd`, `target/system-card.md`,
+`target/target.yaml`).
 
 Parallel-first plan: freeze two contracts, then three independent tracks against fixtures:
 - **C1** payloads = `list[str]` (generator → runner).
@@ -165,8 +166,8 @@ Parallel-first plan: freeze two contracts, then three independent tracks against
 ## 9. Open items / decisions
 
 - Branch `import-attack-toolkit` is unmerged and unpushed.
-- `artifacts/poc/` docs are untracked (not committed anywhere after the `hackathon` folder
-  was deleted); decide keep vs regenerate.
+- PoC design docs are in `poc/` (tracked); the PoC code (generator/runner/report) is not
+  built yet — see the plan in `poc/implementation-plan.md`.
 - LangFuse instrumentation is deferred (the deterministic collector already proves BAC).
 - The `agentic_redteam` toolkit is hardwired to the stand (cus model, mongo collection
   names, docker compose exec, invest-server log regex); a target-agnostic adapter is future

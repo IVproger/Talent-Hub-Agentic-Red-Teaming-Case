@@ -10,3 +10,6 @@ keys.local
 
 # macOS
 .DS_Store
+
+# PoC run outputs
+poc/out/

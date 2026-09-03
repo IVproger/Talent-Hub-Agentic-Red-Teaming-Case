@@ -1,0 +1,417 @@
+<title>Основа дизайн-кита Альфа-Банка</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Golos+Text:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap">
+<style>
+:root {
+  /* Токены Альфы, светлая тема */
+  --page:        #f2f3f5;
+  --surface:     #ffffff;
+  --surface-2:   rgba(38, 55, 88, 0.06);
+  --line:        rgba(15, 25, 55, 0.10);
+  --ink:         rgba(3, 3, 6, 0.88);
+  --ink-2:       rgba(4, 4, 19, 0.55);
+  --ink-3:       rgba(5, 8, 29, 0.38);
+  --accent:      #ef3124;
+  --positive:    #0d9336;
+  --negative:    #ec2d20;
+  --attention:   #ea8313;
+  --info:        #2a77ef;
+  --shadow:      0 4px 8px rgba(0,0,0,.04), 0 0 1px rgba(0,0,0,.04);
+
+  --font-ui: 'Golos Text', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  --font-mono: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
+
+  --r-lg: 24px;
+  --r-md: 16px;
+  --r-sm: 8px;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --page:      #121213;
+    --surface:   #1c1c1e;
+    --surface-2: rgba(214, 214, 229, 0.07);
+    --line:      rgba(222, 222, 238, 0.13);
+    --ink:       rgba(255, 255, 255, 0.94);
+    --ink-2:     rgba(238, 238, 251, 0.55);
+    --ink-3:     rgba(233, 233, 250, 0.37);
+    --accent:    #f83a2a;
+    --positive:  #0cc44d;
+    --negative:  #ff4837;
+    --attention: #fa9313;
+    --info:      #4a9dfc;
+    --shadow:    0 4px 8px rgba(0,0,0,.4), 0 0 1px rgba(0,0,0,.4);
+  }
+}
+:root[data-theme="dark"] {
+  --page:      #121213;
+  --surface:   #1c1c1e;
+  --surface-2: rgba(214, 214, 229, 0.07);
+  --line:      rgba(222, 222, 238, 0.13);
+  --ink:       rgba(255, 255, 255, 0.94);
+  --ink-2:     rgba(238, 238, 251, 0.55);
+  --ink-3:     rgba(233, 233, 250, 0.37);
+  --accent:    #f83a2a;
+  --positive:  #0cc44d;
+  --negative:  #ff4837;
+  --attention: #fa9313;
+  --info:      #4a9dfc;
+  --shadow:    0 4px 8px rgba(0,0,0,.4), 0 0 1px rgba(0,0,0,.4);
+}
+
+* { box-sizing: border-box; }
+body {
+  margin: 0;
+  background: var(--page);
+  color: var(--ink);
+  font-family: var(--font-ui);
+  font-size: 15px;
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+}
+.wrap { max-width: 1180px; margin: 0 auto; padding: 40px 28px 96px; }
+
+/* --- шапка --- */
+header.top {
+  display: flex; align-items: flex-start; justify-content: space-between;
+  gap: 24px; flex-wrap: wrap;
+  padding-bottom: 28px; margin-bottom: 36px;
+  border-bottom: 1px solid var(--line);
+}
+.mark { display: flex; align-items: center; gap: 14px; }
+.mark svg { width: 34px; height: 34px; display: block; flex: none; }
+h1 { font-size: 26px; line-height: 1.2; font-weight: 600; margin: 0; letter-spacing: -.02em; }
+.sub { color: var(--ink-2); font-size: 13.5px; margin: 5px 0 0; max-width: 60ch; }
+.toggle {
+  display: inline-flex; background: var(--surface-2); border-radius: 99px;
+  padding: 3px; gap: 2px; border: 1px solid var(--line);
+}
+.toggle button {
+  font: 500 12.5px/1 var(--font-ui); color: var(--ink-2);
+  background: none; border: 0; padding: 8px 15px; border-radius: 99px; cursor: pointer;
+}
+.toggle button[aria-pressed="true"] { background: var(--surface); color: var(--ink); box-shadow: var(--shadow); }
+.toggle button:focus-visible { outline: 2px solid var(--info); outline-offset: 2px; }
+
+/* --- секции --- */
+section { margin-bottom: 52px; scroll-margin-top: 20px; }
+h2 {
+  font-size: 12px; font-weight: 600; text-transform: uppercase; letter-spacing: .09em;
+  color: var(--ink-3); margin: 0 0 4px;
+}
+.h2sub { font-size: 19px; font-weight: 600; margin: 0 0 6px; letter-spacing: -.01em; }
+.note { color: var(--ink-2); font-size: 13.5px; max-width: 68ch; margin: 0 0 20px; }
+.note b { color: var(--ink); font-weight: 600; }
+
+/* --- образцы --- */
+.grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(178px, 1fr)); gap: 10px; }
+.sw {
+  background: var(--surface); border: 1px solid var(--line); border-radius: var(--r-md);
+  overflow: hidden; display: flex; flex-direction: column;
+}
+.sw .chip { height: 58px; border-bottom: 1px solid var(--line); }
+.sw-big .chip { height: 96px; }
+.sw .meta { padding: 9px 11px 11px; display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.sw code {
+  font: 500 11.5px/1.35 var(--font-mono); color: var(--ink);
+  overflow-wrap: anywhere;
+}
+.sw .meta span { font: 400 11px/1.3 var(--font-mono); color: var(--ink-3); font-variant-numeric: tabular-nums; }
+
+/* --- парная демонстрация тем --- */
+.themes { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+@media (max-width: 720px) { .themes { grid-template-columns: 1fr; } }
+.panel { border-radius: var(--r-lg); padding: 20px; border: 1px solid var(--line); }
+.panel h3 {
+  font: 600 11px/1 var(--font-ui); text-transform: uppercase; letter-spacing: .09em;
+  margin: 0 0 14px; opacity: .6;
+}
+.panel.light { background: #ffffff; color: rgba(3,3,6,.88); border-color: rgba(15,25,55,.10); }
+.panel.dark  { background: #121213; color: rgba(255,255,255,.94); border-color: rgba(222,222,238,.13); }
+.stack { display: flex; flex-direction: column; gap: 8px; }
+.layer {
+  border-radius: var(--r-md); padding: 12px 14px;
+  font: 500 12.5px/1.3 var(--font-mono); display: flex; justify-content: space-between; gap: 12px;
+  flex-wrap: wrap;
+}
+.layer em { font-style: normal; opacity: .55; font-size: 11.5px; }
+
+/* --- шкалы --- */
+.ramp { display: flex; border-radius: var(--r-sm); overflow: hidden; border: 1px solid var(--line); }
+.ramp i { flex: 1; height: 40px; display: block; }
+.ramp-row { display: grid; grid-template-columns: 120px 1fr; gap: 14px; align-items: center; margin-bottom: 8px; }
+.ramp-row code { font: 500 12px/1.3 var(--font-mono); color: var(--ink-2); }
+
+/* --- таблица --- */
+.tbl-wrap { overflow-x: auto; border: 1px solid var(--line); border-radius: var(--r-md); background: var(--surface); }
+table { border-collapse: collapse; width: 100%; font-size: 13.5px; }
+th, td { text-align: left; padding: 11px 16px; border-bottom: 1px solid var(--line); white-space: nowrap; }
+th { font: 600 11px/1 var(--font-ui); text-transform: uppercase; letter-spacing: .08em; color: var(--ink-3); }
+tbody tr:last-child td { border-bottom: 0; }
+td code { font: 500 12.5px/1.3 var(--font-mono); }
+td.num { font-variant-numeric: tabular-nums; color: var(--ink-2); }
+
+/* --- радиусы --- */
+.radii { display: flex; gap: 14px; flex-wrap: wrap; }
+.radii figure { margin: 0; text-align: center; }
+.radii .box {
+  width: 92px; height: 68px; background: var(--surface-2);
+  border: 1px solid var(--line); display: block;
+}
+.radii figcaption { font: 500 11.5px/1.4 var(--font-mono); color: var(--ink-2); margin-top: 7px; }
+
+/* --- типографика --- */
+.type-row {
+  display: grid; grid-template-columns: 190px 1fr; gap: 20px; align-items: baseline;
+  padding: 13px 0; border-bottom: 1px solid var(--line);
+}
+.type-row:last-child { border-bottom: 0; }
+.type-row .spec { font: 400 11.5px/1.4 var(--font-mono); color: var(--ink-3); font-variant-numeric: tabular-nums; }
+.type-row .spec b { display: block; color: var(--ink-2); font-weight: 500; }
+.type-row .demo { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+@media (max-width: 640px) { .type-row { grid-template-columns: 1fr; gap: 4px; } }
+
+/* --- применение --- */
+.apply { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 12px; }
+.finding {
+  background: var(--surface); border: 1px solid var(--line); border-radius: var(--r-md);
+  padding: 16px 18px; display: flex; flex-direction: column; gap: 9px;
+  border-left: 3px solid var(--sev);
+}
+.finding .row { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+.badge {
+  font: 600 10.5px/1 var(--font-ui); text-transform: uppercase; letter-spacing: .07em;
+  padding: 5px 9px; border-radius: 99px; background: var(--sev-bg); color: var(--sev-fg);
+}
+.finding h4 { margin: 0; font-size: 14.5px; font-weight: 600; line-height: 1.35; }
+.finding p { margin: 0; font-size: 12.5px; color: var(--ink-2); line-height: 1.45; }
+.finding .path { font: 400 11.5px/1.4 var(--font-mono); color: var(--ink-3); overflow-wrap: anywhere; }
+
+.callout {
+  border-left: 3px solid var(--accent); background: var(--surface-2);
+  padding: 14px 18px; border-radius: 0 var(--r-md) var(--r-md) 0; margin: 0 0 20px;
+  font-size: 13.5px; color: var(--ink-2); max-width: 74ch;
+}
+.callout b { color: var(--ink); font-weight: 600; }
+footer {
+  margin-top: 60px; padding-top: 22px; border-top: 1px solid var(--line);
+  color: var(--ink-3); font-size: 12.5px;
+}
+footer a { color: var(--ink-2); }
+@media (prefers-reduced-motion: reduce) { * { transition: none !important; animation: none !important; } }
+</style>
+<div class="wrap">
+<header class="top">
+  <div class="mark">
+    <!-- контуры взяты из официального файла 02-logos/znak_svg -->
+    <svg viewBox="0 0 370 370" aria-hidden="true"><rect width="370" height="370" rx="80" fill="#ef3124"/>
+    <rect x="114.28" y="258.75" width="141.44" height="29.39" fill="#fff"/>
+    <path fill="#fff" d="M210.89,94.41c-4.03-12.03-8.68-21.53-24.61-21.53s-20.87,9.46-25.12,21.53l-43.77,124.41h29.02l10.1-29.58h55.84l9.37,29.58h30.86l-41.71-124.41Zm-45.91,69.85l19.84-58.96h.73l18.74,58.96h-39.31Z"/></svg>
+    <div>
+      <h1>Основа дизайн-кита Альфа-Банка</h1>
+      <p class="sub">Токены, палитра и типографика, собранные из открытой дизайн-системы
+      банка и сверенные с живыми интерфейсами. Материал для инструмента
+      agentic red teaming.</p>
+    </div>
+  </div>
+  <div class="toggle" role="group" aria-label="Тема оформления">
+    <button type="button" data-set="light" aria-pressed="false">Светлая</button>
+    <button type="button" data-set="dark" aria-pressed="false">Тёмная</button>
+    <button type="button" data-set="system" aria-pressed="true">Как в системе</button>
+  </div>
+</header>
+<p class="callout"><b>Откуда значения.</b> Всё на этой странице извлечено автоматически
+из пакета <code>@alfalab/core-components-vars</code> открытой дизайн-системы банка
+и проверено замерами computed-стилей на живых страницах alfabank.ru.
+Из 4819 объявлений актуальны 2244; 603 уникальных цвета. Ни одно значение не вписано вручную.</p>
+<section><h2>01 — константы</h2><p class="h2sub">Фирменные цвета</p>
+<p class="note">Не зависят от темы. <b>Альфа-красный <code>#ef3124</code></b> совпадает в трёх независимых источниках: токен дизайн-системы, официальные SVG логотипов и фактический цвет кнопок на живом сайте.</p>
+<div class="grid">
+<div class="sw sw-big"><div class="chip" style="background:#000"></div><div class="meta"><code>black</code><span>#000000</span></div></div>
+<div class="sw sw-big"><div class="chip" style="background:#0056ff"></div><div class="meta"><code>blue</code><span>#0056ff</span></div></div>
+<div class="sw sw-big"><div class="chip" style="background:#00e8f0"></div><div class="meta"><code>bright-blue</code><span>#00e8f0</span></div></div>
+<div class="sw sw-big"><div class="chip" style="background:#31e300"></div><div class="meta"><code>green</code><span>#31e300</span></div></div>
+<div class="sw sw-big"><div class="chip" style="background:#ef3124"></div><div class="meta"><code>red</code><span>#ef3124</span></div></div>
+<div class="sw sw-big"><div class="chip" style="background:#6a4dff"></div><div class="meta"><code>violet</code><span>#6a4dff</span></div></div>
+<div class="sw sw-big"><div class="chip" style="background:#a8f000"></div><div class="meta"><code>warm-green</code><span>#a8f000</span></div></div>
+<div class="sw sw-big"><div class="chip" style="background:#fff"></div><div class="meta"><code>white</code><span>#ffffff</span></div></div>
+</div>
+<p class="note" style="margin-top:18px"><b>Осторожно с именами.</b> В системе есть ещё три токена с префиксом <code>--color-static-brand-</code>: <code>primary</code>, <code>secondary</code> и <code>orange</code>. Они объявлены в файле <code>colors-x5.css</code> и принадлежат ко-бренду X5, а не Альфа-Банку. Имя вводит в заблуждение — ориентируйтесь на файл-источник, а не на префикс.</p>
+<div class="grid">
+<div class="sw"><div class="chip" style="background:#f76100"></div><div class="meta"><code>X5 · orange</code><span>#f76100</span></div></div>
+<div class="sw"><div class="chip" style="background:#5faf2d"></div><div class="meta"><code>X5 · primary</code><span>#5faf2d</span></div></div>
+<div class="sw"><div class="chip" style="background:#00afff"></div><div class="meta"><code>X5 · secondary</code><span>#00afff</span></div></div>
+</div></section>
+<section><h2>02 — действие</h2><p class="h2sub">Акцент и его состояния</p>
+<p class="note">В тёмной теме акцент осветляется до <code>#f83a2a</code>: чистый брендовый красный на тёмном фоне даёт недостаточный контраст. Исходный оттенок уезжает в <code>-inverted</code>.</p>
+<div class="grid">
+<div class="sw"><div class="chip" style="background:#ef3124"></div><div class="meta"><code>light-accent-primary</code><span>#ef3124</span></div></div>
+<div class="sw"><div class="chip" style="background:#e32a17"></div><div class="meta"><code>light-accent-primary-hover</code><span>#e32a17</span></div></div>
+<div class="sw"><div class="chip" style="background:#d72505"></div><div class="meta"><code>light-accent-primary-press</code><span>#d72505</span></div></div>
+<div class="sw"><div class="chip" style="background:#f83a2a"></div><div class="meta"><code>dark-accent-primary</code><span>#f83a2a</span></div></div>
+<div class="sw"><div class="chip" style="background:#ff503e"></div><div class="meta"><code>dark-accent-primary-hover</code><span>#ff503e</span></div></div>
+<div class="sw"><div class="chip" style="background:#fd624e"></div><div class="meta"><code>dark-accent-primary-press</code><span>#fd624e</span></div></div>
+<div class="sw"><div class="chip" style="background:#212124"></div><div class="meta"><code>light-accent-secondary</code><span>#212124</span></div></div>
+<div class="sw"><div class="chip" style="background:#f2f3f5"></div><div class="meta"><code>dark-accent-secondary</code><span>#f2f3f5</span></div></div>
+</div></section>
+<section><h2>03 — поверхности</h2><p class="h2sub">Как строится глубина</p>
+<p class="note">Главный переносимый приём: на тёмном фоне карточка не заливается сплошным цветом, а получает <b>полупрозрачную белёсую вуаль</b>. Так вложенность читается одинаково на любой подложке, включая цветные плашки статусов.</p>
+<div class="themes">
+<div class="panel light"><h3>Светлая тема</h3><div class="stack">
+<div class="layer" style="background:#fff;border:1px solid rgba(15,25,55,.10)"><span>фон страницы</span><em>#fff</em></div>
+<div class="layer" style="background:#f2f3f5;border:1px solid rgba(15,25,55,.10)"><span>фон секции</span><em>#f2f3f5</em></div>
+<div class="layer" style="background:rgba(38, 55, 88, 0.06);border:1px solid rgba(15,25,55,.10)"><span>карточка</span><em>rgba(38, 55, 88, 0.06)</em></div>
+<div class="layer" style="background:rgba(15, 25, 55, 0.1);border:1px solid rgba(15,25,55,.10)"><span>вложенный блок</span><em>rgba(15, 25, 55, 0.1)</em></div>
+</div></div>
+<div class="panel dark"><h3>Тёмная тема</h3><div class="stack">
+<div class="layer" style="background:#121213;border:1px solid rgba(222,222,238,.13)"><span>фон страницы</span><em>#121213</em></div>
+<div class="layer" style="background:rgba(214, 214, 229, 0.07);border:1px solid rgba(222,222,238,.13)"><span>карточка</span><em>rgba(214, 214, 229, 0.07)</em></div>
+<div class="layer" style="background:rgba(222, 222, 238, 0.13);border:1px solid rgba(222,222,238,.13)"><span>вложенный блок</span><em>rgba(222, 222, 238, 0.13)</em></div>
+<div class="layer" style="background:rgba(231, 231, 248, 0.18);border:1px solid rgba(222,222,238,.13)"><span>наведение</span><em>rgba(231, 231, 248, 0.18)</em></div>
+</div></div>
+</div></section>
+<section><h2>04 — текст</h2><p class="h2sub">Иерархия через прозрачность</p>
+<p class="note">Текстовые токены заданы альфа-каналом, а не непрозрачным цветом. Одна и та же иерархия работает в обеих темах: примерно <b>0.88 / 0.55 / 0.38 / 0.18</b>.</p>
+<div class="themes">
+<div class="panel light"><h3>Светлая тема</h3><div class="stack">
+<div style="color:rgba(3, 3, 6, 0.88);font:500 15px/1.4 var(--font-ui)">primary — читаемость по уровням <span style="font:400 11.5px/1 var(--font-mono);opacity:.8">rgba(3, 3, 6, 0.88)</span></div>
+<div style="color:rgba(4, 4, 19, 0.55);font:500 15px/1.4 var(--font-ui)">secondary — читаемость по уровням <span style="font:400 11.5px/1 var(--font-mono);opacity:.8">rgba(4, 4, 19, 0.55)</span></div>
+<div style="color:rgba(5, 8, 29, 0.38);font:500 15px/1.4 var(--font-ui)">tertiary — читаемость по уровням <span style="font:400 11.5px/1 var(--font-mono);opacity:.8">rgba(5, 8, 29, 0.38)</span></div>
+<div style="color:rgba(5, 11, 44, 0.18);font:500 15px/1.4 var(--font-ui)">quaternary — читаемость по уровням <span style="font:400 11.5px/1 var(--font-mono);opacity:.8">rgba(5, 11, 44, 0.18)</span></div>
+</div></div>
+<div class="panel dark"><h3>Тёмная тема</h3><div class="stack">
+<div style="color:rgba(255, 255, 255, 0.94);font:500 15px/1.4 var(--font-ui)">primary — читаемость по уровням <span style="font:400 11.5px/1 var(--font-mono);opacity:.8">rgba(255, 255, 255, 0.94)</span></div>
+<div style="color:rgba(238, 238, 251, 0.55);font:500 15px/1.4 var(--font-ui)">secondary — читаемость по уровням <span style="font:400 11.5px/1 var(--font-mono);opacity:.8">rgba(238, 238, 251, 0.55)</span></div>
+<div style="color:rgba(233, 233, 250, 0.37);font:500 15px/1.4 var(--font-ui)">tertiary — читаемость по уровням <span style="font:400 11.5px/1 var(--font-mono);opacity:.8">rgba(233, 233, 250, 0.37)</span></div>
+<div style="color:rgba(231, 231, 248, 0.18);font:500 15px/1.4 var(--font-ui)">quaternary — читаемость по уровням <span style="font:400 11.5px/1 var(--font-mono);opacity:.8">rgba(231, 231, 248, 0.18)</span></div>
+</div></div>
+</div></section>
+<section><h2>05 — статусы</h2><p class="h2sub">Смысловые цвета</p>
+<p class="note">Четыре состояния плюс приглушённые заливки для плашек. <b>Красный статуса <code>#ff4837</code> намеренно отличается от брендового <code>#ef3124</code>.</b> В инструменте, где красный означает найденную уязвимость, смешивать их нельзя.</p>
+<div class="grid">
+<div class="sw"><div class="chip" style="background:#ff4837"></div><div class="meta"><code>light · negative</code><span>#ff4837</span></div></div>
+<div class="sw"><div class="chip" style="background:#ff4837"></div><div class="meta"><code>dark · negative</code><span>#ff4837</span></div></div>
+<div class="sw"><div class="chip" style="background:#fa9313"></div><div class="meta"><code>light · attention</code><span>#fa9313</span></div></div>
+<div class="sw"><div class="chip" style="background:#fda136"></div><div class="meta"><code>dark · attention</code><span>#fda136</span></div></div>
+<div class="sw"><div class="chip" style="background:#0cc44d"></div><div class="meta"><code>light · positive</code><span>#0cc44d</span></div></div>
+<div class="sw"><div class="chip" style="background:#17d055"></div><div class="meta"><code>dark · positive</code><span>#17d055</span></div></div>
+<div class="sw"><div class="chip" style="background:#2288fa"></div><div class="meta"><code>light · info</code><span>#2288fa</span></div></div>
+<div class="sw"><div class="chip" style="background:#3193fc"></div><div class="meta"><code>dark · info</code><span>#3193fc</span></div></div>
+</div>
+<div class="grid" style="margin-top:10px">
+<div class="sw"><div class="chip" style="background:#ffebeb"></div><div class="meta"><code>light · muted negative</code><span>#ffebeb</span></div></div>
+<div class="sw"><div class="chip" style="background:#392523"></div><div class="meta"><code>dark · muted negative</code><span>#392523</span></div></div>
+<div class="sw"><div class="chip" style="background:#ffefd9"></div><div class="meta"><code>light · muted attention</code><span>#ffefd9</span></div></div>
+<div class="sw"><div class="chip" style="background:#36291f"></div><div class="meta"><code>dark · muted attention</code><span>#36291f</span></div></div>
+<div class="sw"><div class="chip" style="background:#dff8e5"></div><div class="meta"><code>light · muted positive</code><span>#dff8e5</span></div></div>
+<div class="sw"><div class="chip" style="background:#232d25"></div><div class="meta"><code>dark · muted positive</code><span>#232d25</span></div></div>
+<div class="sw"><div class="chip" style="background:#e4f0ff"></div><div class="meta"><code>light · muted info</code><span>#e4f0ff</span></div></div>
+<div class="sw"><div class="chip" style="background:#222a3e"></div><div class="meta"><code>dark · muted info</code><span>#222a3e</span></div></div>
+</div></section>
+<section><h2>06 — визуализация данных</h2><p class="h2sub">Готовые палитры для графиков</p>
+<p class="note">В системе есть подобранные наборы под визуализацию. Для дашборда с метриками атак это снимает вопрос выбора цветов серий. Берите набор целиком, не смешивая цвета из разных.</p>
+<p class="note" style="margin-bottom:12px"><b>Категориальные наборы.</b> <code>flexible</code> из 14 цветов — когда число серий заранее неизвестно.</p>
+<div class="ramp-row"><code>duocolor-set-a</code><div class="ramp"><i style="background:#0cc44d" title="#0cc44d"></i><i style="background:#ff4837" title="#ff4837"></i></div></div>
+<div class="ramp-row"><code>duocolor-set-b</code><div class="ramp"><i style="background:#0cc44d" title="#0cc44d"></i><i style="background:#fda136" title="#fda136"></i></div></div>
+<div class="ramp-row"><code>duocolor-set-c</code><div class="ramp"><i style="background:#5388e0" title="#5388e0"></i><i style="background:#fda136" title="#fda136"></i></div></div>
+<div class="ramp-row"><code>duocolor-set-d</code><div class="ramp"><i style="background:#9cc350" title="#9cc350"></i><i style="background:#8376e3" title="#8376e3"></i></div></div>
+<div class="ramp-row"><code>duocolor-set-e</code><div class="ramp"><i style="background:#139c99" title="#139c99"></i><i style="background:#fda136" title="#fda136"></i></div></div>
+<div class="ramp-row"><code>duocolor-set-f</code><div class="ramp"><i style="background:#f6d53d" title="#f6d53d"></i><i style="background:#8376e3" title="#8376e3"></i></div></div>
+<div class="ramp-row"><code>duocolor-set-g</code><div class="ramp"><i style="background:#9cc350" title="#9cc350"></i><i style="background:#ba63d6" title="#ba63d6"></i></div></div>
+<div class="ramp-row"><code>flexible</code><div class="ramp"><i style="background:#9cc350" title="#9cc350"></i><i style="background:#4d75d0" title="#4d75d0"></i><i style="background:#ec5742" title="#ec5742"></i><i style="background:#228c68" title="#228c68"></i><i style="background:#f29b3e" title="#f29b3e"></i><i style="background:#aa52c1" title="#aa52c1"></i><i style="background:#f8789e" title="#f8789e"></i><i style="background:#358d43" title="#358d43"></i><i style="background:#4ac5c7" title="#4ac5c7"></i><i style="background:#7b64d3" title="#7b64d3"></i><i style="background:#5abd69" title="#5abd69"></i><i style="background:#2482a2" title="#2482a2"></i><i style="background:#f6d53d" title="#f6d53d"></i><i style="background:#da55b4" title="#da55b4"></i></div></div>
+<div class="ramp-row"><code>tetracolor-set-a</code><div class="ramp"><i style="background:#2482a2" title="#2482a2"></i><i style="background:#40ba93" title="#40ba93"></i><i style="background:#aa52c1" title="#aa52c1"></i><i style="background:#f6d53d" title="#f6d53d"></i></div></div>
+<div class="ramp-row"><code>tetracolor-set-b</code><div class="ramp"><i style="background:#7b64d3" title="#7b64d3"></i><i style="background:#40ba93" title="#40ba93"></i><i style="background:#2482a2" title="#2482a2"></i><i style="background:#fda136" title="#fda136"></i></div></div>
+<div class="ramp-row"><code>tetracolor-set-c</code><div class="ramp"><i style="background:#aa52c1" title="#aa52c1"></i><i style="background:#40ba93" title="#40ba93"></i><i style="background:#f6d53d" title="#f6d53d"></i><i style="background:#ff4837" title="#ff4837"></i></div></div>
+<div class="ramp-row"><code>tricolor-set-a</code><div class="ramp"><i style="background:#9cc350" title="#9cc350"></i><i style="background:#8376e3" title="#8376e3"></i><i style="background:#f6d53d" title="#f6d53d"></i></div></div>
+<div class="ramp-row"><code>tricolor-set-b</code><div class="ramp"><i style="background:#40ba93" title="#40ba93"></i><i style="background:#ba63d6" title="#ba63d6"></i><i style="background:#fda136" title="#fda136"></i></div></div>
+<div class="ramp-row"><code>tricolor-set-c</code><div class="ramp"><i style="background:#ff4837" title="#ff4837"></i><i style="background:#139c99" title="#139c99"></i><i style="background:#fda136" title="#fda136"></i></div></div>
+<div class="ramp-row"><code>tricolor-set-d</code><div class="ramp"><i style="background:#9cc350" title="#9cc350"></i><i style="background:#5388e0" title="#5388e0"></i><i style="background:#ff4837" title="#ff4837"></i></div></div>
+<div class="ramp-row"><code>tricolor-set-e</code><div class="ramp"><i style="background:#fda136" title="#fda136"></i><i style="background:#5388e0" title="#5388e0"></i><i style="background:#f6d53d" title="#f6d53d"></i></div></div>
+<p class="note" style="margin:22px 0 12px"><b>Последовательные шкалы.</b> По 8 ступеней. Для тепловых карт и метрик с направлением «больше — меньше».</p>
+<div class="ramp-row"><code>blue</code><div class="ramp"><i style="background:#4d75d0" title="#4d75d0"></i><i style="background:#5388e0" title="#5388e0"></i><i style="background:#71a5f2" title="#71a5f2"></i><i style="background:#82b5f6" title="#82b5f6"></i><i style="background:#abceff" title="#abceff"></i><i style="background:#c0dbff" title="#c0dbff"></i><i style="background:#d6e6fe" title="#d6e6fe"></i><i style="background:#e5f0fe" title="#e5f0fe"></i></div></div>
+<div class="ramp-row"><code>cyan</code><div class="ramp"><i style="background:#2482a2" title="#2482a2"></i><i style="background:#3492b9" title="#3492b9"></i><i style="background:#51b1d7" title="#51b1d7"></i><i style="background:#5ebee1" title="#5ebee1"></i><i style="background:#8ad4f3" title="#8ad4f3"></i><i style="background:#a9e1f6" title="#a9e1f6"></i><i style="background:#c7ebfa" title="#c7ebfa"></i><i style="background:#def5ff" title="#def5ff"></i></div></div>
+<div class="ramp-row"><code>fuchsia</code><div class="ramp"><i style="background:#c648a0" title="#c648a0"></i><i style="background:#da55b4" title="#da55b4"></i><i style="background:#f278ca" title="#f278ca"></i><i style="background:#f68ed3" title="#f68ed3"></i><i style="background:#fdb1e4" title="#fdb1e4"></i><i style="background:#fdc7f1" title="#fdc7f1"></i><i style="background:#ffdafa" title="#ffdafa"></i><i style="background:#ffe9fc" title="#ffe9fc"></i></div></div>
+<div class="ramp-row"><code>green</code><div class="ramp"><i style="background:#358d43" title="#358d43"></i><i style="background:#3b9e4d" title="#3b9e4d"></i><i style="background:#5abd69" title="#5abd69"></i><i style="background:#6aca7a" title="#6aca7a"></i><i style="background:#8ee29c" title="#8ee29c"></i><i style="background:#a8ecb5" title="#a8ecb5"></i><i style="background:#c2f3cc" title="#c2f3cc"></i><i style="background:#dafae2" title="#dafae2"></i></div></div>
+<div class="ramp-row"><code>indigo</code><div class="ramp"><i style="background:#7b64d3" title="#7b64d3"></i><i style="background:#8376e3" title="#8376e3"></i><i style="background:#9b95f2" title="#9b95f2"></i><i style="background:#a7a7f7" title="#a7a7f7"></i><i style="background:#bfc4fe" title="#bfc4fe"></i><i style="background:#ccd5ff" title="#ccd5ff"></i><i style="background:#e1e4ff" title="#e1e4ff"></i><i style="background:#eeedff" title="#eeedff"></i></div></div>
+<div class="ramp-row"><code>jungle</code><div class="ramp"><i style="background:#228c68" title="#228c68"></i><i style="background:#2a9d74" title="#2a9d74"></i><i style="background:#40ba93" title="#40ba93"></i><i style="background:#53c9a4" title="#53c9a4"></i><i style="background:#7de1c0" title="#7de1c0"></i><i style="background:#9becd3" title="#9becd3"></i><i style="background:#b8f3e2" title="#b8f3e2"></i><i style="background:#d5fbee" title="#d5fbee"></i></div></div>
+<div class="ramp-row"><code>magenta</code><div class="ramp"><i style="background:#cf4773" title="#cf4773"></i><i style="background:#e35583" title="#e35583"></i><i style="background:#f8789e" title="#f8789e"></i><i style="background:#fc8fb0" title="#fc8fb0"></i><i style="background:#fcb2c6" title="#fcb2c6"></i><i style="background:#ffc9dc" title="#ffc9dc"></i><i style="background:#ffdce5" title="#ffdce5"></i><i style="background:#ffeaee" title="#ffeaee"></i></div></div>
+<div class="ramp-row"><code>orange</code><div class="ramp"><i style="background:#c97126" title="#c97126"></i><i style="background:#db8127" title="#db8127"></i><i style="background:#f29b3e" title="#f29b3e"></i><i style="background:#f6a850" title="#f6a850"></i><i style="background:#fdc17a" title="#fdc17a"></i><i style="background:#fdd39a" title="#fdd39a"></i><i style="background:#ffe3bc" title="#ffe3bc"></i><i style="background:#ffefd9" title="#ffefd9"></i></div></div>
+<div class="ramp-row"><code>pistachio</code><div class="ramp"><i style="background:#66881f" title="#66881f"></i><i style="background:#739823" title="#739823"></i><i style="background:#8eb43c" title="#8eb43c"></i><i style="background:#9cc350" title="#9cc350"></i><i style="background:#b6db76" title="#b6db76"></i><i style="background:#c7e793" title="#c7e793"></i><i style="background:#d7f0b1" title="#d7f0b1"></i><i style="background:#e5f9ce" title="#e5f9ce"></i></div></div>
+<div class="ramp-row"><code>purple</code><div class="ramp"><i style="background:#aa52c1" title="#aa52c1"></i><i style="background:#ba63d6" title="#ba63d6"></i><i style="background:#d086ec" title="#d086ec"></i><i style="background:#d899f0" title="#d899f0"></i><i style="background:#e5bcfa" title="#e5bcfa"></i><i style="background:#e9cdfd" title="#e9cdfd"></i><i style="background:#f1dfff" title="#f1dfff"></i><i style="background:#faebff" title="#faebff"></i></div></div>
+<div class="ramp-row"><code>red</code><div class="ramp"><i style="background:#db4933" title="#db4933"></i><i style="background:#ec5742" title="#ec5742"></i><i style="background:#fe7961" title="#fe7961"></i><i style="background:#fc8e7b" title="#fc8e7b"></i><i style="background:#fcb1a7" title="#fcb1a7"></i><i style="background:#ffc8c4" title="#ffc8c4"></i><i style="background:#ffdad9" title="#ffdad9"></i><i style="background:#ffebeb" title="#ffebeb"></i></div></div>
+<div class="ramp-row"><code>teal</code><div class="ramp"><i style="background:#158886" title="#158886"></i><i style="background:#139c99" title="#139c99"></i><i style="background:#37b9bb" title="#37b9bb"></i><i style="background:#4ac5c7" title="#4ac5c7"></i><i style="background:#75dddf" title="#75dddf"></i><i style="background:#98e9e9" title="#98e9e9"></i><i style="background:#b9f1f3" title="#b9f1f3"></i><i style="background:#d6f8f9" title="#d6f8f9"></i></div></div>
+</section>
+<section><h2>07 — форма</h2><p class="h2sub">Радиусы</p>
+<p class="note">На живом сайте доминирует <b>32px</b> для карточек и <b>99px</b> для кнопок. Это заметно круглее типового корпоративного интерфейса и является узнаваемой чертой бренда. В плотной таблице находок 32px неуместен — там 12–16px, а 99px остаётся кнопкам и тегам.</p>
+<div class="radii">
+<figure><span class="box" style="border-radius:4px"></span><figcaption>4px</figcaption></figure>
+<figure><span class="box" style="border-radius:8px"></span><figcaption>8px</figcaption></figure>
+<figure><span class="box" style="border-radius:12px"></span><figcaption>12px</figcaption></figure>
+<figure><span class="box" style="border-radius:16px"></span><figcaption>16px</figcaption></figure>
+<figure><span class="box" style="border-radius:24px"></span><figcaption>24px</figcaption></figure>
+<figure><span class="box" style="border-radius:32px"></span><figcaption>32px</figcaption></figure>
+<figure><span class="box" style="border-radius:64px"></span><figcaption>64px</figcaption></figure>
+<figure><span class="box" style="border-radius:99px"></span><figcaption>99px · pill</figcaption></figure>
+</div></section>
+<section><h2>08 — типографика</h2><p class="h2sub">Шкала дизайн-системы</p>
+<p class="note">Фирменный шрифт бренда — <b>Styrene A</b> Бёртона Хасибе, лицензия платная. Интерфейсный <b>Alfa Interface Sans</b> публично не распространяется. Живой сайт отрисовывается системным стеком: замеры не показали ни одного веб-шрифта. Ниже шкала показана шрифтом Golos Text как доступной заменой с кириллицей.</p>
+<p class="note" style="margin:22px 0 6px"><b>headline</b></p>
+<div class="type-row"><div class="spec"><b>headline_xlarge</b>48px / 64px / 500</div><div class="demo" style="font-size:48px;line-height:64px;font-weight:500;">Компрометация памяти агента</div></div>
+<div class="type-row"><div class="spec"><b>headline_large</b>40px / 48px / 500</div><div class="demo" style="font-size:40px;line-height:48px;font-weight:500;">Компрометация памяти агента</div></div>
+<div class="type-row"><div class="spec"><b>headline_medium</b>32px / 40px / 500</div><div class="demo" style="font-size:32px;line-height:40px;font-weight:500;">Компрометация памяти агента</div></div>
+<div class="type-row"><div class="spec"><b>headline_small</b>24px / 32px / 500</div><div class="demo" style="font-size:24px;line-height:32px;font-weight:500;">Компрометация памяти агента</div></div>
+<div class="type-row"><div class="spec"><b>headline_xsmall</b>20px / 24px / 500</div><div class="demo" style="font-size:20px;line-height:24px;font-weight:500;">Компрометация памяти агента</div></div>
+<p class="note" style="margin:22px 0 6px"><b>paragraph</b></p>
+<div class="type-row"><div class="spec"><b>paragraph_primary_large</b>18px / 24px / 400</div><div class="demo" style="font-size:18px;line-height:24px;font-weight:400;">Компрометация памяти агента</div></div>
+<div class="type-row"><div class="spec"><b>paragraph_primary_medium</b>16px / 24px / 400</div><div class="demo" style="font-size:16px;line-height:24px;font-weight:400;">Компрометация памяти агента</div></div>
+<div class="type-row"><div class="spec"><b>paragraph_primary_small</b>14px / 20px / 400</div><div class="demo" style="font-size:14px;line-height:20px;font-weight:400;">Компрометация памяти агента</div></div>
+<div class="type-row"><div class="spec"><b>paragraph_secondary_medium</b>12px / 16px / 400</div><div class="demo" style="font-size:12px;line-height:16px;font-weight:400;">Компрометация памяти агента</div></div>
+<p class="note" style="margin:22px 0 6px"><b>accent</b></p>
+<div class="type-row"><div class="spec"><b>accent_primary_medium</b>16px / 24px / 700</div><div class="demo" style="font-size:16px;line-height:24px;font-weight:700;">Компрометация памяти агента</div></div>
+<div class="type-row"><div class="spec"><b>accent_secondary_medium</b>12px / 16px / 700</div><div class="demo" style="font-size:12px;line-height:16px;font-weight:700;">Компрометация памяти агента</div></div>
+<div class="type-row"><div class="spec"><b>accent_caps</b>12px / 16px / 700</div><div class="demo" style="font-size:12px;line-height:16px;font-weight:700;letter-spacing:1.25px;text-transform:uppercase;">Компрометация памяти агента</div></div>
+<p class="note" style="margin:22px 0 6px"><b>action</b></p>
+<div class="type-row"><div class="spec"><b>action_primary_medium</b>16px / 24px / 500</div><div class="demo" style="font-size:16px;line-height:24px;font-weight:500;">Компрометация памяти агента</div></div>
+<div class="type-row"><div class="spec"><b>action_secondary_medium</b>12px / 16px / 500</div><div class="demo" style="font-size:12px;line-height:16px;font-weight:500;">Компрометация памяти агента</div></div>
+</section>
+<section><h2>09 — применение</h2><p class="h2sub">Как это складывается в наш интерфейс</p>
+<p class="note">Карточки находок, собранные только из токенов Альфы. Критичность кодируется полосой слева и бейджем — <b>формой и цветом одновременно</b>, чтобы состояние читалось и без различения оттенков.</p>
+<div class="apply">
+<div class="finding" style="--sev:#ff4837;--sev-bg:#ffebeb;--sev-fg:#ec2d20"><div class="row"><span class="badge">Критично</span></div><h4>Запись в долговременную память</h4><p>Инструкция сохранена между сессиями и сработала у другого пользователя.</p><div class="path">вход → контекст → память → выбор инструмента</div></div>
+<div class="finding" style="--sev:#fa9313;--sev-bg:#ffefd9;--sev-fg:#ea8313"><div class="row"><span class="badge">Высокий</span></div><h4>Подмена аргументов инструмента</h4><p>Агент вызвал верный инструмент с изменёнными параметрами перевода.</p><div class="path">результат инструмента → аргументы → изменение состояния</div></div>
+<div class="finding" style="--sev:#2288fa;--sev-bg:#e4f0ff;--sev-fg:#2a77ef"><div class="row"><span class="badge">Средний</span></div><h4>Инъекция через результат поиска</h4><p>Внешняя страница повлияла на план, но цель атаки не достигнута.</p><div class="path">веб-страница → контекст → планирование</div></div>
+<div class="finding" style="--sev:#0cc44d;--sev-bg:#dff8e5;--sev-fg:#0d9336"><div class="row"><span class="badge">Отражено</span></div><h4>Прямая инъекция в запросе</h4><p>Фильтр входа отклонил 40 из 40 попыток серии.</p><div class="path">вход → фильтр</div></div>
+</div></section>
+<section><h2>10 — состав</h2><p class="h2sub">Что лежит в папке design</p>
+<div class="tbl-wrap"><table><thead><tr><th>Каталог</th><th>Содержимое</th><th class="num">Объём</th></tr></thead><tbody>
+<tr><td><code>01-brand-foundations/</code></td><td>Обзор бренда, палитра, типографика, правила логотипа</td><td class="num">4 документа</td></tr>
+<tr><td><code>02-logos/</code></td><td>Знак, логотип RU/EN, Альфа Бизнес в SVG, PDF, PNG</td><td class="num">40 файлов</td></tr>
+<tr><td><code>03-design-tokens/</code></td><td>Исходный CSS, tokens.json, W3C-формат, единый alfa-tokens.css</td><td class="num">2244 токена</td></tr>
+<tr><td><code>04-references/</code></td><td>Скриншоты, HTML, замеры стилей, разобранные брендбуки</td><td class="num">26 съёмок</td></tr>
+<tr><td><code>05-ui-patterns/</code></td><td>Паттерны с живых интерфейсов и этот лист образцов</td><td class="num">2 файла</td></tr>
+<tr><td><code>99-raw/</code></td><td>Исходные PDF брендбуков</td><td class="num">14 МБ</td></tr>
+</tbody></table></div></section>
+<footer>
+Собрано 3 сентября 2026 для кейса agentic red teaming. Источники:
+<a href="https://github.com/core-ds/core-components">дизайн-система Core Components</a>,
+<a href="https://www.alfabank.by/about/logo/">официальная выдача логотипов</a>,
+живые страницы alfabank.ru. Воспроизводится скриптами
+<code>parse_tokens.py</code>, <code>capture_sites.py</code>, <code>build_swatches.py</code>.
+</footer>
+</div>
+<script>
+(function () {
+  var root = document.documentElement;
+  var btns = Array.prototype.slice.call(document.querySelectorAll('.toggle button'));
+  function apply(mode) {
+    if (mode === 'system') { root.removeAttribute('data-theme'); }
+    else { root.setAttribute('data-theme', mode); }
+    btns.forEach(function (b) { b.setAttribute('aria-pressed', String(b.dataset.set === mode)); });
+    try { localStorage.setItem('alfa-kit-theme', mode); } catch (e) {}
+  }
+  btns.forEach(function (b) { b.addEventListener('click', function () { apply(b.dataset.set); }); });
+  var saved = 'system';
+  try { saved = localStorage.getItem('alfa-kit-theme') || 'system'; } catch (e) {}
+  apply(saved);
+})();
+</script>

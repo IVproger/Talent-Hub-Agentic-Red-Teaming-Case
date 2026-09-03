@@ -1,0 +1,167 @@
+{
+  "rootVars": {},
+  "fonts": [
+    {
+      "value": "-apple-system, \"system-ui\", \"Segoe UI\", Roboto, Helvetica, Ubuntu, Cantarell, Arial, sans-serif, \"Apple Color Emoji\", \"Segoe UI Emoji\", \"Segoe UI Symbol\"",
+      "count": 2816
+    },
+    {
+      "value": "system-ui, -apple-system, \"Segoe UI\", Roboto, Ubuntu, Cantarell, \"Noto Sans\", sans-serif, \"Helvetica Neue\", Helvetica",
+      "count": 870
+    },
+    {
+      "value": "system-ui, -apple-system, \"Segoe UI\", Roboto, \"Helvetica Neue\", Helvetica, sans-serif",
+      "count": 140
+    }
+  ],
+  "fontSizes": [
+    {
+      "value": "16px / 400 / normal",
+      "count": 2116
+    },
+    {
+      "value": "16px / 400 / 0px",
+      "count": 700
+    },
+    {
+      "value": "14px / 400 / 20px",
+      "count": 423
+    },
+    {
+      "value": "14px / 500 / 20px",
+      "count": 125
+    },
+    {
+      "value": "16px / 500 / 20px",
+      "count": 106
+    },
+    {
+      "value": "16px / 500 / 24px",
+      "count": 91
+    },
+    {
+      "value": "30px / 700 / 36px",
+      "count": 81
+    },
+    {
+      "value": "16px / 400 / 24px",
+      "count": 81
+    },
+    {
+      "value": "18px / 700 / 22px",
+      "count": 78
+    },
+    {
+      "value": "16px / 400 / 22.4px",
+      "count": 24
+    },
+    {
+      "value": "40px / 700 / 48px",
+      "count": 1
+    }
+  ],
+  "textColors": [
+    {
+      "value": "rgba(3, 3, 6, 0.88)",
+      "count": 2046
+    },
+    {
+      "value": "rgb(0, 0, 0)",
+      "count": 802
+    },
+    {
+      "value": "rgba(255, 255, 255, 0.94)",
+      "count": 566
+    },
+    {
+      "value": "rgba(238, 238, 251, 0.55)",
+      "count": 91
+    },
+    {
+      "value": "rgba(3, 3, 6, 0.616)",
+      "count": 3
+    }
+  ],
+  "bgColors": [
+    {
+      "value": "rgb(239, 49, 36)",
+      "count": 42
+    },
+    {
+      "value": "rgb(255, 255, 255)",
+      "count": 29
+    },
+    {
+      "value": "rgba(15, 25, 55, 0.1)",
+      "count": 28
+    },
+    {
+      "value": "rgb(18, 18, 19)",
+      "count": 1
+    },
+    {
+      "value": "rgba(30, 43, 68, 0.08)",
+      "count": 1
+    }
+  ],
+  "radii": [
+    {
+      "value": "32px",
+      "count": 81
+    },
+    {
+      "value": "8px",
+      "count": 62
+    },
+    {
+      "value": "10px",
+      "count": 55
+    },
+    {
+      "value": "24px",
+      "count": 3
+    },
+    {
+      "value": "99px",
+      "count": 2
+    },
+    {
+      "value": "4% / 6%",
+      "count": 2
+    },
+    {
+      "value": "32px 32px 0px 0px",
+      "count": 1
+    }
+  ],
+  "shadows": [],
+  "title": "Дебетовая карта — оформить онлайн заявку | Заказать банковскую карточку от 🅰️ Альфа‑Банка",
+  "h1": [
+    "Дебетовые карты",
+    "Дебетовая Альфа-Карта",
+    "Главный среди стикеров",
+    "Тонкие Альфа‑Стикеры",
+    "Карта Апельсин",
+    "Дебетовая карта Alfa Only",
+    "Карты Собчак VS Лебедев",
+    "Карта Альфа и Подписные",
+    "Карта Альфа и «Спартак»",
+    "Карта Marcelo Miracles",
+    "Карта ÖMANKÖ",
+    "Карта со Знаками Зодиака",
+    "Карта Альфа и Баста",
+    "Карта с Альфа‑Статусом",
+    "Альфа-Стикер",
+    "Дебетовая карта Alfa Travel",
+    "Дебетовая карта Alfa Only Travel",
+    "Дебетовая карта Аэрофлот",
+    "Дебетовая карта Alfa Only Aeroflot",
+    "Детская карта",
+    "Карта для родных и близких",
+    "Детский Альфа-Стикер",
+    "Стикер для детей",
+    "Тонкий стикер Alfa Only",
+    "Дебетовая карта МИР"
+  ],
+  "nav": []
+}

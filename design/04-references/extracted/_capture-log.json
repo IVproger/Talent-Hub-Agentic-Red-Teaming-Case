@@ -1,0 +1,347 @@
+[
+  {
+    "slug": "alfabank-ru-main",
+    "url": "https://alfabank.ru/",
+    "note": "Главный сайт банка (розница)",
+    "viewport": "desktop",
+    "final_url": "https://alfabank.ru/",
+    "title": "Альфа-Банк - кредитные и дебетовые карты, кредиты наличными, автокредитование, ипотека и другие банковские услуги физическим и юридическим лицам – Альфа-Банк",
+    "screenshot": "04-references/screenshots/alfabank-ru-main--desktop.png",
+    "html_bytes": 1366585,
+    "extracted": {
+      "rootVars": 0,
+      "fonts": [
+        "-apple-system, \"system-ui\", \"Segoe UI\", Roboto, Helvetica, Ubuntu, Cantarell, Arial, sans-serif, \"Apple Color Emoji\", \"Segoe UI Emoji\", \"Segoe UI Symbol\"",
+        "system-ui, -apple-system, \"Segoe UI\", Roboto, Ubuntu, Cantarell, \"Noto Sans\", sans-serif, \"Helvetica Neue\", Helvetica",
+        "system-ui, -apple-system, \"Segoe UI\", Roboto, \"Helvetica Neue\", Helvetica, sans-serif"
+      ]
+    }
+  },
+  {
+    "slug": "alfabank-ru-cards",
+    "url": "https://alfabank.ru/everyday/debit-cards/",
+    "note": "Продуктовый листинг: дебетовые карты",
+    "viewport": "desktop",
+    "final_url": "https://alfabank.ru/everyday/debit-cards/",
+    "title": "Дебетовая карта — оформить онлайн заявку | Заказать банковскую карточку от 🅰️ Альфа‑Банка",
+    "screenshot": "04-references/screenshots/alfabank-ru-cards--desktop.png",
+    "html_bytes": 1130624,
+    "extracted": {
+      "rootVars": 0,
+      "fonts": [
+        "-apple-system, \"system-ui\", \"Segoe UI\", Roboto, Helvetica, Ubuntu, Cantarell, Arial, sans-serif, \"Apple Color Emoji\", \"Segoe UI Emoji\", \"Segoe UI Symbol\"",
+        "system-ui, -apple-system, \"Segoe UI\", Roboto, Ubuntu, Cantarell, \"Noto Sans\", sans-serif, \"Helvetica Neue\", Helvetica",
+        "system-ui, -apple-system, \"Segoe UI\", Roboto, \"Helvetica Neue\", Helvetica, sans-serif"
+      ]
+    }
+  },
+  {
+    "slug": "alfabank-ru-credit",
+    "url": "https://alfabank.ru/get-money/credit/",
+    "note": "Продуктовый листинг: кредиты",
+    "viewport": "desktop",
+    "final_url": "https://alfabank.ru/get-money/credit/",
+    "title": "Взять потребительский кредит онлайн – до 30 млн ₽ на ваши цели в 🅰️ Альфа-Банке",
+    "screenshot": "04-references/screenshots/alfabank-ru-credit--desktop.png",
+    "html_bytes": 1299772,
+    "extracted": {
+      "rootVars": 0,
+      "fonts": [
+        "-apple-system, \"system-ui\", \"Segoe UI\", Roboto, Helvetica, Ubuntu, Cantarell, Arial, sans-serif, \"Apple Color Emoji\", \"Segoe UI Emoji\", \"Segoe UI Symbol\"",
+        "system-ui, -apple-system, \"Segoe UI\", Roboto, Ubuntu, Cantarell, \"Noto Sans\", sans-serif, \"Helvetica Neue\", Helvetica",
+        "system-ui, -apple-system, \"Segoe UI\", Roboto, \"Helvetica Neue\", Helvetica, sans-serif"
+      ]
+    }
+  },
+  {
+    "slug": "alfabank-ru-invest",
+    "url": "https://alfabank.ru/make-money/investments/",
+    "note": "Альфа-Инвестиции",
+    "viewport": "desktop",
+    "final_url": "https://alfabank.ru/make-money/investments/",
+    "title": "Инвестиции от 🅰 Альфа‑Банка: инвестируйте онлайн в акции, облигации, валюты, фонды",
+    "screenshot": "04-references/screenshots/alfabank-ru-invest--desktop.png",
+    "html_bytes": 1532873,
+    "extracted": {
+      "rootVars": 0,
+      "fonts": [
+        "-apple-system, \"system-ui\", \"Segoe UI\", Roboto, Helvetica, Ubuntu, Cantarell, Arial, sans-serif, \"Apple Color Emoji\", \"Segoe UI Emoji\", \"Segoe UI Symbol\"",
+        "system-ui, -apple-system, \"Segoe UI\", Roboto, Ubuntu, Cantarell, \"Noto Sans\", sans-serif, \"Helvetica Neue\", Helvetica",
+        "system-ui, -apple-system, \"Segoe UI\", Roboto, \"Helvetica Neue\", Helvetica, sans-serif"
+      ]
+    }
+  },
+  {
+    "slug": "alfabank-ru-sme",
+    "url": "https://alfabank.ru/sme/",
+    "note": "Альфа-Бизнес (МСБ)",
+    "viewport": "desktop",
+    "final_url": "https://alfabank.ru/sme/",
+    "title": "Банк для бизнеса — Услуги и решения для среднего и малого бизнеса от 🅰️ Альфа-Банка",
+    "screenshot": "04-references/screenshots/alfabank-ru-sme--desktop.png",
+    "html_bytes": 1233084,
+    "extracted": {
+      "rootVars": 0,
+      "fonts": [
+        "-apple-system, \"system-ui\", \"Segoe UI\", Roboto, Helvetica, Ubuntu, Cantarell, Arial, sans-serif, \"Apple Color Emoji\", \"Segoe UI Emoji\", \"Segoe UI Symbol\"",
+        "system-ui, -apple-system, \"Segoe UI\", Roboto, Ubuntu, Cantarell, \"Noto Sans\", sans-serif, \"Helvetica Neue\", Helvetica",
+        "system-ui, -apple-system, \"Segoe UI\", Roboto, \"Helvetica Neue\", Helvetica, sans-serif"
+      ]
+    }
+  },
+  {
+    "slug": "alfabank-ru-corporate",
+    "url": "https://alfabank.ru/corporate/",
+    "note": "Корпоративный блок",
+    "viewport": "desktop",
+    "final_url": "https://alfabank.ru/corporate/",
+    "title": "Банк для среднего и крупного бизнеса — обслуживание корпоративных клиентов в 🅰️ Альфа‑Банке",
+    "screenshot": "04-references/screenshots/alfabank-ru-corporate--desktop.png",
+    "html_bytes": 1075911,
+    "extracted": {
+      "rootVars": 0,
+      "fonts": [
+        "-apple-system, \"system-ui\", \"Segoe UI\", Roboto, Helvetica, Ubuntu, Cantarell, Arial, sans-serif, \"Apple Color Emoji\", \"Segoe UI Emoji\", \"Segoe UI Symbol\"",
+        "system-ui, -apple-system, \"Segoe UI\", Roboto, Ubuntu, Cantarell, \"Noto Sans\", sans-serif, \"Helvetica Neue\", Helvetica",
+        "system-ui, -apple-system, \"Segoe UI\", Roboto, \"Helvetica Neue\", Helvetica, sans-serif"
+      ]
+    }
+  },
+  {
+    "slug": "alfabank-ru-about",
+    "url": "https://alfabank.ru/about/",
+    "note": "О банке / корпоративная страница",
+    "viewport": "desktop",
+    "final_url": "https://alfabank.ru/about/",
+    "title": "Информация о банке «Альфа-Банк»",
+    "screenshot": "04-references/screenshots/alfabank-ru-about--desktop.png",
+    "html_bytes": 372580,
+    "extracted": {
+      "rootVars": 0,
+      "fonts": [
+        "system-ui, -apple-system, \"Segoe UI\", Roboto, Ubuntu, Cantarell, \"Noto Sans\", sans-serif, \"Helvetica Neue\", Helvetica",
+        "-apple-system, \"system-ui\", \"Segoe UI\", Roboto, Helvetica, Ubuntu, Cantarell, Arial, sans-serif, \"Apple Color Emoji\", \"Segoe UI Emoji\", \"Segoe UI Symbol\"",
+        "\"Styrene A LC Web\", -apple-system, \"system-ui\", \"Segoe UI\", Roboto, Helvetica, Ubuntu, Cantarell, Arial, sans-serif, \"Apple Color Emoji\", \"Segoe UI Emoji\", \"Segoe UI Symbol\""
+      ]
+    }
+  },
+  {
+    "slug": "alfabank-ru-career",
+    "url": "https://job.alfabank.ru/",
+    "note": "Карьерный портал (HR-бренд)",
+    "viewport": "desktop",
+    "final_url": "https://job.alfabank.ru/",
+    "title": "Работа в Альфа Банке: актуальные вакансии, начало карьеры в банке",
+    "screenshot": "04-references/screenshots/alfabank-ru-career--desktop.png",
+    "html_bytes": 657476,
+    "extracted": {
+      "rootVars": 412,
+      "fonts": [
+        "\"Segoe UI\", Roboto, -apple-system, \"system-ui\", Helvetica, Arial, sans-serif, \"Apple Color Emoji\", \"Segoe UI Emoji\", \"Segoe UI Symbol\"",
+        "\"SF Pro Text\", sans-serif",
+        "\"Segoe UI\", Montserrat, Roboto, -apple-system, \"system-ui\", Helvetica, Arial, sans-serif, \"Apple Color Emoji\", \"Segoe UI Emoji\", \"Segoe UI Symbol\""
+      ]
+    }
+  },
+  {
+    "slug": "alfabank-by",
+    "url": "https://www.alfabank.by/",
+    "note": "Альфа-Банк Беларусь",
+    "viewport": "desktop",
+    "final_url": "https://www.alfabank.by/",
+    "title": "Альфа Банк в Беларуси | Минск",
+    "screenshot": "04-references/screenshots/alfabank-by--desktop.png",
+    "html_bytes": 127266,
+    "extracted": {
+      "rootVars": 4,
+      "fonts": [
+        "Glober, Arial, Helvetica, sans-serif",
+        "BYNSymbol"
+      ]
+    }
+  },
+  {
+    "slug": "alfabank-by-logo",
+    "url": "https://www.alfabank.by/about/logo/",
+    "note": "Официальная страница выдачи логотипов",
+    "viewport": "desktop",
+    "final_url": "https://www.alfabank.by/about/logo/",
+    "title": "Логотип и брендинг Альфа Банка и Альфа Бизнеса",
+    "screenshot": "04-references/screenshots/alfabank-by-logo--desktop.png",
+    "html_bytes": 52484,
+    "extracted": {
+      "rootVars": 4,
+      "fonts": [
+        "Glober, Arial, Helvetica, sans-serif"
+      ]
+    }
+  },
+  {
+    "slug": "coreds-storybook",
+    "url": "https://core-ds.github.io/core-components/master/",
+    "note": "Storybook дизайн-системы Core Components",
+    "viewport": "desktop",
+    "final_url": "https://core-ds.github.io/core-components/master/?path=/docs/intro--docs",
+    "title": "Quick start ⋅ Core Components",
+    "screenshot": "04-references/screenshots/coreds-storybook--desktop.png",
+    "html_bytes": 333010,
+    "extracted": {
+      "rootVars": 1470,
+      "fonts": [
+        "system-ui, -apple-system, \"Segoe UI\", Roboto, \"Helvetica Neue\", Helvetica, sans-serif"
+      ]
+    }
+  },
+  {
+    "slug": "coreds-github",
+    "url": "https://github.com/core-ds/core-components",
+    "note": "Репозиторий дизайн-системы",
+    "viewport": "desktop",
+    "final_url": "https://github.com/core-ds/core-components",
+    "title": "GitHub - core-ds/core-components · GitHub",
+    "screenshot": "04-references/screenshots/coreds-github--desktop.png",
+    "html_bytes": 421705,
+    "extracted": {
+      "rootVars": 287,
+      "fonts": [
+        "\"Mona Sans VF\", -apple-system, \"system-ui\", \"Segoe UI\", \"Noto Sans Backtick Fix\", \"Noto Sans\", Helvetica, Arial, sans-serif, \"Apple Color Emoji\", \"Segoe UI Emoji\"",
+        "\"Mona Sans\", MonaSansFallback, -apple-system, \"system-ui\", \"Segoe UI\", Helvetica, Arial, sans-serif, \"Apple Color Emoji\", \"Segoe UI Emoji\"",
+        "\"Mona Sans Mono\", monospace"
+      ]
+    }
+  },
+  {
+    "slug": "alfa-habr",
+    "url": "https://habr.com/ru/companies/alfa/articles/",
+    "note": "Инженерный блог Alfa Digital",
+    "viewport": "desktop",
+    "final_url": "https://habr.com/ru/companies/alfa/articles/",
+    "title": "Альфа-Банк, Москва - Лучший мобильный банк по версии Markswebb / Статьи / Хабр",
+    "screenshot": "04-references/screenshots/alfa-habr--desktop.png",
+    "html_bytes": 360277,
+    "extracted": {
+      "rootVars": 8,
+      "fonts": [
+        "-apple-system, \"system-ui\", Arial, sans-serif",
+        "\"Fira Sans\", sans-serif"
+      ]
+    }
+  },
+  {
+    "slug": "alfabank-ru-main",
+    "url": "https://alfabank.ru/",
+    "note": "Главный сайт банка (розница)",
+    "viewport": "mobile",
+    "final_url": "https://alfabank.ru/",
+    "title": "Альфа-Банк - кредитные и дебетовые карты, кредиты наличными, автокредитование, ипотека и другие банковские услуги физическим и юридическим лицам – Альфа-Банк",
+    "screenshot": "04-references/screenshots/alfabank-ru-main--mobile.png"
+  },
+  {
+    "slug": "alfabank-ru-cards",
+    "url": "https://alfabank.ru/everyday/debit-cards/",
+    "note": "Продуктовый листинг: дебетовые карты",
+    "viewport": "mobile",
+    "final_url": "https://alfabank.ru/everyday/debit-cards/",
+    "title": "Дебетовая карта — оформить онлайн заявку | Заказать банковскую карточку от 🅰️ Альфа‑Банка",
+    "screenshot": "04-references/screenshots/alfabank-ru-cards--mobile.png"
+  },
+  {
+    "slug": "alfabank-ru-credit",
+    "url": "https://alfabank.ru/get-money/credit/",
+    "note": "Продуктовый листинг: кредиты",
+    "viewport": "mobile",
+    "final_url": "https://alfabank.ru/get-money/credit/",
+    "title": "Взять потребительский кредит онлайн – до 30 млн ₽ на ваши цели в 🅰️ Альфа-Банке",
+    "screenshot": "04-references/screenshots/alfabank-ru-credit--mobile.png"
+  },
+  {
+    "slug": "alfabank-ru-invest",
+    "url": "https://alfabank.ru/make-money/investments/",
+    "note": "Альфа-Инвестиции",
+    "viewport": "mobile",
+    "final_url": "https://alfabank.ru/make-money/investments/",
+    "title": "Инвестиции от 🅰 Альфа‑Банка: инвестируйте онлайн в акции, облигации, валюты, фонды",
+    "screenshot": "04-references/screenshots/alfabank-ru-invest--mobile.png"
+  },
+  {
+    "slug": "alfabank-ru-sme",
+    "url": "https://alfabank.ru/sme/",
+    "note": "Альфа-Бизнес (МСБ)",
+    "viewport": "mobile",
+    "final_url": "https://alfabank.ru/sme/",
+    "title": "Банк для бизнеса — Услуги и решения для среднего и малого бизнеса от 🅰️ Альфа-Банка",
+    "screenshot": "04-references/screenshots/alfabank-ru-sme--mobile.png"
+  },
+  {
+    "slug": "alfabank-ru-corporate",
+    "url": "https://alfabank.ru/corporate/",
+    "note": "Корпоративный блок",
+    "viewport": "mobile",
+    "final_url": "https://alfabank.ru/corporate/",
+    "title": "Банк для среднего и крупного бизнеса — обслуживание корпоративных клиентов в 🅰️ Альфа‑Банке",
+    "screenshot": "04-references/screenshots/alfabank-ru-corporate--mobile.png"
+  },
+  {
+    "slug": "alfabank-ru-about",
+    "url": "https://alfabank.ru/about/",
+    "note": "О банке / корпоративная страница",
+    "viewport": "mobile",
+    "final_url": "https://alfabank.ru/about/",
+    "title": "Информация о банке «Альфа-Банк»",
+    "screenshot": "04-references/screenshots/alfabank-ru-about--mobile.png"
+  },
+  {
+    "slug": "alfabank-ru-career",
+    "url": "https://job.alfabank.ru/",
+    "note": "Карьерный портал (HR-бренд)",
+    "viewport": "mobile",
+    "final_url": "https://job.alfabank.ru/",
+    "title": "Работа в Альфа Банке: актуальные вакансии, начало карьеры в банке",
+    "screenshot": "04-references/screenshots/alfabank-ru-career--mobile.png"
+  },
+  {
+    "slug": "alfabank-by",
+    "url": "https://www.alfabank.by/",
+    "note": "Альфа-Банк Беларусь",
+    "viewport": "mobile",
+    "final_url": "https://www.alfabank.by/",
+    "title": "Альфа Банк в Беларуси | Минск",
+    "screenshot": "04-references/screenshots/alfabank-by--mobile.png"
+  },
+  {
+    "slug": "alfabank-by-logo",
+    "url": "https://www.alfabank.by/about/logo/",
+    "note": "Официальная страница выдачи логотипов",
+    "viewport": "mobile",
+    "final_url": "https://www.alfabank.by/about/logo/",
+    "title": "Логотип и брендинг Альфа Банка и Альфа Бизнеса",
+    "screenshot": "04-references/screenshots/alfabank-by-logo--mobile.png"
+  },
+  {
+    "slug": "coreds-storybook",
+    "url": "https://core-ds.github.io/core-components/master/",
+    "note": "Storybook дизайн-системы Core Components",
+    "viewport": "mobile",
+    "final_url": "https://core-ds.github.io/core-components/master/?path=/docs/intro--docs",
+    "title": "Quick start ⋅ Core Components",
+    "screenshot": "04-references/screenshots/coreds-storybook--mobile.png"
+  },
+  {
+    "slug": "coreds-github",
+    "url": "https://github.com/core-ds/core-components",
+    "note": "Репозиторий дизайн-системы",
+    "viewport": "mobile",
+    "final_url": "https://github.com/core-ds/core-components",
+    "title": "GitHub - core-ds/core-components · GitHub",
+    "screenshot": "04-references/screenshots/coreds-github--mobile.png"
+  },
+  {
+    "slug": "alfa-habr",
+    "url": "https://habr.com/ru/companies/alfa/articles/",
+    "note": "Инженерный блог Alfa Digital",
+    "viewport": "mobile",
+    "final_url": "https://habr.com/ru/companies/alfa/articles/",
+    "title": "Альфа-Банк, Москва - Лучший мобильный банк по версии Markswebb / Статьи / Хабр",
+    "screenshot": "04-references/screenshots/alfa-habr--mobile.png"
+  }
+]

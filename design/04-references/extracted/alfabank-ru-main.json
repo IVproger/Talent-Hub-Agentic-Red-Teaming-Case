@@ -1,0 +1,326 @@
+{
+  "rootVars": {},
+  "fonts": [
+    {
+      "value": "-apple-system, \"system-ui\", \"Segoe UI\", Roboto, Helvetica, Ubuntu, Cantarell, Arial, sans-serif, \"Apple Color Emoji\", \"Segoe UI Emoji\", \"Segoe UI Symbol\"",
+      "count": 2849
+    },
+    {
+      "value": "system-ui, -apple-system, \"Segoe UI\", Roboto, Ubuntu, Cantarell, \"Noto Sans\", sans-serif, \"Helvetica Neue\", Helvetica",
+      "count": 775
+    },
+    {
+      "value": "system-ui, -apple-system, \"Segoe UI\", Roboto, \"Helvetica Neue\", Helvetica, sans-serif",
+      "count": 162
+    },
+    {
+      "value": "Arial",
+      "count": 22
+    }
+  ],
+  "fontSizes": [
+    {
+      "value": "16px / 400 / normal",
+      "count": 2773
+    },
+    {
+      "value": "14px / 400 / 20px",
+      "count": 518
+    },
+    {
+      "value": "14px / 500 / 20px",
+      "count": 137
+    },
+    {
+      "value": "16px / 400 / 24px",
+      "count": 50
+    },
+    {
+      "value": "16px / 500 / 24px",
+      "count": 45
+    },
+    {
+      "value": "22px / 700 / 26px",
+      "count": 42
+    },
+    {
+      "value": "16px / 400 / 20px",
+      "count": 35
+    },
+    {
+      "value": "18px / 400 / 57px",
+      "count": 24
+    },
+    {
+      "value": "16px / 500 / 20px",
+      "count": 23
+    },
+    {
+      "value": "16px / 400 / 0px",
+      "count": 21
+    },
+    {
+      "value": "14px / 400 / 18px",
+      "count": 18
+    },
+    {
+      "value": "16px / 700 / normal",
+      "count": 18
+    },
+    {
+      "value": "16px / 700 / 20px",
+      "count": 15
+    },
+    {
+      "value": "13.3333px / 400 / 0px",
+      "count": 12
+    },
+    {
+      "value": "22px / 600 / 26px",
+      "count": 12
+    },
+    {
+      "value": "13.3333px / 400 / normal",
+      "count": 8
+    },
+    {
+      "value": "12px / 400 / 16px",
+      "count": 7
+    },
+    {
+      "value": "40px / 700 / 48px",
+      "count": 6
+    },
+    {
+      "value": "18px / 700 / 22px",
+      "count": 6
+    },
+    {
+      "value": "16px / 600 / normal",
+      "count": 6
+    },
+    {
+      "value": "18px / 400 / normal",
+      "count": 6
+    },
+    {
+      "value": "18px / 700 / 24px",
+      "count": 6
+    },
+    {
+      "value": "18px / 400 / 24px",
+      "count": 3
+    },
+    {
+      "value": "16px / 400 / 22.4px",
+      "count": 3
+    },
+    {
+      "value": "13px / 400 / 16px",
+      "count": 3
+    },
+    {
+      "value": "16px / 400 / 26px",
+      "count": 3
+    },
+    {
+      "value": "14px / 400 / normal",
+      "count": 2
+    },
+    {
+      "value": "16px / 600 / 16px",
+      "count": 2
+    },
+    {
+      "value": "30px / 700 / 36px",
+      "count": 2
+    },
+    {
+      "value": "48px / 700 / 52px",
+      "count": 1
+    }
+  ],
+  "textColors": [
+    {
+      "value": "rgba(3, 3, 6, 0.88)",
+      "count": 2014
+    },
+    {
+      "value": "rgb(0, 0, 0)",
+      "count": 881
+    },
+    {
+      "value": "rgba(255, 255, 255, 0.94)",
+      "count": 525
+    },
+    {
+      "value": "rgba(238, 238, 251, 0.55)",
+      "count": 92
+    },
+    {
+      "value": "rgba(4, 4, 19, 0.55)",
+      "count": 35
+    },
+    {
+      "value": "rgb(137, 137, 145)",
+      "count": 19
+    },
+    {
+      "value": "rgba(3, 3, 6, 0.616)",
+      "count": 17
+    },
+    {
+      "value": "rgba(3, 3, 6, 0.792)",
+      "count": 6
+    },
+    {
+      "value": "rgba(3, 3, 6, 0.53)",
+      "count": 5
+    },
+    {
+      "value": "rgb(236, 45, 32)",
+      "count": 3
+    },
+    {
+      "value": "rgb(13, 147, 54)",
+      "count": 2
+    },
+    {
+      "value": "rgba(3, 3, 16, 0.56)",
+      "count": 1
+    },
+    {
+      "value": "rgb(184, 185, 192)",
+      "count": 1
+    }
+  ],
+  "bgColors": [
+    {
+      "value": "rgb(242, 243, 245)",
+      "count": 38
+    },
+    {
+      "value": "rgb(239, 49, 36)",
+      "count": 27
+    },
+    {
+      "value": "rgba(15, 25, 55, 0.1)",
+      "count": 22
+    },
+    {
+      "value": "rgb(255, 255, 255)",
+      "count": 18
+    },
+    {
+      "value": "rgba(38, 55, 88, 0.06)",
+      "count": 7
+    },
+    {
+      "value": "rgb(33, 33, 36)",
+      "count": 6
+    },
+    {
+      "value": "rgb(243, 244, 245)",
+      "count": 4
+    },
+    {
+      "value": "rgba(30, 43, 68, 0.08)",
+      "count": 2
+    },
+    {
+      "value": "rgba(11, 31, 53, 0.07)",
+      "count": 2
+    },
+    {
+      "value": "rgb(18, 18, 18)",
+      "count": 1
+    },
+    {
+      "value": "rgb(18, 18, 19)",
+      "count": 1
+    },
+    {
+      "value": "rgba(222, 222, 238, 0.13)",
+      "count": 1
+    },
+    {
+      "value": "rgb(223, 191, 255)",
+      "count": 1
+    },
+    {
+      "value": "rgb(233, 224, 255)",
+      "count": 1
+    },
+    {
+      "value": "rgb(82, 151, 255)",
+      "count": 1
+    },
+    {
+      "value": "rgb(255, 202, 199)",
+      "count": 1
+    },
+    {
+      "value": "rgb(14, 14, 14)",
+      "count": 1
+    }
+  ],
+  "radii": [
+    {
+      "value": "32px",
+      "count": 58
+    },
+    {
+      "value": "99px",
+      "count": 28
+    },
+    {
+      "value": "24px",
+      "count": 19
+    },
+    {
+      "value": "8px",
+      "count": 17
+    },
+    {
+      "value": "10px",
+      "count": 11
+    },
+    {
+      "value": "4px 4px 0px 0px",
+      "count": 8
+    },
+    {
+      "value": "24px 0px 0px 24px",
+      "count": 7
+    },
+    {
+      "value": "0px 24px 24px 0px",
+      "count": 7
+    },
+    {
+      "value": "50%",
+      "count": 6
+    },
+    {
+      "value": "16px",
+      "count": 3
+    },
+    {
+      "value": "64px 64px 0px 0px",
+      "count": 1
+    }
+  ],
+  "shadows": [],
+  "title": "Альфа-Банк - кредитные и дебетовые карты, кредиты наличными, автокредитование, ипотека и другие банковские услуги физическим и юридическим лицам – Альфа-Банк",
+  "h1": [
+    "Выбирайте лучшее",
+    "Рассчитайте выгоду",
+    "Наше предложение",
+    "Наше предложение",
+    "Сервисы",
+    "Читайте главное об инвестициях",
+    "Пользуйтесь выгодными \nпредложениями в наших сервисах",
+    "О банке"
+  ],
+  "nav": []
+}

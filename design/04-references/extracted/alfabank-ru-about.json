@@ -1,0 +1,190 @@
+{
+  "rootVars": {},
+  "fonts": [
+    {
+      "value": "system-ui, -apple-system, \"Segoe UI\", Roboto, Ubuntu, Cantarell, \"Noto Sans\", sans-serif, \"Helvetica Neue\", Helvetica",
+      "count": 449
+    },
+    {
+      "value": "-apple-system, \"system-ui\", \"Segoe UI\", Roboto, Helvetica, Ubuntu, Cantarell, Arial, sans-serif, \"Apple Color Emoji\", \"Segoe UI Emoji\", \"Segoe UI Symbol\"",
+      "count": 255
+    },
+    {
+      "value": "\"Styrene A LC Web\", -apple-system, \"system-ui\", \"Segoe UI\", Roboto, Helvetica, Ubuntu, Cantarell, Arial, sans-serif, \"Apple Color Emoji\", \"Segoe UI Emoji\", \"Segoe UI Symbol\"",
+      "count": 80
+    },
+    {
+      "value": "system-ui, -apple-system, \"Segoe UI\", Roboto, \"Helvetica Neue\", Helvetica, sans-serif",
+      "count": 13
+    }
+  ],
+  "fontSizes": [
+    {
+      "value": "16px / 400 / normal",
+      "count": 300
+    },
+    {
+      "value": "11px / 400 / 16px",
+      "count": 274
+    },
+    {
+      "value": "14px / 400 / 20px",
+      "count": 149
+    },
+    {
+      "value": "14px / 500 / 20px",
+      "count": 13
+    },
+    {
+      "value": "12px / 400 / 16px",
+      "count": 12
+    },
+    {
+      "value": "12px / 700 / normal",
+      "count": 10
+    },
+    {
+      "value": "12px / 500 / 16px",
+      "count": 8
+    },
+    {
+      "value": "22px / 700 / 26px",
+      "count": 7
+    },
+    {
+      "value": "12px / 400 / normal",
+      "count": 5
+    },
+    {
+      "value": "13.3333px / 400 / normal",
+      "count": 3
+    },
+    {
+      "value": "20px / 400 / 24px",
+      "count": 3
+    },
+    {
+      "value": "12px / 700 / 16px",
+      "count": 3
+    },
+    {
+      "value": "56px / 700 / 67.2px",
+      "count": 2
+    },
+    {
+      "value": "60px / 700 / 78px",
+      "count": 2
+    },
+    {
+      "value": "16px / 500 / 24px",
+      "count": 2
+    },
+    {
+      "value": "16px / 400 / 20px",
+      "count": 1
+    },
+    {
+      "value": "85px / 700 / 102px",
+      "count": 1
+    },
+    {
+      "value": "48px / 700 / 52px",
+      "count": 1
+    },
+    {
+      "value": "12px / 600 / 16px",
+      "count": 1
+    }
+  ],
+  "textColors": [
+    {
+      "value": "rgba(238, 238, 251, 0.55)",
+      "count": 149
+    },
+    {
+      "value": "rgba(255, 255, 255, 0.94)",
+      "count": 148
+    },
+    {
+      "value": "rgba(255, 255, 255, 0.565)",
+      "count": 145
+    },
+    {
+      "value": "rgb(255, 255, 255)",
+      "count": 115
+    },
+    {
+      "value": "rgb(0, 0, 0)",
+      "count": 86
+    },
+    {
+      "value": "rgba(3, 3, 6, 0.88)",
+      "count": 62
+    },
+    {
+      "value": "rgba(233, 233, 250, 0.37)",
+      "count": 3
+    }
+  ],
+  "bgColors": [
+    {
+      "value": "rgb(239, 49, 36)",
+      "count": 6
+    },
+    {
+      "value": "rgb(255, 255, 255)",
+      "count": 5
+    },
+    {
+      "value": "rgb(18, 18, 19)",
+      "count": 3
+    },
+    {
+      "value": "rgb(0, 0, 0)",
+      "count": 2
+    },
+    {
+      "value": "rgba(18, 18, 19, 0.5)",
+      "count": 1
+    },
+    {
+      "value": "rgb(245, 247, 249)",
+      "count": 1
+    }
+  ],
+  "radii": [
+    {
+      "value": "8px",
+      "count": 6
+    },
+    {
+      "value": "32px",
+      "count": 4
+    },
+    {
+      "value": "4px 4px 0px 0px",
+      "count": 1
+    },
+    {
+      "value": "64px 64px 0px 0px",
+      "count": 1
+    }
+  ],
+  "shadows": [
+    {
+      "value": "rgba(0, 0, 0, 0.04) 0px 12px 16px 0px, rgba(0, 0, 0, 0.04) 0px 4px 8px 0px, rgba(0, 0, 0, 0.04) 0px 0px 1px 0px",
+      "count": 4
+    },
+    {
+      "value": "rgba(255, 255, 255, 0.94) 0px 1px 0px 0px",
+      "count": 1
+    }
+  ],
+  "title": "Информация о банке «Альфа-Банк»",
+  "h1": [
+    "The most\nphygital bank",
+    "Лучшее\nбанковское\nприложение",
+    "35 лет строим\nи развиваем\nобслуживание офлайн"
+  ],
+  "nav": []
+}

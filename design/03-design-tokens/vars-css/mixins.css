@@ -1,0 +1,135 @@
+@define-mixin focus-outline {
+    outline: 2px solid var(--focus-color);
+    outline-offset: 2px;
+}
+
+@define-mixin hover {
+    @media (hover: hover) {
+        &:hover {
+            @mixin-content;
+        }
+    }
+}
+
+@define-mixin custom-scrollbar {
+    overflow: auto;
+    cursor: auto;
+
+    &::-webkit-scrollbar {
+        width: 12px;
+        height: 12px;
+    }
+
+    &::-webkit-scrollbar-track {
+        background-color: transparent;
+    }
+
+    &::-webkit-scrollbar-track-piece {
+        background-color: transparent;
+    }
+
+    &::-webkit-scrollbar-thumb {
+        background-color: var(--color-light-neutral-translucent-500);
+        border-color: transparent;
+        border-style: solid;
+        border-width: 4px;
+        background-clip: padding-box;
+    }
+
+    &::-webkit-scrollbar-thumb:vertical {
+        border-radius: var(--border-radius-circle) / var(--border-radius-6);
+        min-height: 40px;
+    }
+
+    &::-webkit-scrollbar-thumb:vertical:hover {
+        border-radius: var(--border-radius-circle) / 7px;
+        border-width: 4px 3px;
+    }
+
+    &::-webkit-scrollbar-thumb:horizontal {
+        border-radius: var(--border-radius-6) / var(--border-radius-circle);
+        min-width: 40px;
+    }
+
+    &::-webkit-scrollbar-thumb:horizontal:hover {
+        border-radius: 7px / var(--border-radius-circle);
+        border-width: 3px 4px;
+    }
+
+    &::-webkit-scrollbar-thumb:active {
+        background-color: var(--color-light-text-secondary);
+    }
+
+    &::-webkit-resizer {
+        background: url('data:image/svg+xml;utf8,<svg width="12" height="12" viewBox="0 0 12 12" fill="%2386868a" xmlns="http://www.w3.org/2000/svg"><path fill-rule="evenodd" clip-rule="evenodd" d="M8.64645 0.646447C8.84171 0.841709 8.84171 1.15829 8.64645 1.35355L1.35355 8.64645C1.15829 8.84171 0.841709 8.84171 0.646447 8.64645C0.451184 8.45118 0.451184 8.1346 0.646447 7.93934L7.93934 0.646447C8.1346 0.451184 8.45118 0.451184 8.64645 0.646447ZM8.64645 3.64645C8.84171 3.84171 8.84171 4.15829 8.64645 4.35355L4.35355 8.64645C4.15829 8.84171 3.84171 8.84171 3.64645 8.64645C3.45118 8.45118 3.45118 8.1346 3.64645 7.93934L7.93934 3.64645C8.1346 3.45118 8.45118 3.45118 8.64645 3.64645Z" /></svg>')
+            no-repeat right bottom;
+    }
+
+    &::-webkit-scrollbar-button,
+    &::-webkit-scrollbar-corner {
+        display: none;
+    }
+}
+
+@define-mixin bg-class-list {
+    @each $backgroundColorBg in accent, info, attention-muted, positive-muted, negative-muted,
+        primary, primary-inverted, secondary, secondary-inverted, tertiary, tertiary-inverted,
+        quaternary, quaternary-inverted {
+        .background-$(backgroundColorBg) {
+            background-color: var(--color-light-bg-$(backgroundColorBg));
+        }
+    }
+
+    @each $backgroundColor in specialbg-component, specialbg-component-inverted,
+        specialbg-primary-grouped, specialbg-secondary-grouped, specialbg-tertiary-grouped,
+        specialbg-secondary-transparent, specialbg-secondary-transparent-inverted,
+        specialbg-tertiary-transparent, specialbg-tertiary-transparent-inverted {
+        .background-$(backgroundColor) {
+            background-color: var(--color-light-$(backgroundColor));
+        }
+    }
+}
+
+/* сбрасывает синюю подсветку при нажатии */
+@define-mixin reset-tap-highlight-color {
+    -webkit-tap-highlight-color: transparent;
+}
+
+@define-mixin button-reset {
+    @mixin reset-tap-highlight-color;
+
+    box-sizing: border-box;
+    background-color: transparent;
+    outline: none;
+    border: 0;
+    margin: var(--gap-0);
+    box-shadow: none;
+    border-radius: var(--border-radius-0);
+    user-select: none;
+    vertical-align: middle;
+    appearance: none;
+    text-decoration: none;
+    min-width: 0;
+    cursor: pointer;
+}
+
+@define-mixin row_limit $num {
+    -webkit-line-clamp: $num;
+    display: -webkit-box;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+}
+
+@define-mixin visually-hidden {
+    /* Hack from https://htmlacademy.ru/blog/css/short-12 */
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    margin: -1px;
+    border: 0;
+    padding: 0;
+    white-space: nowrap;
+    clip-path: inset(100%);
+    clip: rect(0 0 0 0);
+    overflow: hidden;
+}

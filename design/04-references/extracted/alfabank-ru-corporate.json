@@ -1,0 +1,292 @@
+{
+  "rootVars": {},
+  "fonts": [
+    {
+      "value": "-apple-system, \"system-ui\", \"Segoe UI\", Roboto, Helvetica, Ubuntu, Cantarell, Arial, sans-serif, \"Apple Color Emoji\", \"Segoe UI Emoji\", \"Segoe UI Symbol\"",
+      "count": 2731
+    },
+    {
+      "value": "system-ui, -apple-system, \"Segoe UI\", Roboto, Ubuntu, Cantarell, \"Noto Sans\", sans-serif, \"Helvetica Neue\", Helvetica",
+      "count": 748
+    },
+    {
+      "value": "system-ui, -apple-system, \"Segoe UI\", Roboto, \"Helvetica Neue\", Helvetica, sans-serif",
+      "count": 98
+    },
+    {
+      "value": "Arial",
+      "count": 6
+    },
+    {
+      "value": "\"Styrene A LC Web\", -apple-system, \"system-ui\", \"Segoe UI\", Roboto, Helvetica, Ubuntu, Cantarell, Arial, sans-serif, \"Apple Color Emoji\", \"Segoe UI Emoji\", \"Segoe UI Symbol\"",
+      "count": 5
+    }
+  ],
+  "fontSizes": [
+    {
+      "value": "16px / 400 / normal",
+      "count": 2745
+    },
+    {
+      "value": "14px / 400 / 20px",
+      "count": 435
+    },
+    {
+      "value": "14px / 500 / 20px",
+      "count": 125
+    },
+    {
+      "value": "16px / 400 / 24px",
+      "count": 50
+    },
+    {
+      "value": "22px / 700 / 26px",
+      "count": 44
+    },
+    {
+      "value": "16px / 500 / 24px",
+      "count": 42
+    },
+    {
+      "value": "16px / 500 / 20px",
+      "count": 32
+    },
+    {
+      "value": "16px / 400 / 20.8px",
+      "count": 27
+    },
+    {
+      "value": "13px / 400 / 16px",
+      "count": 18
+    },
+    {
+      "value": "16px / 400 / 20px",
+      "count": 15
+    },
+    {
+      "value": "16px / 700 / 20px",
+      "count": 10
+    },
+    {
+      "value": "14px / 400 / 18px",
+      "count": 9
+    },
+    {
+      "value": "40px / 700 / 48px",
+      "count": 7
+    },
+    {
+      "value": "18px / 700 / 22px",
+      "count": 7
+    },
+    {
+      "value": "13.3333px / 400 / normal",
+      "count": 6
+    },
+    {
+      "value": "30px / 700 / 36px",
+      "count": 5
+    },
+    {
+      "value": "14px / 700 / 20px",
+      "count": 5
+    },
+    {
+      "value": "18px / 400 / 24px",
+      "count": 2
+    },
+    {
+      "value": "48px / 700 / 52px",
+      "count": 1
+    },
+    {
+      "value": "16px / 700 / 24px",
+      "count": 1
+    },
+    {
+      "value": "12px / 400 / 16px",
+      "count": 1
+    },
+    {
+      "value": "16px / 400 / 22.4px",
+      "count": 1
+    }
+  ],
+  "textColors": [
+    {
+      "value": "rgba(3, 3, 6, 0.88)",
+      "count": 1761
+    },
+    {
+      "value": "rgb(0, 0, 0)",
+      "count": 911
+    },
+    {
+      "value": "rgba(255, 255, 255, 0.94)",
+      "count": 611
+    },
+    {
+      "value": "rgba(238, 238, 251, 0.55)",
+      "count": 100
+    },
+    {
+      "value": "rgba(4, 4, 19, 0.55)",
+      "count": 22
+    },
+    {
+      "value": "rgba(3, 3, 6, 0.616)",
+      "count": 10
+    },
+    {
+      "value": "rgb(239, 49, 36)",
+      "count": 4
+    },
+    {
+      "value": "rgba(3, 3, 6, 0.53)",
+      "count": 1
+    }
+  ],
+  "bgColors": [
+    {
+      "value": "rgba(215, 215, 229, 0.07)",
+      "count": 45
+    },
+    {
+      "value": "rgb(239, 49, 36)",
+      "count": 23
+    },
+    {
+      "value": "rgb(242, 243, 245)",
+      "count": 15
+    },
+    {
+      "value": "rgba(18, 18, 19, 0.05)",
+      "count": 8
+    },
+    {
+      "value": "rgb(255, 255, 255)",
+      "count": 6
+    },
+    {
+      "value": "rgba(222, 222, 240, 0.12)",
+      "count": 5
+    },
+    {
+      "value": "rgba(38, 55, 88, 0.06)",
+      "count": 5
+    },
+    {
+      "value": "rgba(222, 222, 238, 0.13)",
+      "count": 3
+    },
+    {
+      "value": "rgb(39, 39, 42)",
+      "count": 3
+    },
+    {
+      "value": "rgb(54, 54, 58)",
+      "count": 2
+    },
+    {
+      "value": "rgb(18, 18, 19)",
+      "count": 2
+    },
+    {
+      "value": "rgba(214, 214, 229, 0.07)",
+      "count": 2
+    },
+    {
+      "value": "rgba(15, 25, 55, 0.1)",
+      "count": 2
+    },
+    {
+      "value": "rgb(0, 0, 0)",
+      "count": 1
+    },
+    {
+      "value": "rgba(225, 225, 248, 0.09)",
+      "count": 1
+    },
+    {
+      "value": "rgba(239, 49, 36, 0.85)",
+      "count": 1
+    },
+    {
+      "value": "rgb(28, 28, 30)",
+      "count": 1
+    }
+  ],
+  "radii": [
+    {
+      "value": "32px",
+      "count": 74
+    },
+    {
+      "value": "50%",
+      "count": 17
+    },
+    {
+      "value": "8px",
+      "count": 16
+    },
+    {
+      "value": "16px",
+      "count": 14
+    },
+    {
+      "value": "10px",
+      "count": 10
+    },
+    {
+      "value": "24px",
+      "count": 7
+    },
+    {
+      "value": "4px",
+      "count": 6
+    },
+    {
+      "value": "4px 4px 0px 0px",
+      "count": 5
+    },
+    {
+      "value": "64px 64px 0px 0px",
+      "count": 2
+    },
+    {
+      "value": "99px",
+      "count": 2
+    },
+    {
+      "value": "12px",
+      "count": 1
+    }
+  ],
+  "shadows": [
+    {
+      "value": "rgba(13, 13, 13, 0.15) 0px 4px 8px 0px",
+      "count": 1
+    },
+    {
+      "value": "rgb(35, 38, 40) 0px 0px 30px -8px",
+      "count": 1
+    }
+  ],
+  "title": "Банк для среднего и крупного бизнеса — обслуживание корпоративных клиентов в 🅰️ Альфа‑Банке",
+  "h1": [
+    "Банк с персональным \r\nподходом",
+    "Альфа‑Босс —\r\nлучший сервис\r\nдля топ-менеджеров",
+    "Решения\nдля аграрной\nпромышленности",
+    "Откройте депозит и получайте доход",
+    "Персональное предложение от Альфа‑Босс",
+    "Подберём решения для вашего бизнеса",
+    "Надёжный партнёр\nдля развития бизнеса",
+    "Актуальные предложения",
+    "Телеграм-канал\n«Масштабный бизнес»",
+    "Почему Альфа‑Банк?",
+    "Заявка на открытие счёта для бизнеса",
+    "Все предложения для среднего и крупного бизнеса",
+    "Дополнительная информация"
+  ],
+  "nav": []
+}

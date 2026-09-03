@@ -1,0 +1,283 @@
+{
+  "rootVars": {},
+  "fonts": [
+    {
+      "value": "-apple-system, \"system-ui\", \"Segoe UI\", Roboto, Helvetica, Ubuntu, Cantarell, Arial, sans-serif, \"Apple Color Emoji\", \"Segoe UI Emoji\", \"Segoe UI Symbol\"",
+      "count": 2319
+    },
+    {
+      "value": "system-ui, -apple-system, \"Segoe UI\", Roboto, Ubuntu, Cantarell, \"Noto Sans\", sans-serif, \"Helvetica Neue\", Helvetica",
+      "count": 946
+    },
+    {
+      "value": "system-ui, -apple-system, \"Segoe UI\", Roboto, \"Helvetica Neue\", Helvetica, sans-serif",
+      "count": 60
+    },
+    {
+      "value": "Arial",
+      "count": 8
+    }
+  ],
+  "fontSizes": [
+    {
+      "value": "16px / 400 / normal",
+      "count": 2307
+    },
+    {
+      "value": "14px / 400 / 20px",
+      "count": 523
+    },
+    {
+      "value": "11px / 400 / 16px",
+      "count": 172
+    },
+    {
+      "value": "14px / 500 / 20px",
+      "count": 125
+    },
+    {
+      "value": "16px / 400 / 24px",
+      "count": 55
+    },
+    {
+      "value": "16px / 500 / 24px",
+      "count": 47
+    },
+    {
+      "value": "16px / 400 / 20px",
+      "count": 14
+    },
+    {
+      "value": "22px / 700 / 26px",
+      "count": 11
+    },
+    {
+      "value": "14px / 400 / 18px",
+      "count": 10
+    },
+    {
+      "value": "16px / 500 / 20px",
+      "count": 8
+    },
+    {
+      "value": "12px / 400 / 16px",
+      "count": 8
+    },
+    {
+      "value": "12px / 500 / 16px",
+      "count": 8
+    },
+    {
+      "value": "16px / 600 / normal",
+      "count": 6
+    },
+    {
+      "value": "18px / 400 / normal",
+      "count": 6
+    },
+    {
+      "value": "13.3333px / 400 / normal",
+      "count": 6
+    },
+    {
+      "value": "16px / 400 / 0px",
+      "count": 5
+    },
+    {
+      "value": "18px / 700 / 22px",
+      "count": 4
+    },
+    {
+      "value": "40px / 700 / 48px",
+      "count": 4
+    },
+    {
+      "value": "16px / 400 / 22.4px",
+      "count": 3
+    },
+    {
+      "value": "14px / 400 / normal",
+      "count": 2
+    },
+    {
+      "value": "16px / 600 / 16px",
+      "count": 2
+    },
+    {
+      "value": "30px / 700 / 36px",
+      "count": 2
+    },
+    {
+      "value": "48px / 700 / 52px",
+      "count": 1
+    },
+    {
+      "value": "18px / 400 / 24px",
+      "count": 1
+    },
+    {
+      "value": "18px / 400 / 57px",
+      "count": 1
+    },
+    {
+      "value": "12px / 700 / 16px",
+      "count": 1
+    },
+    {
+      "value": "12px / 600 / 16px",
+      "count": 1
+    }
+  ],
+  "textColors": [
+    {
+      "value": "rgba(3, 3, 6, 0.88)",
+      "count": 1743
+    },
+    {
+      "value": "rgba(255, 255, 255, 0.94)",
+      "count": 615
+    },
+    {
+      "value": "rgb(0, 0, 0)",
+      "count": 518
+    },
+    {
+      "value": "rgba(238, 238, 251, 0.55)",
+      "count": 188
+    },
+    {
+      "value": "rgba(255, 255, 255, 0.565)",
+      "count": 86
+    },
+    {
+      "value": "rgba(4, 4, 19, 0.55)",
+      "count": 25
+    },
+    {
+      "value": "rgba(3, 3, 6, 0.792)",
+      "count": 6
+    },
+    {
+      "value": "rgba(3, 3, 6, 0.616)",
+      "count": 4
+    },
+    {
+      "value": "rgba(3, 3, 16, 0.56)",
+      "count": 1
+    },
+    {
+      "value": "rgba(233, 233, 250, 0.37)",
+      "count": 1
+    }
+  ],
+  "bgColors": [
+    {
+      "value": "rgb(239, 49, 36)",
+      "count": 20
+    },
+    {
+      "value": "rgba(38, 55, 88, 0.06)",
+      "count": 7
+    },
+    {
+      "value": "rgb(242, 243, 245)",
+      "count": 6
+    },
+    {
+      "value": "rgb(255, 255, 255)",
+      "count": 5
+    },
+    {
+      "value": "rgb(18, 18, 19)",
+      "count": 4
+    },
+    {
+      "value": "rgba(222, 222, 240, 0.12)",
+      "count": 4
+    },
+    {
+      "value": "rgb(245, 247, 249)",
+      "count": 3
+    },
+    {
+      "value": "rgba(11, 31, 53, 0.07)",
+      "count": 2
+    },
+    {
+      "value": "rgba(30, 43, 68, 0.08)",
+      "count": 2
+    },
+    {
+      "value": "rgb(0, 0, 0)",
+      "count": 1
+    },
+    {
+      "value": "rgba(222, 222, 238, 0.13)",
+      "count": 1
+    },
+    {
+      "value": "rgba(15, 25, 55, 0.1)",
+      "count": 1
+    }
+  ],
+  "radii": [
+    {
+      "value": "8px",
+      "count": 19
+    },
+    {
+      "value": "32px",
+      "count": 13
+    },
+    {
+      "value": "24px",
+      "count": 8
+    },
+    {
+      "value": "4px 4px 0px 0px",
+      "count": 8
+    },
+    {
+      "value": "10px",
+      "count": 5
+    },
+    {
+      "value": "64px 64px 0px 0px",
+      "count": 2
+    },
+    {
+      "value": "4px",
+      "count": 2
+    },
+    {
+      "value": "99px",
+      "count": 2
+    },
+    {
+      "value": "12px",
+      "count": 1
+    },
+    {
+      "value": "6px",
+      "count": 1
+    },
+    {
+      "value": "24px 24px 32px 32px",
+      "count": 1
+    }
+  ],
+  "shadows": [],
+  "title": "Взять потребительский кредит онлайн – до 30 млн ₽ на ваши цели в 🅰️ Альфа-Банке",
+  "h1": [
+    "Потребительский кредит",
+    "Рассчитайте условия по кредиту",
+    "Наше предложение",
+    "Заполните заявку на кредит наличными",
+    "Как получить кредит наличными",
+    "Преимущества кредита наличными в Альфа‑Банке",
+    "Полезно знать",
+    "Что такое АЛЬФА ФИНАНС?",
+    "Какие условия получения кредита в банке?"
+  ],
+  "nav": []
+}

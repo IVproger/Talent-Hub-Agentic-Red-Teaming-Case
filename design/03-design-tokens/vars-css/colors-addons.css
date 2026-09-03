@@ -1,0 +1,127 @@
+:root {
+    --color-static-corpbg-neutral: #bdc0c2; /* deprecated */
+    --color-static-corpbg-primary: #212a33; /* deprecated */
+    --color-static-corpbg-secondary: #384048; /* deprecated */
+    --color-static-corpbg-tertiary: #7a7f85; /* deprecated */
+    --color-static-graphic-amethyst: #a489aa; /* deprecated */
+    --color-static-graphic-blackberry: #bfafc6; /* deprecated */
+    --color-static-graphic-blue-chill: #0f9c8c; /* deprecated */
+    --color-static-graphic-blue-maya: #7eb3ff; /* deprecated */
+    --color-static-graphic-blue-moody: #7879cf; /* deprecated */
+    --color-static-graphic-blue-steel: #4f84ba; /* deprecated */
+    --color-static-graphic-botticelli: #cee5e5; /* deprecated */
+    --color-static-graphic-boulder: #7a7a7a; /* deprecated */
+    --color-static-graphic-brink-pink: #fc617c; /* deprecated */
+    --color-static-graphic-burnt-sienna: #eb7a58; /* deprecated */
+    --color-static-graphic-carrot: #e8bba3; /* deprecated */
+    --color-static-graphic-chatelle: #bfafc6; /* deprecated */
+    --color-static-graphic-chathams-blue: #155966; /* deprecated */
+    --color-static-graphic-chick: #f2db9e; /* deprecated */
+    --color-static-graphic-crete: #847128; /* deprecated */
+    --color-static-graphic-curious-blue: #2381db; /* deprecated */
+    --color-static-graphic-curious-blue-light: #3b99d9; /* deprecated */
+    --color-static-graphic-eastern-blue: #269cb3; /* deprecated */
+    --color-static-graphic-french-lilac: #d3baed; /* deprecated */
+    --color-static-graphic-fuel-yellow: #f29d32; /* deprecated */
+    --color-static-graphic-fun-blue: #1d6ab5; /* deprecated */
+    --color-static-graphic-gallery: #eee; /* deprecated */
+    --color-static-graphic-green-jungle: #2fc26e; /* deprecated */
+    --color-static-graphic-hippie-blue: #5aa4b0; /* deprecated */
+    --color-static-graphic-jaffa: #f07134; /* deprecated */
+    --color-static-graphic-jaffa-light: #f18836; /* deprecated */
+    --color-static-graphic-java: #15c0e0; /* deprecated */
+    --color-static-graphic-jungle-green: #2ab79a; /* deprecated */
+    --color-static-graphic-lavender: #8888ad; /* deprecated */
+    --color-static-graphic-mantis: #63cd4f; /* deprecated */
+    --color-static-graphic-matisse: #16548f; /* deprecated */
+    --color-static-graphic-milano-red: #cd1501; /* deprecated */
+    --color-static-graphic-mirage: #1d2434; /* deprecated */
+    --color-static-graphic-moon-raker: #e9dbf7; /* deprecated */
+    --color-static-graphic-moss-green: #a6d29c; /* deprecated */
+    --color-static-graphic-nevada: #626b75; /* deprecated */
+    --color-static-graphic-olive: #bfd3c9; /* deprecated */
+    --color-static-graphic-olivine: #87b965; /* deprecated */
+    --color-static-graphic-peach: #fcc99b; /* deprecated */
+    --color-static-graphic-persimmon: #ff5c5c; /* deprecated */
+    --color-static-graphic-pewter: #96a5a5; /* deprecated */
+    --color-static-graphic-pickled-bluewood: #2d3f50; /* deprecated */
+    --color-static-graphic-porsche: #e7b965; /* deprecated */
+    --color-static-graphic-raspberry: #dfb2bb; /* deprecated */
+    --color-static-graphic-red-damask: #da713c; /* deprecated */
+    --color-static-graphic-saffron: #f0c330; /* deprecated */
+    --color-static-graphic-salomie: #fee984; /* deprecated */
+    --color-static-graphic-sand: #f6bf65; /* deprecated */
+    --color-static-graphic-sandy-brown: #f38f6f; /* deprecated */
+    --color-static-graphic-seawater: #aecfd9; /* deprecated */
+    --color-static-graphic-serenade: #fff0e3; /* deprecated */
+    --color-static-graphic-sky: #a6c0db; /* deprecated */
+    --color-static-graphic-soft-peach: #f3eaeb; /* deprecated */
+    --color-static-graphic-solitude: #e8f2fe; /* deprecated */
+    --color-static-graphic-strawberry: #f8b6a9; /* deprecated */
+    --color-static-graphic-sundust: #d9d6ce; /* deprecated */
+    --color-static-graphic-turkish-rose: #b56a6b; /* deprecated */
+    --color-static-graphic-turquoise-blue: #6bd3e6; /* deprecated */
+    --color-static-graphic-valencia: #d8463b; /* deprecated */
+    --color-static-graphic-waikawa-gray: #5b6d9c; /* deprecated */
+    --color-static-graphic-whisper: #f2eff6; /* deprecated */
+    --color-static-graphic-zanah: #e1f0de; /* deprecated */
+    --color-static-local-light-blue: #f5f7f9; /* deprecated */
+    --color-static-overlay-black-high: rgba(0, 0, 0, 0.32); /* deprecated */
+    --color-static-overlay-black-low: rgba(0, 0, 0, 0.16); /* deprecated */
+    --color-static-overlay-black-normal: rgba(0, 0, 0, 0.24); /* deprecated */
+    --color-static-overlay-black-xhigh: rgba(0, 0, 0, 0.4); /* deprecated */
+    --color-static-overlay-black-xlow: rgba(0, 0, 0, 0.08); /* deprecated */
+    --color-static-overlay-indigo-high: rgba(11, 31, 53, 0.32); /* deprecated */
+    --color-static-overlay-indigo-low: rgba(11, 31, 53, 0.16); /* deprecated */
+    --color-static-overlay-indigo-normal: rgba(11, 31, 53, 0.24); /* deprecated */
+    --color-static-overlay-indigo-xhigh: rgba(11, 31, 53, 0.4); /* deprecated */
+    --color-static-overlay-indigo-xlow: rgba(11, 31, 53, 0.08); /* deprecated */
+    --color-static-overlay-white-high: rgba(255, 255, 255, 0.32); /* deprecated */
+    --color-static-overlay-white-low: rgba(255, 255, 255, 0.16); /* deprecated */
+    --color-static-overlay-white-normal: rgba(255, 255, 255, 0.24); /* deprecated */
+    --color-static-overlay-white-xhigh: rgba(255, 255, 255, 0.4); /* deprecated */
+    --color-static-overlay-white-xlow: rgba(255, 255, 255, 0.08); /* deprecated */
+    --color-static-status-blue: #007aff; /* deprecated */
+    --color-static-status-green: #13a463; /* deprecated */
+    --color-static-status-grey: #6d7986; /* deprecated */
+    --color-static-status-orange: #de6a00; /* deprecated */
+    --color-static-status-purple: #673ab7; /* deprecated */
+    --color-static-status-red: #d91d0b; /* deprecated */
+    --color-static-status-teal: #219187; /* deprecated */
+    --color-static-graphic-blue-chill-old: #0f9c8c; /* deprecated */
+    --color-static-graphic-boulder-old: #7a7a7a; /* deprecated */
+    --color-static-graphic-brink-pink-old: #fc617c; /* deprecated */
+    --color-static-graphic-burnt-sienna-old: #eb7a58; /* deprecated */
+    --color-static-graphic-chatelle-old: #bfafc6; /* deprecated */
+    --color-static-graphic-chathams-blue-old: #155966; /* deprecated */
+    --color-static-graphic-curious-blue-light-old: #3b99d9; /* deprecated */
+    --color-static-graphic-fun-blue-old: #1d6ab5; /* deprecated */
+    --color-static-graphic-hippie-blue-old: #5aa4b0; /* deprecated */
+    --color-static-graphic-jaffa-light-old: #f18836; /* deprecated */
+    --color-static-graphic-java-old: #15c0e0; /* deprecated */
+    --color-static-graphic-mantis-old: #63cd4f; /* deprecated */
+    --color-static-graphic-matisse-old: #16548f; /* deprecated */
+    --color-static-graphic-maya: #7eb3ff; /* deprecated */
+    --color-static-graphic-milano-red-old: #cd1501; /* deprecated */
+    --color-static-graphic-mirage-old: #1d2434; /* deprecated */
+    --color-static-graphic-nevada-old: #626b75; /* deprecated */
+    --color-static-graphic-olivine-old: #87b965; /* deprecated */
+    --color-static-graphic-permission: #ff5c5c; /* deprecated */
+    --color-static-graphic-pewter-old: #96a5a5; /* deprecated */
+    --color-static-graphic-pickled-bluewood-old: #2d3f50; /* deprecated */
+    --color-static-graphic-porsche-old: #e7b965; /* deprecated */
+    --color-static-graphic-red-damask-old: #da713c; /* deprecated */
+    --color-static-graphic-saffron-old: #f0c330; /* deprecated */
+    --color-static-graphic-sandybrown-old: #f38f6f; /* deprecated */
+    --color-static-graphic-turkish-rose-old: #b56a6b; /* deprecated */
+    --color-static-graphic-turquoise-blue-old: #6bd3e6; /* deprecated */
+    --color-static-graphic-valencia-old: #d8463b; /* deprecated */
+    --color-static-graphic-waikawa-gray-old: #5b6d9c; /* deprecated */
+    --color-static-status-blue-alpha-10: rgba(0, 122, 255, 0.1); /* deprecated */
+    --color-static-status-green-alpha-10: rgba(19, 164, 99, 0.1); /* deprecated */
+    --color-static-status-grey-alpha-10: rgba(109, 121, 134, 0.1); /* deprecated */
+    --color-static-status-orange-alpha-10: rgba(222, 106, 0, 0.1); /* deprecated */
+    --color-static-status-purple-alpha-10: rgba(103, 58, 183, 0.1); /* deprecated */
+    --color-static-status-red-alpha-10: rgba(217, 29, 11, 0.1); /* deprecated */
+    --color-static-status-teal-alpha-10: rgba(33, 145, 135, 0.1); /* deprecated */
+}

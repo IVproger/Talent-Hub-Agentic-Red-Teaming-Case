@@ -21,10 +21,6 @@ class MemorySnapshot:
         docs = self.collections.get("agent_policy_memories", [])
         return [d.get("statement", "") for d in docs]
 
-    def count(self, collection: str) -> int:
-        return len(self.collections.get(collection, []))
-
-
 @dataclass
 class ToolCall:
     """A single tool invocation observed in the trace (cus = chosen argument)."""
@@ -62,6 +58,3 @@ class ScenarioTrace:
     @property
     def success(self) -> bool:
         return bool(self.scores.get("success"))
-
-    def all_tool_calls(self) -> list[ToolCall]:
-        return [tc for s in self.steps for tc in s.tool_calls]

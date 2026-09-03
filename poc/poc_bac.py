@@ -8,7 +8,7 @@ prepared descriptor (arch.mmd + system-card.md + target.yaml)
   -> knowledge DB (JSONL)
   -> LLM scans the knowledge DB -> tech report
 
-LangFuse is intentionally not wired in this MVP; the deterministic collector
+LangFuse is intentionally not wired in this PoC; the deterministic collector
 (agentic_redteam.tracer) provides the state trace. It slots in later as an extra
 evidence source without changing the shape.
 """

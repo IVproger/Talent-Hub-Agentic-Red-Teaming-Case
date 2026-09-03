@@ -52,7 +52,7 @@ Sys-1 engine); the LLM reads the human-readable versions; the code reads the mac
    calls, and the LangFuse `trace_id` for the run.
 4. **LangFuse** — stores a trace per attack (input=payload, output=agent response, a span per
    observed tool call with its `cus`); the trace id/URL go into the knowledge record. In this
-   MVP the trace is **harness-side** (emitted by our runner), not deep agent instrumentation —
+   PoC the trace is **harness-side** (emitted by our runner), not deep agent instrumentation —
    instrumenting the stand's own LLM/tool calls (system prompt incl. memory, full tool args)
    is the next increment. Optional: if LangFuse is down the pipeline still runs.
 5. **Deterministic collector + verdict** — reads the invest-server access log (tool-call
@@ -87,7 +87,7 @@ to exactly where — the tool-call arguments.
 - **Reused** from `agentic_redteam`: target HTTP client + headless key minting (`client.py`),
   the tool-call collector (`tracer.py`), the `tool_cus_mismatch` assertion (`scorers.py`).
 - **New:** LLM client (Ollama), attack generator, harness-side LangFuse tracing, knowledge
-  DB (JSONL), and the LLM-scanned report. (Descriptor loader is still a plan item; this MVP
+  DB (JSONL), and the LLM-scanned report. (Descriptor loader is still a plan item; this PoC
   reads the prepared `target/*` directly.)
 
 ## Model and environment

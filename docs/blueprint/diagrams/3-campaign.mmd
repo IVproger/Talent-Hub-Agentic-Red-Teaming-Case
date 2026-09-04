@@ -1,0 +1,40 @@
+%% MOROK — прогон кампании
+sequenceDiagram
+    actor OP as Оператор
+    participant CMP as Composer
+    participant GEN as Генератор
+    participant RUN as Runner
+    participant AD as Адаптер
+    participant TG as Целевой агент
+    participant EV as Evidence
+    participant AS as Ассершены
+    participant ST as Хранилище runs
+
+    OP->>CMP: выбрать шаблоны и профиль с версией
+    CMP->>CMP: Template x surface даёт Scenario
+    Note over CMP: шаблон без заявленной границы<br/>не композируется, NOT_APPLICABLE
+    CMP->>GEN: сценарии
+    GEN->>GEN: N вариантов payload
+    GEN-->>OP: предпросмотр плана
+    OP->>RUN: подтвердить, выполняется именно показанное
+
+    loop по режимам, затем сценариям, затем попыткам
+        RUN->>EV: reset состояния
+        RUN->>EV: mark, засечка до шага
+        RUN->>AD: open_session role session mode
+        AD->>TG: send payload
+        TG-->>AD: ответ
+        opt цель поддерживает commit_memory
+            AD->>TG: commit_memory
+        end
+        RUN->>EV: collect since mark
+        EV-->>RUN: сырые наблюдения
+        RUN->>RUN: нормализация в ObservedToolCall и ObservedMemoryWrite
+        RUN->>AS: факты и принципал актора
+        AS-->>RUN: исходы с градациями
+        RUN->>RUN: вердикт
+        RUN->>ST: попытка, evidence, raw
+    end
+
+    RUN->>ST: findings, ASR, отчёты
+    ST-->>OP: артефакты кампании

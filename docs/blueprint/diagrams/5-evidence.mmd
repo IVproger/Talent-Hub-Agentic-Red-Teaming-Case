@@ -1,0 +1,35 @@
+%% MOROK — нормализация evidence
+flowchart LR
+    subgraph RAW["Специфично для цели"]
+        R1["Mongo, Postgres, вектор-стор"]
+        R2["Access-лог, аудит-таблица"]
+        R3["OTel-спаны цели"]
+        R4["Canary-listener"]
+        R5["Вызов memory-tool"]
+    end
+
+    subgraph PRJ["Профиль: декларация"]
+        P1["record: key · content · owner · scope"]
+        P2["principal_from:<br/>argument · call_context · none"]
+    end
+
+    subgraph FACT["Нормализованные факты, общие для всех целей"]
+        F1["ObservedMemoryWrite<br/>store_id · scope · key · content<br/>persistence: CONFIRMED · ATTEMPTED"]
+        F2["ObservedToolCall<br/>tool · principal · args · raw"]
+        F3["ObservedCallback<br/>token · source"]
+    end
+
+    D["Диф снимков<br/>по key, иначе по хешу контента"]
+    A["Предикаты:<br/>memory_write · isolation_violation<br/>external_callback · cross_session_effect"]
+
+    R1 --> D
+    P1 --> D
+    D --> F1
+    R5 -. только ATTEMPTED .-> F1
+    R2 --> F2
+    R3 --> F2
+    P2 --> F2
+    R4 --> F3
+    F1 --> A
+    F2 --> A
+    F3 --> A

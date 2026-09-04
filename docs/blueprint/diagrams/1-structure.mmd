@@ -1,0 +1,77 @@
+%% MOROK — общая структура
+flowchart TB
+    TEAM(["Команда целевого агента<br/>владелец системы"])
+    OPER(["Оператор — MLSecOps-инженер<br/>проводит аудит"])
+    RISK(["CISO / владелец риска"])
+
+    subgraph SUPPLY["Материалы от команды цели"]
+        DOCS["Документы<br/>arch · system-card · OpenAPI"]
+        ACC["Доступы<br/>точка входа · две личности<br/>память · источник tool calls"]
+        BIZ["Заявленные бизнес-эффекты<br/>и недопустимые действия"]
+        PERM["Разрешение, окно, режим reset"]
+    end
+
+    subgraph SHIP["Поставляется с MOROK"]
+        STD["Каталог шаблонов<br/>OWASP Agentic 2026 · MITRE ATLAS"]
+    end
+
+    subgraph DEC["Решения оператора"]
+        SCOPE["Состав и объём кампании<br/>подтверждение плана"]
+    end
+
+    PROF{{"Профиль цели @ версия<br/>единственное место знания о цели"}}
+
+    subgraph CORE["Ядро MOROK — о цели не знает"]
+        TPL["Шаблоны атак"]
+        COMP["Composer"]
+        GEN["Генератор вариантов"]
+        PLAN["План кампании"]
+        RUN["Runner"]
+        NORM["Нормализация фактов"]
+        ASRT["Предикаты"]
+        VERD["Вердикт"]
+        KB[("База знаний")]
+        REP["Отчёты"]
+    end
+
+    subgraph EDGE["Граница цели — плагины"]
+        AD["Адаптер http-chat"]
+        ID["Провайдер личностей"]
+        EV["Провайдеры evidence"]
+    end
+
+    TGT(["Целевой агент"])
+    TECH["Технический отчёт · surface.json<br/>регрессионный набор"]
+    BREP["Бизнес-отчёт о рисках"]
+
+    TEAM --> DOCS
+    TEAM --> ACC
+    TEAM --> BIZ
+    TEAM --> PERM
+    OPER --> SCOPE
+    DOCS -->|ingest| PROF
+    ACC --> PROF
+    BIZ --> PROF
+    PERM --> PROF
+    STD --> TPL
+    PROF --> COMP
+    TPL --> COMP
+    SCOPE --> PLAN
+    COMP --> GEN --> PLAN --> RUN
+    PROF -. конфигурирует .-> AD
+    PROF -. конфигурирует .-> ID
+    PROF -. конфигурирует .-> EV
+    ID --> AD
+    RUN --> AD --> TGT
+    TGT -. наблюдение .-> EV
+    EV --> NORM
+    PROF -. проекция записей .-> NORM
+    NORM --> ASRT --> VERD
+    VERD --> REP
+    VERD --> KB
+    KB -. контекст прошлых кампаний .-> GEN
+    REP --> TECH
+    REP --> BREP
+    TECH --> OPER
+    TECH -. согласование scope .-> TEAM
+    BREP --> RISK

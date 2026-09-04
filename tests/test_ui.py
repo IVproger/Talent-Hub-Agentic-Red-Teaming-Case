@@ -132,12 +132,42 @@ class StreamlitSmokeTests(unittest.TestCase):
                 button for button in app.button if button.label == "ЗАПУСТИТЬ"
             )
             self.assertFalse(run_button.disabled)
+            # Adaptive BAC requires target context; fill both fields first.
+            for area in app.text_area:
+                if area.label in ("Архитектура", "Описание компонентов"):
+                    area.set_value("stub context")
             run_button.click()
             app.run(timeout=15)
             self.assertTrue(
                 any("NOT SCORED" in item.value for item in app.markdown)
             )
         self.assertEqual(pipeline.call_count, 1)
+
+    def test_empty_context_blocks_adaptive_bac_run(self):
+        from agentic_redteam.doctor import CheckResult
+        from streamlit.testing.v1 import AppTest
+
+        app_path = Path(__file__).resolve().parents[1] / "agentic_redteam" / "ui" / "app.py"
+        with patch(
+            "agentic_redteam.doctor.run_checks",
+            return_value=[CheckResult("ready", True, "Ready")],
+        ), patch(
+            "agentic_redteam.pipeline.run_pipeline"
+        ) as pipeline, patch.dict(os.environ, {"OPENROUTER_API_KEY": "test-key"}):
+            app = AppTest.from_file(str(app_path)).run(timeout=15)
+            next(button for button in app.button if button.label == "ПРОВЕРИТЬ").click()
+            app.run(timeout=15)
+            run_button = next(
+                button for button in app.button if button.label == "ЗАПУСТИТЬ"
+            )
+            run_button.click()
+            app.run(timeout=15)
+        self.assertEqual(pipeline.call_count, 0)
+        self.assertTrue(app.session_state.arch_error)
+        self.assertTrue(app.session_state.card_error)
+        self.assertTrue(
+            any("схему архитектуры" in item.value for item in app.error)
+        )
 
 
 if __name__ == "__main__":

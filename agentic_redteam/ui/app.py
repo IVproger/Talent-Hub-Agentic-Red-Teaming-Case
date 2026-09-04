@@ -40,17 +40,6 @@ ROLE_LABELS = {
     "report_writer": "Автор отчёта",
 }
 
-ARCH_DEFAULT_PATH = REPO_ROOT / "docs" / "target" / "arch.mmd"
-CARD_DEFAULT_PATH = REPO_ROOT / "docs" / "target" / "system-card.md"
-
-
-def _read_default(path: Path) -> str:
-    """Read a bundled target-context file; empty string when unavailable."""
-    try:
-        return path.read_text(encoding="utf-8")
-    except OSError:
-        return ""
-
 
 def _write_context_file(text: str, suffix: str) -> Path:
     """Persist edited/uploaded target context to a temp file the pipeline can read."""
@@ -122,31 +111,30 @@ def main() -> None:
             with st.expander("Модели из конфигурации"):
                 st.markdown(_configured_models_html(selected), unsafe_allow_html=True)
 
-            with st.expander("Контекст цели"):
+            context_error = (
+                st.session_state.arch_error or st.session_state.card_error
+            )
+            with st.expander("Контекст цели", expanded=context_error):
                 st.caption(
                     "Схема архитектуры и описание компонентов подаются генератору "
-                    "Adaptive BAC. Загрузите файл или отредактируйте текст."
+                    "Adaptive BAC. Загрузите файл или вставьте текст."
                 )
                 arch_upload = st.file_uploader(
                     "Архитектура стенда (.mmd)",
                     type=["mmd", "md", "txt"],
                     key="arch_upload",
                 )
-                arch_context = st.text_area(
-                    "Архитектура (Mermaid)",
-                    value=_read_default(ARCH_DEFAULT_PATH),
-                    height=180,
-                )
+                arch_context = st.text_area("Архитектура", height=180)
+                if st.session_state.arch_error:
+                    st.error("Загрузите файл или вставьте схему архитектуры.")
                 card_upload = st.file_uploader(
                     "Описание компонентов (system card)",
                     type=["md", "txt"],
                     key="card_upload",
                 )
-                card_context = st.text_area(
-                    "Описание компонентов",
-                    value=_read_default(CARD_DEFAULT_PATH),
-                    height=180,
-                )
+                card_context = st.text_area("Описание компонентов", height=180)
+                if st.session_state.card_error:
+                    st.error("Загрузите файл или вставьте описание компонентов.")
 
             provider_roles = (
                 ("attack_generator", "report_writer")
@@ -226,6 +214,23 @@ def main() -> None:
     if submitted and not readiness_current:
         st.session_state.run_error = "Конфигурация изменилась. Выполните preflight ещё раз."
         submitted = False
+    if submitted:
+        context_required = scenario_id == GENERATED_BAC_SCENARIO_ID
+        arch_content = (
+            arch_upload.getvalue().decode("utf-8", "replace")
+            if arch_upload is not None
+            else arch_context
+        ).strip()
+        card_content = (
+            card_upload.getvalue().decode("utf-8", "replace")
+            if card_upload is not None
+            else card_context
+        ).strip()
+        st.session_state.arch_error = context_required and not arch_content
+        st.session_state.card_error = context_required and not card_content
+        if st.session_state.arch_error or st.session_state.card_error:
+            submitted = False
+            st.rerun()
     if submitted and not st.session_state.run_in_progress:
         st.session_state.run_in_progress = True
         st.session_state.run_error = None
@@ -247,21 +252,16 @@ def main() -> None:
             live_events.append({"stage": event.stage, "message": event.message, "verdict": event.data.get("verdict")})
             live_trace.markdown(_live_progress_html(live_events), unsafe_allow_html=True)
 
-        # Override the bundled target context only when the user actually
-        # supplied custom content, so ordinary runs keep the repo file paths.
+        # Materialize the target context the user provided; empty fields on a
+        # scripted scenario fall back to the bundled RunConfig defaults.
         context_overrides: dict[str, Path] = {}
         context_temp_paths: list[Path] = []
-        for upload, edited, default_path, field, suffix in (
-            (arch_upload, arch_context, ARCH_DEFAULT_PATH, "arch", ".mmd"),
-            (card_upload, card_context, CARD_DEFAULT_PATH, "system_card", ".md"),
+        for content, field, suffix in (
+            (arch_content, "arch", ".mmd"),
+            (card_content, "system_card", ".md"),
         ):
-            source = (
-                upload.getvalue().decode("utf-8", "replace")
-                if upload is not None
-                else edited
-            )
-            if source != _read_default(default_path):
-                written = _write_context_file(source, suffix)
+            if content:
+                written = _write_context_file(content, suffix)
                 context_overrides[field] = written
                 context_temp_paths.append(written)
         try:
@@ -627,6 +627,8 @@ def _init_state() -> None:
         "last_result": None,
         "environment_checks": [],
         "environment_fingerprint": None,
+        "arch_error": False,
+        "card_error": False,
     }
     for key, value in defaults.items():
         if key not in st.session_state:

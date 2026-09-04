@@ -90,6 +90,13 @@ def build_parser() -> argparse.ArgumentParser:
     run.add_argument("--victim-cus")
     run.add_argument("--auth-mode", choices=("vulnerable", "protected"))
     run.add_argument(
+        "--arch", help="файл архитектуры (.mmd) для контекста Adaptive BAC"
+    )
+    run.add_argument(
+        "--system-card",
+        help="файл описания компонентов (system card) для контекста Adaptive BAC",
+    )
+    run.add_argument(
         "-o",
         "--output",
         default=str(DEFAULT_RUNS_ROOT),
@@ -256,9 +263,15 @@ def _run_scenarios(args) -> int:
         raise PipelineConfigurationError("--trials должен быть не меньше 1.")
     scenario_ids = _resolve_scenario_ids(args.scenario)
     roles = _role_configs(args)
+    context_overrides = {}
+    if args.arch is not None:
+        context_overrides["arch"] = Path(args.arch)
+    if args.system_card is not None:
+        context_overrides["system_card"] = Path(args.system_card)
     configs = [
         RunConfig(
             target_config=Path(args.config),
+            **context_overrides,
             output_root=Path(args.output),
             num_candidates=args.trials,
             attacker_cus=args.attacker_cus,

@@ -85,9 +85,11 @@ python -m agentic_redteam report --run runs/<run-id>
 python -m agentic_redteam serve
 ```
 
-Одна команда `run` обслуживает adaptive и фиксированные сценарии. Список
-параметров и точные идентификаторы доступны через
-`python -m agentic_redteam run --help`. Флаг `--json` поддерживается командами,
+Одна команда `run` обслуживает adaptive и фиксированные сценарии. Флаги
+`--arch` и `--system-card` переопределяют контекст цели (схему архитектуры и
+описание компонентов), который читает генератор Adaptive BAC; без них берутся
+файлы из `docs/target/`. Список параметров и точные идентификаторы доступны
+через `python -m agentic_redteam run --help`. Флаг `--json` поддерживается командами,
 которые возвращают результат. Exit codes: `0` — успех, `2` — ошибка аргументов
 или конфигурации, `3` — preflight target, `4` — LLM provider, `5` — pipeline.
 

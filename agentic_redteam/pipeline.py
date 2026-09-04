@@ -187,9 +187,9 @@ def load_effective_config(config: RunConfig) -> dict:
     if auth_mode not in ("vulnerable", "protected"):
         raise PipelineConfigurationError("auth_mode must be 'vulnerable' or 'protected'.")
     if not Path(config.arch).is_file():
-        raise PipelineConfigurationError(f"Architecture file does not exist: {config.arch}")
+        raise PipelineConfigurationError(f"Файл архитектуры не найден: {config.arch}")
     if not Path(config.system_card).is_file():
-        raise PipelineConfigurationError(f"System card does not exist: {config.system_card}")
+        raise PipelineConfigurationError(f"Файл system card не найден: {config.system_card}")
     scenario: Scenario | None = None
     if config.scenario_id != GENERATED_BAC_SCENARIO_ID:
         try:

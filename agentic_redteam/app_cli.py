@@ -63,29 +63,29 @@ class CLIArgumentParser(argparse.ArgumentParser):
 def build_parser() -> argparse.ArgumentParser:
     parser = CLIArgumentParser(
         prog="python -m agentic_redteam",
-        description="Run state-based security checks against the local agent lab.",
+        description="Проверки безопасности целевого агента на основе состояния (state-based).",
         epilog=(
-            "Examples: python -m agentic_redteam doctor; "
+            "Примеры: python -m agentic_redteam doctor; "
             "python -m agentic_redteam run --scenario generated-bac"
         ),
     )
     parser.add_argument("--version", action="version", version=VERSION)
     commands = parser.add_subparsers(dest="command", required=True)
 
-    doctor = commands.add_parser("doctor", help="check the local runtime without changing it")
+    doctor = commands.add_parser("doctor", help="проверить локальное окружение, ничего не меняя")
     _add_config_path(doctor)
-    doctor.add_argument("--offline", action="store_true", help="validate files and configuration only")
-    doctor.add_argument("--json", action="store_true", help="write one JSON result to stdout")
+    doctor.add_argument("--offline", action="store_true", help="проверять только файлы и конфигурацию")
+    doctor.add_argument("--json", action="store_true", help="вывести один JSON-результат в stdout")
 
-    run = commands.add_parser("run", help="run generated or bundled security scenarios")
+    run = commands.add_parser("run", help="запустить генерируемые или встроенные сценарии безопасности")
     _add_config_path(run)
     run.add_argument(
         "--scenario",
         action="append",
         default=[],
-        help="scenario id or bundled YAML path; repeat for several",
+        help="id сценария или путь к YAML; повторяйте для нескольких",
     )
-    run.add_argument("-n", "--trials", type=int, default=1, help="trials per scenario (default: 1)")
+    run.add_argument("-n", "--trials", type=int, default=1, help="прогонов на сценарий (по умолчанию: 1)")
     run.add_argument("--attacker-cus")
     run.add_argument("--victim-cus")
     run.add_argument("--auth-mode", choices=("vulnerable", "protected"))
@@ -93,40 +93,40 @@ def build_parser() -> argparse.ArgumentParser:
         "-o",
         "--output",
         default=str(DEFAULT_RUNS_ROOT),
-        help="root directory for per-run artifacts",
+        help="корневой каталог для артефактов запусков",
     )
     run.add_argument(
         "--dry-run",
         action="store_true",
-        help="print redacted effective configurations without running",
+        help="показать итоговую конфигурацию (с редактированием секретов) без запуска",
     )
-    run.add_argument("--json", action="store_true", help="write one JSON result to stdout")
+    run.add_argument("--json", action="store_true", help="вывести один JSON-результат в stdout")
 
-    report = commands.add_parser("report", help="regenerate a report from a saved run")
-    report.add_argument("--run", required=True, help="saved run directory")
+    report = commands.add_parser("report", help="пересобрать отчёт из сохранённого запуска")
+    report.add_argument("--run", required=True, help="каталог сохранённого запуска")
     report.add_argument("--report-provider", choices=("ollama", "openrouter"))
     report.add_argument("--report-model")
-    report.add_argument("--json", action="store_true", help="write one JSON result to stdout")
+    report.add_argument("--json", action="store_true", help="вывести один JSON-результат в stdout")
 
-    stand = commands.add_parser("stand", help="manage the configured target stand")
+    stand = commands.add_parser("stand", help="управление настроенным целевым стендом")
     stand_commands = stand.add_subparsers(dest="stand_command", required=True)
     stand_sync = stand_commands.add_parser(
-        "sync", help="apply llm.target_agent from YAML to stand/.env"
+        "sync", help="применить llm.target_agent из YAML в stand/.env"
     )
     _add_config_path(stand_sync)
     stand_sync.add_argument(
-        "--dry-run", action="store_true", help="show managed changes without writing"
+        "--dry-run", action="store_true", help="показать управляемые изменения без записи"
     )
-    stand_sync.add_argument("--json", action="store_true", help="write one JSON result to stdout")
+    stand_sync.add_argument("--json", action="store_true", help="вывести один JSON-результат в stdout")
 
-    serve = commands.add_parser("serve", help="start the local Streamlit interface")
+    serve = commands.add_parser("serve", help="запустить локальный интерфейс Streamlit")
     serve.add_argument(
         "--address",
         choices=("127.0.0.1", "localhost"),
         default="127.0.0.1",
-        help="local bind address (default: 127.0.0.1)",
+        help="локальный адрес привязки (по умолчанию: 127.0.0.1)",
     )
-    serve.add_argument("--port", type=_port, default=8502, help="bind port (default: 8502)")
+    serve.add_argument("--port", type=_port, default=8502, help="порт привязки (по умолчанию: 8502)")
     return parser
 
 
@@ -134,7 +134,7 @@ def _add_config_path(parser: argparse.ArgumentParser) -> None:
     parser.add_argument(
         "--config",
         default=str(Path(__file__).resolve().parents[1] / "config" / "target.yaml"),
-        help="target YAML configuration",
+        help="целевая конфигурация YAML",
     )
 
 
@@ -143,9 +143,9 @@ def _role_configs(args) -> dict:
     try:
         raw = yaml.safe_load(config_path.read_text(encoding="utf-8")) or {}
     except (OSError, yaml.YAMLError) as exc:
-        raise PipelineConfigurationError(f"Could not read configuration: {config_path}") from exc
+        raise PipelineConfigurationError(f"Не удалось прочитать конфигурацию: {config_path}") from exc
     if not isinstance(raw, Mapping):
-        raise PipelineConfigurationError("Configuration must be a YAML mapping.")
+        raise PipelineConfigurationError("Конфигурация должна быть YAML-отображением (mapping).")
     roles = role_configs_from_mapping(raw.get("llm"))
     return roles
 
@@ -169,7 +169,7 @@ def main(argv: list[str] | None = None) -> int:
             return _stand_sync(args)
         if args.command == "serve":
             return _serve(args)
-        parser.error("unknown command")
+        parser.error("неизвестная команда")
     except (LLMConfigurationError, PipelineConfigurationError, StandSyncError) as exc:
         _error(sanitize_error(exc), getattr(args, "json", False), EXIT_USAGE)
         return EXIT_USAGE
@@ -193,7 +193,7 @@ def main(argv: list[str] | None = None) -> int:
         else:
             _error(sanitize_error(exc), False, EXIT_PROVIDER)
             if result:
-                print(f"run: {result.run_dir}", file=sys.stderr)
+                print(f"запуск: {result.run_dir}", file=sys.stderr)
         return EXIT_PROVIDER
     except PipelineRunError as exc:
         payload = {
@@ -205,12 +205,12 @@ def main(argv: list[str] | None = None) -> int:
         if getattr(args, "json", False):
             print(json.dumps(payload, ensure_ascii=False))
         else:
-            print(f"error: {exc}", file=sys.stderr)
+            print(f"ошибка: {exc}", file=sys.stderr)
             if exc.result:
-                print(f"run: {exc.result.run_dir}", file=sys.stderr)
+                print(f"запуск: {exc.result.run_dir}", file=sys.stderr)
         return EXIT_PIPELINE
     except KeyboardInterrupt:
-        print("Interrupted.", file=sys.stderr)
+        print("Прервано.", file=sys.stderr)
         return 130
     except Exception as exc:  # keep expected operational failures concise
         _error(sanitize_error(exc), getattr(args, "json", False), EXIT_PIPELINE)
@@ -246,14 +246,14 @@ def _doctor(args) -> int:
         )
     else:
         for item in checks:
-            marker = "ok" if item.ok else "fail"
+            marker = "ок" if item.ok else "сбой"
             print(f"[{marker}] {item.name}: {item.message}")
     return 0 if checks_ok(checks) else EXIT_PREFLIGHT
 
 
 def _run_scenarios(args) -> int:
     if args.trials < 1:
-        raise PipelineConfigurationError("--trials must be at least 1.")
+        raise PipelineConfigurationError("--trials должен быть не меньше 1.")
     scenario_ids = _resolve_scenario_ids(args.scenario)
     roles = _role_configs(args)
     configs = [
@@ -281,7 +281,7 @@ def _run_scenarios(args) -> int:
     for config in configs:
         if not args.json:
             print(
-                f"running {config.scenario_id} ({args.trials} trial(s))",
+                f"запуск {config.scenario_id} ({args.trials} прогон(ов))",
                 file=sys.stderr,
             )
 
@@ -314,7 +314,7 @@ def _resolve_scenario_ids(values: list[str]) -> list[str]:
     try:
         catalog = bundled_scenarios()
     except (OSError, ValueError, TypeError, KeyError, yaml.YAMLError) as exc:
-        raise PipelineConfigurationError("Could not load bundled scenarios.") from exc
+        raise PipelineConfigurationError("Не удалось загрузить встроенные сценарии.") from exc
     available = {GENERATED_BAC_SCENARIO_ID, *catalog}
     if not values:
         return [GENERATED_BAC_SCENARIO_ID, *catalog]
@@ -326,13 +326,13 @@ def _resolve_scenario_ids(values: list[str]) -> list[str]:
                 scenario_id = Scenario.load(path).id
             except (OSError, ValueError, TypeError, KeyError, yaml.YAMLError) as exc:
                 raise PipelineConfigurationError(
-                    f"Could not load scenario configuration: {path}"
+                    f"Не удалось загрузить конфигурацию сценария: {path}"
                 ) from exc
         else:
             scenario_id = value
         if scenario_id not in available:
             raise PipelineConfigurationError(
-                f"Unknown scenario '{scenario_id}'. Choose: "
+                f"Неизвестный сценарий '{scenario_id}'. Доступные: "
                 + ", ".join(sorted(available))
             )
         if scenario_id not in resolved:
@@ -346,7 +346,7 @@ def _report(args) -> int:
         saved = json.loads((run_dir / "config.json").read_text(encoding="utf-8"))
         roles = role_configs_from_mapping(saved.get("llm"))
     except (OSError, ValueError) as exc:
-        raise PipelineConfigurationError(f"Saved run is missing valid config.json: {run_dir}") from exc
+        raise PipelineConfigurationError(f"В сохранённом запуске нет корректного config.json: {run_dir}") from exc
     roles = apply_role_overrides(
         roles,
         {"report_writer": {"provider": args.report_provider, "model": args.report_model}},
@@ -356,7 +356,7 @@ def _report(args) -> int:
     if args.json:
         print(json.dumps({"ok": True, "report": str(output)}))
     else:
-        print(f"report: {output}")
+        print(f"отчёт: {output}")
     return 0
 
 
@@ -366,15 +366,15 @@ def _stand_sync(args) -> int:
         print(json.dumps({"ok": True, "sync": result.to_dict()}, ensure_ascii=False))
         return 0
     if not result.changes:
-        print("stand is already synchronized and verified")
+        print("стенд уже синхронизирован и проверен")
         return 0
     for change in result.changes:
-        old = change.old if change.old is not None else "<missing>"
+        old = change.old if change.old is not None else "<нет>"
         print(f"{change.key}: {old} -> {change.new}")
     if result.dry_run:
-        print("dry-run: no files or containers were changed")
+        print("dry-run: файлы и контейнеры не изменялись")
     else:
-        print("agent-api recreated and target model verified")
+        print("agent-api пересоздан, целевая модель проверена")
     return 0
 
 
@@ -402,11 +402,11 @@ def _error(message: str, json_mode: bool, code: int) -> None:
     if json_mode:
         print(json.dumps({"ok": False, "error": message, "exit_code": code}))
     else:
-        print(f"error: {message}", file=sys.stderr)
+        print(f"ошибка: {message}", file=sys.stderr)
 
 
 def _port(value: str) -> int:
     port = int(value)
     if not 1 <= port <= 65535:
-        raise argparse.ArgumentTypeError("port must be between 1 and 65535")
+        raise argparse.ArgumentTypeError("порт должен быть в диапазоне 1..65535")
     return port

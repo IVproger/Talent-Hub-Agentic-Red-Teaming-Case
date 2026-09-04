@@ -45,9 +45,9 @@ def run_checks(
         CheckResult(
             "stand",
             stand_ready,
-            "Stand source directory is available."
+            "Каталог с исходниками стенда доступен."
             if stand_ready
-            else "Stand source directory is incomplete or missing.",
+            else "Каталог с исходниками стенда неполон или отсутствует.",
         ),
     ]
     llm_valid = True
@@ -57,7 +57,7 @@ def run_checks(
             raise ValueError(
                 "target_agent.temperature is not supported by the current stand; use 0."
             )
-        results.append(CheckResult("llm_config", True, "All LLM roles are configured."))
+        results.append(CheckResult("llm_config", True, "Все LLM-роли настроены."))
     except ValueError as exc:
         llm_valid = False
         results.append(CheckResult("llm_config", False, str(exc)))
@@ -71,9 +71,9 @@ def run_checks(
         CheckResult(
             "docker",
             docker_ok,
-            "Docker executable is available."
+            "Исполняемый файл Docker доступен."
             if docker_ok
-            else "Docker was not found on PATH.",
+            else "Docker не найден в PATH.",
         )
     )
     compose_ok = False
@@ -93,9 +93,9 @@ def run_checks(
         CheckResult(
             "docker_compose",
             compose_ok,
-            "Docker Compose is available."
+            "Docker Compose доступен."
             if compose_ok
-            else "Docker Compose is unavailable. Install or enable the Compose plugin.",
+            else "Docker Compose недоступен. Установите или включите плагин Compose.",
         )
     )
 
@@ -127,7 +127,7 @@ def run_checks(
             CheckResult(
                 "agent_api",
                 False,
-                "Target agent API URL is invalid or contains a query/fragment.",
+                "URL целевого agent API некорректен или содержит query/fragment.",
             )
         )
     elif target_parts.username is not None or target_parts.password is not None:
@@ -135,7 +135,7 @@ def run_checks(
             CheckResult(
                 "agent_api",
                 False,
-                "Target agent API URL must not contain credentials.",
+                "URL целевого agent API не должен содержать учётные данные.",
             )
         )
     else:
@@ -148,9 +148,9 @@ def run_checks(
                 CheckResult(
                     "agent_api",
                     ok,
-                    "Target agent API is healthy."
+                    "Целевой agent API работает нормально."
                     if ok
-                    else "Target agent API returned an unexpected response.",
+                    else "Целевой agent API вернул неожиданный ответ.",
                 )
             )
         except (OSError, ValueError, urllib.error.URLError):
@@ -158,7 +158,7 @@ def run_checks(
                 CheckResult(
                     "agent_api",
                     False,
-                    f"Target agent API is not reachable at {endpoint}.",
+                    f"Целевой agent API недоступен по адресу {endpoint}.",
                 )
             )
 
@@ -171,7 +171,7 @@ def run_checks(
                 CheckResult(
                     "target_model",
                     True,
-                    f"Target uses {state.research_model} at {state.base_url}.",
+                    f"Цель использует {state.research_model} на {state.base_url}.",
                 )
             )
         except (TargetConfigurationError, KeyError) as exc:
@@ -206,14 +206,14 @@ def _probe_provider(config: LLMRoleConfig) -> tuple[bool, str]:
         except urllib.error.HTTPError as exc:
             exc.close()
             if exc.code in (401, 403):
-                return False, "openrouter rejected its configured credential."
+                return False, "openrouter отклонил настроенные учётные данные."
             return False, (
-                "openrouter credential check returned "
-                f"HTTP {exc.code} at {credential_request.full_url}."
+                "проверка учётных данных openrouter вернула "
+                f"HTTP {exc.code} на {credential_request.full_url}."
             )
         except (OSError, ValueError, urllib.error.URLError):
             return False, (
-                "openrouter credential endpoint is not reachable at "
+                "эндпоинт учётных данных openrouter недоступен по адресу "
                 f"{credential_request.full_url}."
             )
     request = urllib.request.Request(url, headers=headers, method="GET")
@@ -223,10 +223,10 @@ def _probe_provider(config: LLMRoleConfig) -> tuple[bool, str]:
     except urllib.error.HTTPError as exc:
         exc.close()
         if exc.code in (401, 403):
-            return False, f"{cfg.provider} rejected its configured credential."
-        return False, f"{cfg.provider} model check returned HTTP {exc.code} at {url}."
+            return False, f"{cfg.provider} отклонил настроенные учётные данные."
+        return False, f"проверка модели {cfg.provider} вернула HTTP {exc.code} на {url}."
     except (OSError, ValueError, urllib.error.URLError):
-        return False, f"{cfg.provider} model endpoint is not reachable at {url}."
+        return False, f"эндпоинт модели {cfg.provider} недоступен по адресу {url}."
 
     if cfg.provider == "ollama":
         models = payload.get("models", []) if isinstance(payload, dict) else []
@@ -247,5 +247,5 @@ def _probe_provider(config: LLMRoleConfig) -> tuple[bool, str]:
         }
         candidates = {cfg.model}
     if identifiers.isdisjoint(candidates):
-        return False, f"Model {cfg.model} is not available from {cfg.provider}."
-    return True, f"Model {cfg.model} is available from {cfg.provider}."
+        return False, f"Модель {cfg.model} недоступна у провайдера {cfg.provider}."
+    return True, f"Модель {cfg.model} доступна у провайдера {cfg.provider}."

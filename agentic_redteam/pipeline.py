@@ -341,7 +341,7 @@ def run_pipeline(
         _write_status(storage, run_dir, result, started_at, now().isoformat())
         result.status = "running"
         _write_status(storage, run_dir, result, started_at, now().isoformat())
-        _emit(on_event, RunEvent("generate", "Generating attack messages."))
+        _emit(on_event, RunEvent("generate", "Генерация атакующих сообщений."))
         arch = Path(config.arch).read_text(encoding="utf-8")
         card = Path(config.system_card).read_text(encoding="utf-8")
         with telemetry.observation(
@@ -393,7 +393,7 @@ def run_pipeline(
                 on_event,
                 RunEvent(
                     "execute",
-                    f"Running attempt {index} of {total}.",
+                    f"Попытка {index} из {total}.",
                     attempt=index,
                     total=total,
                 ),
@@ -459,7 +459,7 @@ def run_pipeline(
                 on_event,
                 RunEvent(
                     "attempt_completed",
-                    f"Attempt {index} finished with verdict {attempt.verdict}.",
+                    f"Попытка {index} завершена, вердикт: {attempt.verdict}.",
                     attempt=index,
                     total=total,
                     data=_attempt_event_data(attempt),
@@ -468,7 +468,7 @@ def run_pipeline(
 
         result.attempts = attempts
         result.asr_percent = _asr(attempts)
-        _emit(on_event, RunEvent("report", "Writing the technical report."))
+        _emit(on_event, RunEvent("report", "Формирование технического отчёта."))
         with telemetry.observation(
             "report.write",
             as_type="generation",
@@ -493,7 +493,7 @@ def run_pipeline(
         storage.write_text(run_dir, "report.md", report.rstrip() + "\n")
         storage.write_json(run_dir, "findings.json", _findings(result))
         _write_status(storage, run_dir, result, started_at, now().isoformat())
-        _emit(on_event, RunEvent("completed", "Run completed.", status="completed"))
+        _emit(on_event, RunEvent("completed", "Запуск завершён.", status="completed"))
         return result
     except KeyboardInterrupt as exc:
         result.attempts = attempts
@@ -632,7 +632,7 @@ def _run_bundled_scenario_pipeline(
             on_event,
             RunEvent(
                 "prepare",
-                f"Prepared scenario {scenario.name}.",
+                f"Сценарий подготовлен: {scenario.name}.",
                 data={
                     "scenario_id": scenario.id,
                     "attack_class": scenario.attack_class,
@@ -646,7 +646,7 @@ def _run_bundled_scenario_pipeline(
                 on_event,
                 RunEvent(
                     "execute",
-                    f"Running trial {index} of {total}.",
+                    f"Прогон {index} из {total}.",
                     attempt=index,
                     total=total,
                 ),
@@ -657,7 +657,7 @@ def _run_bundled_scenario_pipeline(
                     on_event,
                     RunEvent(
                         "scenario_step",
-                        f"Step {step_index}/{step_total}: {step.name}.",
+                        f"Шаг {step_index}/{step_total}: {step.name}.",
                         attempt=index,
                         total=total,
                         data={"step": _step_trace_dict(step)},
@@ -727,7 +727,7 @@ def _run_bundled_scenario_pipeline(
                 on_event,
                 RunEvent(
                     "attempt_completed",
-                    f"Trial {index} finished with verdict {attempt.verdict}.",
+                    f"Прогон {index} завершён, вердикт: {attempt.verdict}.",
                     attempt=index,
                     total=total,
                     data=_attempt_event_data(attempt),
@@ -736,7 +736,7 @@ def _run_bundled_scenario_pipeline(
 
         result.attempts = attempts
         result.asr_percent = _asr(attempts)
-        _emit(on_event, RunEvent("report", "Writing the technical report."))
+        _emit(on_event, RunEvent("report", "Формирование технического отчёта."))
         with telemetry.observation(
             "report.write",
             as_type="generation",
@@ -761,7 +761,7 @@ def _run_bundled_scenario_pipeline(
         storage.write_text(run_dir, "report.md", report.rstrip() + "\n")
         storage.write_json(run_dir, "findings.json", _findings(result))
         _write_status(storage, run_dir, result, started_at, now().isoformat())
-        _emit(on_event, RunEvent("completed", "Run completed.", status="completed"))
+        _emit(on_event, RunEvent("completed", "Запуск завершён.", status="completed"))
         return result
     except KeyboardInterrupt:
         result.attempts = attempts

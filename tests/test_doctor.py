@@ -46,7 +46,7 @@ class DoctorTests(unittest.TestCase):
             )
         stand_check = next(item for item in checks if item.name == "stand")
         self.assertTrue(stand_check.ok)
-        self.assertIn("source directory", stand_check.message)
+        self.assertIn("исходниками стенда", stand_check.message)
 
     def test_ollama_probe_checks_selected_model(self):
         response = FakeResponse({"models": [{"name": "qwen3:8b"}]})
@@ -83,7 +83,7 @@ class DoctorTests(unittest.TestCase):
         ) as opened:
             ok, message = _probe_provider(config)
         self.assertFalse(ok)
-        self.assertIn("credential", message)
+        self.assertIn("учётные данные", message)
         self.assertEqual(opened.call_count, 1)
 
     def test_target_provider_is_not_probed_from_host(self):

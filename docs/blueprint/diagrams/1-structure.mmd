@@ -49,7 +49,7 @@ flowchart TB
     TEAM --> BIZ
     TEAM --> PERM
     OPER --> SCOPE
-    DOCS -->|ingest| PROF
+    DOCS -->|ingest: MOROK строит профиль| PROF
     ACC --> PROF
     BIZ --> PROF
     PERM --> PROF
@@ -62,8 +62,9 @@ flowchart TB
     PROF -. конфигурирует .-> ID
     PROF -. конфигурирует .-> EV
     ID --> AD
-    RUN --> AD --> TGT
-    TGT -. наблюдение .-> EV
+    RUN --> AD
+    AD -->|отправка атаки| TGT
+    TGT -. наблюдение evidence .-> EV
     EV --> NORM
     PROF -. проекция записей .-> NORM
     NORM --> ASRT --> VERD

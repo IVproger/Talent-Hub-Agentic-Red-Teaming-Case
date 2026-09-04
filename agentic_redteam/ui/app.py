@@ -6,6 +6,7 @@ import html
 import json
 import os
 import sys
+import tempfile
 import urllib.parse
 from dataclasses import asdict
 from pathlib import Path
@@ -38,6 +39,27 @@ ROLE_LABELS = {
     "target_agent": "Целевой ReAct-агент",
     "report_writer": "Автор отчёта",
 }
+
+ARCH_DEFAULT_PATH = REPO_ROOT / "docs" / "target" / "arch.mmd"
+CARD_DEFAULT_PATH = REPO_ROOT / "docs" / "target" / "system-card.md"
+
+
+def _read_default(path: Path) -> str:
+    """Read a bundled target-context file; empty string when unavailable."""
+    try:
+        return path.read_text(encoding="utf-8")
+    except OSError:
+        return ""
+
+
+def _write_context_file(text: str, suffix: str) -> Path:
+    """Persist edited/uploaded target context to a temp file the pipeline can read."""
+    handle = tempfile.NamedTemporaryFile(
+        "w", suffix=suffix, delete=False, encoding="utf-8"
+    )
+    handle.write(text)
+    handle.close()
+    return Path(handle.name)
 
 
 def main() -> None:
@@ -99,6 +121,32 @@ def main() -> None:
             selected = defaults
             with st.expander("Модели из конфигурации"):
                 st.markdown(_configured_models_html(selected), unsafe_allow_html=True)
+
+            with st.expander("Контекст цели"):
+                st.caption(
+                    "Схема архитектуры и описание компонентов подаются генератору "
+                    "Adaptive BAC. Загрузите файл или отредактируйте текст."
+                )
+                arch_upload = st.file_uploader(
+                    "Архитектура стенда (.mmd)",
+                    type=["mmd", "md", "txt"],
+                    key="arch_upload",
+                )
+                arch_context = st.text_area(
+                    "Архитектура (Mermaid)",
+                    value=_read_default(ARCH_DEFAULT_PATH),
+                    height=180,
+                )
+                card_upload = st.file_uploader(
+                    "Описание компонентов (system card)",
+                    type=["md", "txt"],
+                    key="card_upload",
+                )
+                card_context = st.text_area(
+                    "Описание компонентов",
+                    value=_read_default(CARD_DEFAULT_PATH),
+                    height=180,
+                )
 
             provider_roles = (
                 ("attack_generator", "report_writer")
@@ -199,9 +247,27 @@ def main() -> None:
             live_events.append({"stage": event.stage, "message": event.message, "verdict": event.data.get("verdict")})
             live_trace.markdown(_live_progress_html(live_events), unsafe_allow_html=True)
 
+        # Override the bundled target context only when the user actually
+        # supplied custom content, so ordinary runs keep the repo file paths.
+        context_overrides: dict[str, Path] = {}
+        context_temp_paths: list[Path] = []
+        for upload, edited, default_path, field, suffix in (
+            (arch_upload, arch_context, ARCH_DEFAULT_PATH, "arch", ".mmd"),
+            (card_upload, card_context, CARD_DEFAULT_PATH, "system_card", ".md"),
+        ):
+            source = (
+                upload.getvalue().decode("utf-8", "replace")
+                if upload is not None
+                else edited
+            )
+            if source != _read_default(default_path):
+                written = _write_context_file(source, suffix)
+                context_overrides[field] = written
+                context_temp_paths.append(written)
         try:
             config = RunConfig(
                 target_config=TARGET_CONFIG,
+                **context_overrides,
                 output_root=DEFAULT_RUNS_ROOT,
                 num_candidates=int(attempts),
                 attacker_cus=attacker.strip(),
@@ -225,6 +291,11 @@ def main() -> None:
             st.session_state.run_error = sanitize_error(exc)
         finally:
             st.session_state.run_in_progress = False
+            for path in context_temp_paths:
+                try:
+                    path.unlink()
+                except OSError:
+                    pass
 
     if st.session_state.run_error:
         st.error(st.session_state.run_error)

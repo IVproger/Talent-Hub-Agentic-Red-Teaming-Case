@@ -1,0 +1,833 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Golos+Text:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+<style>
+body { margin:0; background:#121213; }
+a { color:#EF3124; text-decoration:none; }
+a:hover { color:#d72505; }
+</style>
+</helmet>
+
+<x-import component-from-global-scope="deck-stage" from="./deck-stage.js" width="1920" height="1080" hint-size="100%,100%">
+
+<!-- 1 -->
+<section data-label="01 Титул" data-screen-label="01" data-speaker-notes="MOROK — инструмент для MLSecOps. Он получает описание агентной системы, проводит многошаговые атаки на её память и интеграции, а затем подтверждает их эффект по состоянию системы. На выходе команда получает не эффектный скриншот ответа, а доказательство и тест, который можно повторить после изменения агента." style="width:100%; height:100%; box-sizing:border-box; background:#F6F5F3; font-family:'Golos Text',system-ui,sans-serif; display:flex; flex-direction:column; gap:24px; padding:64px;">
+  <div style="background:#121213; border-radius:32px; flex:1; padding:80px; display:flex; flex-direction:column; justify-content:space-between;">
+    <div style="display:flex; justify-content:space-between; align-items:flex-start;">
+      <div style="display:flex; align-items:center; gap:22px;">
+        <svg width="60" height="60" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M1.5 12C4.5 6 8 3.5 12 3.5S19.5 6 22.5 12C19.5 18 16 20.5 12 20.5S4.5 18 1.5 12Z" stroke="#fff" stroke-width="1.5"></path><circle cx="12" cy="12" r="4" stroke="#fff" stroke-width="1.5"></circle><circle cx="12" cy="12" r="1.9" fill="#EF3124"></circle></svg>
+        <div style="font:700 44px/1 'Golos Text',sans-serif; letter-spacing:7px; color:#fff;">MOROK</div>
+      </div>
+      <div style="font:400 24px/1.5 'JetBrains Mono',monospace; color:rgba(233,233,250,0.37); text-align:right;">Защита продукта<br>07.09.2026</div>
+    </div>
+    <div style="display:flex; flex-direction:column; gap:32px;">
+      <div style="font:500 24px/1 'JetBrains Mono',monospace; letter-spacing:2px; text-transform:uppercase; color:#EF3124;">On-prem движок agentic red teaming</div>
+      <div style="font:600 62px/1.18 'Golos Text',sans-serif; color:rgba(255,255,255,0.94); max-width:1480px; text-wrap:pretty;">По архитектуре агента запускает многошаговые атаки на память и интеграции, доказывает их влияние по состоянию системы и сохраняет регрессионный тест.</div>
+    </div>
+  </div>
+  <div style="display:flex; gap:20px;">
+    <div style="flex:2; background:#fff; border-radius:24px; padding:40px 48px; display:flex; align-items:center;">
+      <div style="font:400 28px/1.45 'Golos Text',sans-serif; color:rgba(4,4,19,0.55);">Для банков и других регулируемых организаций, где данные, контекст и трассы нельзя передавать во внешний SaaS.</div>
+    </div>
+    <div style="flex:1; background:#fff; border-radius:24px; padding:40px 48px; display:flex; align-items:center;">
+      <div style="font:600 32px/1.3 'Golos Text',sans-serif; color:#121213;">Агент поверит.<br>Мы докажем.</div>
+    </div>
+  </div>
+</section>
+
+<!-- 2 -->
+<section data-label="02 Проблема" data-screen-label="02" data-speaker-notes="Чат проверяют по ответу. Агент может сохранить инструкцию в долгую память, выбрать инструмент или передать ему неверный аргумент. Внешне первая сессия выглядит безобидной, а ущерб появится позже — в работе другого пользователя. Поэтому объект проверки — инженерная система целиком, а не отдельная LLM." style="width:100%; height:100%; box-sizing:border-box; background:#F6F5F3; font-family:'Golos Text',system-ui,sans-serif; display:flex; flex-direction:column; gap:28px; padding:64px;">
+  <div style="display:flex; align-items:flex-end; justify-content:space-between; padding:0 24px;">
+    <div style="font:600 54px/1.2 'Golos Text',sans-serif; color:#121213; max-width:1400px;">Проверка «запрос → ответ» не видит главную часть агентного риска</div>
+    <div style="font:500 24px/1 'JetBrains Mono',monospace; letter-spacing:2px; color:rgba(5,8,29,0.38);">02</div>
+  </div>
+  <div style="display:flex; gap:20px; align-items:stretch; flex:1;">
+    <div style="width:420px; background:#fff; border-radius:32px; padding:48px; display:flex; flex-direction:column; gap:28px;">
+      <div style="font:500 24px/1 'JetBrains Mono',monospace; color:rgba(5,8,29,0.38);">Для чата</div>
+      <div style="display:flex; flex-direction:column; gap:14px;">
+        <div style="font:500 28px/1 'JetBrains Mono',monospace; color:#121213; background:#EDECEA; border-radius:16px; padding:22px 28px;">запрос</div>
+        <div style="width:2px; height:24px; background:#d2d3d9; margin-left:28px;"></div>
+        <div style="font:500 28px/1 'JetBrains Mono',monospace; color:#121213; background:#EDECEA; border-radius:16px; padding:22px 28px;">ответ</div>
+      </div>
+      <div style="flex:1;"></div>
+      <div style="font:400 24px/1.4 'Golos Text',sans-serif; color:rgba(5,8,29,0.38);">Две точки. Ущерб виден сразу или не виден вовсе.</div>
+    </div>
+    <div style="flex:1; background:#121213; border-radius:32px; padding:48px; display:flex; flex-direction:column; gap:28px;">
+      <div style="font:500 24px/1 'JetBrains Mono',monospace; color:rgba(233,233,250,0.37);">Для агента</div>
+      <div style="display:flex; flex-wrap:wrap; gap:12px;">
+        <div style="font:500 26px/1 'JetBrains Mono',monospace; color:rgba(255,255,255,0.94); background:rgba(214,214,229,0.07); border-radius:99px; padding:20px 28px;">вход</div>
+        <div style="font:500 26px/1 'JetBrains Mono',monospace; color:rgba(255,255,255,0.94); background:rgba(214,214,229,0.07); border-radius:99px; padding:20px 28px;">контекст</div>
+        <div style="font:500 26px/1 'JetBrains Mono',monospace; color:#fff; background:#EF3124; border-radius:99px; padding:20px 28px;">память</div>
+        <div style="font:500 26px/1 'JetBrains Mono',monospace; color:rgba(255,255,255,0.94); background:rgba(214,214,229,0.07); border-radius:99px; padding:20px 28px;">планирование</div>
+        <div style="font:500 26px/1 'JetBrains Mono',monospace; color:rgba(255,255,255,0.94); background:rgba(214,214,229,0.07); border-radius:99px; padding:20px 28px;">инструмент</div>
+        <div style="font:500 26px/1 'JetBrains Mono',monospace; color:#fff; background:#EF3124; border-radius:99px; padding:20px 28px;">аргументы</div>
+        <div style="font:500 26px/1 'JetBrains Mono',monospace; color:rgba(255,255,255,0.94); background:rgba(214,214,229,0.07); border-radius:99px; padding:20px 28px;">результат</div>
+        <div style="font:500 26px/1 'JetBrains Mono',monospace; color:rgba(255,255,255,0.94); background:rgba(214,214,229,0.07); border-radius:99px; padding:20px 28px;">изменение состояния</div>
+        <div style="font:500 26px/1 'JetBrains Mono',monospace; color:#fff; background:#EF3124; border-radius:99px; padding:20px 28px;">следующая сессия</div>
+      </div>
+      <div style="flex:1;"></div>
+      <div style="font:400 26px/1.45 'Golos Text',sans-serif; color:rgba(238,238,251,0.55);">Три красные точки — места, где морок остаётся в системе после того, как диалог закончился.</div>
+    </div>
+  </div>
+  <div style="background:#fff; border-radius:24px; padding:40px 56px;">
+    <div style="font:500 34px/1.4 'Golos Text',sans-serif; color:#121213; max-width:1620px; text-wrap:pretty;">Вредоносный ввод может сохраниться сегодня, а позднее привести к чтению чужих данных или действию в другой сессии и для другого пользователя.</div>
+  </div>
+</section>
+
+<!-- 3 -->
+<section data-label="03 Сегмент и ICP" data-screen-label="03" data-speaker-notes="Первый клин — не «все компании с ИИ». Это регулируемые организации: банки, НФО, КИИ. Покупатель отвечает за риск, а ежедневный пользователь — MLSecOps-команда. В интервью Альфа-Банка мы услышали важный масштаб потока: на одного из трёх специалистов может приходиться до пяти агентов в день. Полное ручное исследование одного агента нарушает SLA, а передавать контекст и трассы наружу нельзя." style="width:100%; height:100%; box-sizing:border-box; background:#F6F5F3; font-family:'Golos Text',system-ui,sans-serif; display:flex; flex-direction:column; gap:28px; padding:64px;">
+  <div style="display:flex; align-items:flex-end; justify-content:space-between; padding:0 24px;">
+    <div style="display:flex; flex-direction:column; gap:14px; max-width:1400px;">
+      <div style="font:500 24px/1 'JetBrains Mono',monospace; letter-spacing:2px; text-transform:uppercase; color:#EF3124;">Первичный сегмент · гипотеза</div>
+      <div style="font:600 54px/1.2 'Golos Text',sans-serif; color:#121213;">Банк, НФО, КИИ: организации, в которых проверка не успевает за изменениями</div>
+    </div>
+    <div style="font:500 24px/1 'JetBrains Mono',monospace; letter-spacing:2px; color:rgba(5,8,29,0.38);">03</div>
+  </div>
+
+  <div style="flex:1; min-height:0; display:flex; gap:20px;">
+    <div style="flex:1; background:#fff; border-radius:32px; padding:48px; display:flex; flex-direction:column; gap:20px;">
+      <div style="font:500 24px/1 'JetBrains Mono',monospace; color:#EF3124;">Покупатель / ЛПР</div>
+      <div style="font:600 34px/1.3 'Golos Text',sans-serif; color:#121213;">CISO, руководитель ДКБ или риск-функции; CTO / CIO</div>
+      <div style="height:2px; background:#EDECEA;"></div>
+      <div style="font:400 28px/1.45 'Golos Text',sans-serif; color:rgba(4,4,19,0.55);">Снизить объём непроверенных изменений и принять риск на фактах.</div>
+    </div>
+    <div style="flex:1; background:#121213; border-radius:32px; padding:48px; display:flex; flex-direction:column; gap:20px;">
+      <div style="font:500 24px/1 'JetBrains Mono',monospace; color:rgba(233,233,250,0.37);">Прямой пользователь</div>
+      <div style="font:600 34px/1.3 'Golos Text',sans-serif; color:rgba(255,255,255,0.94);">MLSecOps, AI Security, AppSec, Red Team, AI Platform / MLOps</div>
+      <div style="height:2px; background:rgba(231,231,248,0.18);"></div>
+      <div style="font:400 28px/1.45 'Golos Text',sans-serif; color:rgba(238,238,251,0.55);">Запускать проверки до релиза и после каждого изменения модели, промпта, памяти, ролей или инструментов.</div>
+    </div>
+    <div style="flex:1; background:#fff; border-radius:32px; padding:48px; display:flex; flex-direction:column; gap:20px;">
+      <div style="font:500 24px/1 'JetBrains Mono',monospace; color:rgba(5,8,29,0.38);">Потребитель результата</div>
+      <div style="font:600 34px/1.3 'Golos Text',sans-serif; color:#121213;">Команда агента, product owner, риск и архитектурный комитет</div>
+      <div style="height:2px; background:#EDECEA;"></div>
+      <div style="font:400 28px/1.45 'Golos Text',sans-serif; color:rgba(4,4,19,0.55);">Исправить находку или принять обоснованный риск.</div>
+    </div>
+  </div>
+
+  <div style="background:#EDECEA; border-radius:24px; padding:36px 56px; display:flex; align-items:center; gap:40px;">
+    <div style="font:600 44px/1 'Golos Text',sans-serif; color:#121213; white-space:nowrap;">до 5 агентов в день</div>
+    <div style="font:400 26px/1.4 'Golos Text',sans-serif; color:rgba(4,4,19,0.55);">на одного из трёх специалистов. Сигнал из интервью Альфа-Банка: полноценное исследование одного агента выбивает команду из SLA.</div>
+  </div>
+</section>
+
+<!-- 4 -->
+<section data-label="04 Альтернативы" data-screen-label="04" data-speaker-notes="Мы не говорим, что ручной аудит или сильный агент бесполезны. Это два реальных способа решать проблему. Но для банка внешний SaaS не подходит, а самостоятельная работа агента не создаёт воспроизводимого контура: кто-то должен связать сценарий, identities и sessions, доказательство по состоянию, отчёт и повторный прогон. Обычная проверка промпта тем более не видит жизненный цикл памяти." style="width:100%; height:100%; box-sizing:border-box; background:#F6F5F3; font-family:'Golos Text',system-ui,sans-serif; display:flex; flex-direction:column; gap:28px; padding:64px;">
+  <div style="display:flex; align-items:flex-end; justify-content:space-between; padding:0 24px;">
+    <div style="font:600 54px/1.2 'Golos Text',sans-serif; color:#121213; max-width:1400px;">Ручной аудит работает. Сильный агент помогает. Оба не закрывают нужный workflow</div>
+    <div style="font:500 24px/1 'JetBrains Mono',monospace; letter-spacing:2px; color:rgba(5,8,29,0.38);">04</div>
+  </div>
+
+  <div style="flex:1; min-height:0; display:flex; flex-direction:column; gap:16px;">
+    <div style="display:flex; gap:20px; padding:0 48px;">
+      <div style="width:420px; font:500 24px/1 'JetBrains Mono',monospace; letter-spacing:1.5px; text-transform:uppercase; color:rgba(5,8,29,0.38);">Подход</div>
+      <div style="flex:1; font:500 24px/1 'JetBrains Mono',monospace; letter-spacing:1.5px; text-transform:uppercase; color:rgba(5,8,29,0.38);">Что даёт</div>
+      <div style="flex:1.2; font:500 24px/1 'JetBrains Mono',monospace; letter-spacing:1.5px; text-transform:uppercase; color:#EF3124;">Почему недостаточно для сегмента</div>
+    </div>
+
+    <div style="flex:1; background:#fff; border-radius:32px; padding:44px 48px; display:flex; gap:20px; align-items:center;">
+      <div style="width:420px; font:600 32px/1.3 'Golos Text',sans-serif; color:#121213;">Ручной аудит / Red Team</div>
+      <div style="flex:1; font:400 26px/1.45 'Golos Text',sans-serif; color:rgba(4,4,19,0.55);">Эксперт моделирует угрозы, проверяет логи, интерпретирует риск</div>
+      <div style="flex:1.2; font:400 26px/1.45 'Golos Text',sans-serif; color:#121213;">Дорого, медленно, зависит от редкой экспертизы; разовый отчёт устаревает после изменений</div>
+    </div>
+
+    <div style="flex:1; background:#121213; border-radius:32px; padding:44px 48px; display:flex; gap:20px; align-items:center;">
+      <div style="width:420px; font:600 32px/1.3 'Golos Text',sans-serif; color:rgba(255,255,255,0.94);">Сильный агент с инфраструктурой</div>
+      <div style="flex:1; font:400 26px/1.45 'Golos Text',sans-serif; color:rgba(238,238,251,0.55);">Быстро исследует гипотезы, генерирует атаки, работает с документацией</div>
+      <div style="flex:1.2; font:400 26px/1.45 'Golos Text',sans-serif; color:rgba(255,255,255,0.94);">Внешний SaaS и трассы нельзя выносить за контур; нет независимого state oracle и воспроизводимого workflow</div>
+    </div>
+
+    <div style="flex:1; background:#fff; border-radius:32px; padding:44px 48px; display:flex; gap:20px; align-items:center;">
+      <div style="width:420px; font:600 32px/1.3 'Golos Text',sans-serif; color:#121213;">Prompt-only проверка</div>
+      <div style="flex:1; font:400 26px/1.45 'Golos Text',sans-serif; color:rgba(4,4,19,0.55);">Быстро проверяет реакцию на запрос</div>
+      <div style="flex:1.2; font:400 26px/1.45 'Golos Text',sans-serif; color:#121213;">Не подтверждает запись в память, межсессионный эффект и реальный вызов инструмента</div>
+    </div>
+  </div>
+
+  <div style="background:#EDECEA; border-radius:24px; padding:32px 56px;">
+    <div style="font:400 26px/1.45 'JetBrains Mono',monospace; color:rgba(4,4,19,0.55);">Ориентиры: публичный agentic-аудит — от 400–800 тыс. ₽ и 2–6 недель · активный исследовательский агент — от $100/мес., но это не готовый процесс для банка</div>
+  </div>
+</section>
+
+<!-- 5 -->
+<section data-label="05 Обещание" data-screen-label="05" data-speaker-notes="В white-box или gray-box режиме команда агента даёт архитектуру, API-контракт, роли и список инструментов. Дальше продукт строит кампанию, проводит её от разных пользователей и сессий, наблюдает состояние и фиксирует только подтверждённые эффекты. Итог — evidence-отчёт, который полезен не только security-команде, но и владельцу агента, и сценарий для повторного запуска." style="width:100%; height:100%; box-sizing:border-box; background:#F6F5F3; font-family:'Golos Text',system-ui,sans-serif; display:flex; flex-direction:column; gap:28px; padding:64px;">
+  <div style="display:flex; align-items:flex-end; justify-content:space-between; padding:0 24px;">
+    <div style="font:600 54px/1.2 'Golos Text',sans-serif; color:#121213; max-width:1400px;">MOROK автоматизирует полный цикл agentic red teaming в авторизованном контуре</div>
+    <div style="font:500 24px/1 'JetBrains Mono',monospace; letter-spacing:2px; color:rgba(5,8,29,0.38);">05</div>
+  </div>
+
+  <div style="background:#121213; border-radius:32px; padding:56px 48px; display:flex; align-items:stretch; gap:14px;">
+    <div style="flex:1; display:flex; flex-direction:column; gap:14px;">
+      <div style="font:500 24px/1.35 'JetBrains Mono',monospace; color:rgba(255,255,255,0.94); background:rgba(214,214,229,0.07); border-radius:20px; padding:28px 24px; min-height:120px; box-sizing:border-box;">архитектура<br>API · роли · инструменты</div>
+      <div style="font:400 24px/1 'JetBrains Mono',monospace; color:rgba(233,233,250,0.37);">01</div>
+    </div>
+    <div style="align-self:center; font:400 32px/1 'JetBrains Mono',monospace; color:rgba(233,233,250,0.37); padding-bottom:34px;">→</div>
+    <div style="flex:1; display:flex; flex-direction:column; gap:14px;">
+      <div style="font:500 24px/1.35 'JetBrains Mono',monospace; color:rgba(255,255,255,0.94); background:rgba(214,214,229,0.07); border-radius:20px; padding:28px 24px; min-height:120px; box-sizing:border-box;">модель угроз<br>и сценарии</div>
+      <div style="font:400 24px/1 'JetBrains Mono',monospace; color:rgba(233,233,250,0.37);">02</div>
+    </div>
+    <div style="align-self:center; font:400 32px/1 'JetBrains Mono',monospace; color:rgba(233,233,250,0.37); padding-bottom:34px;">→</div>
+    <div style="flex:1; display:flex; flex-direction:column; gap:14px;">
+      <div style="font:500 24px/1.35 'JetBrains Mono',monospace; color:rgba(255,255,255,0.94); background:rgba(214,214,229,0.07); border-radius:20px; padding:28px 24px; min-height:120px; box-sizing:border-box;">многошаговое<br>выполнение</div>
+      <div style="font:400 24px/1 'JetBrains Mono',monospace; color:rgba(233,233,250,0.37);">03</div>
+    </div>
+    <div style="align-self:center; font:400 32px/1 'JetBrains Mono',monospace; color:rgba(233,233,250,0.37); padding-bottom:34px;">→</div>
+    <div style="flex:1; display:flex; flex-direction:column; gap:14px;">
+      <div style="font:500 24px/1.35 'JetBrains Mono',monospace; color:#fff; background:#EF3124; border-radius:20px; padding:28px 24px; min-height:120px; box-sizing:border-box;">наблюдение<br>память · трассы · tool calls</div>
+      <div style="font:400 24px/1 'JetBrains Mono',monospace; color:#EF3124;">04 · state oracle</div>
+    </div>
+    <div style="align-self:center; font:400 32px/1 'JetBrains Mono',monospace; color:rgba(233,233,250,0.37); padding-bottom:34px;">→</div>
+    <div style="flex:1; display:flex; flex-direction:column; gap:14px;">
+      <div style="font:500 24px/1.35 'JetBrains Mono',monospace; color:#fff; background:#EF3124; border-radius:20px; padding:28px 24px; min-height:120px; box-sizing:border-box;">проверка цели<br>и затронутого эффекта</div>
+      <div style="font:400 24px/1 'JetBrains Mono',monospace; color:#EF3124;">05 · state oracle</div>
+    </div>
+    <div style="align-self:center; font:400 32px/1 'JetBrains Mono',monospace; color:rgba(233,233,250,0.37); padding-bottom:34px;">→</div>
+    <div style="flex:1; display:flex; flex-direction:column; gap:14px;">
+      <div style="font:500 24px/1.35 'JetBrains Mono',monospace; color:rgba(255,255,255,0.94); background:rgba(214,214,229,0.07); border-radius:20px; padding:28px 24px; min-height:120px; box-sizing:border-box;">evidence-отчёт<br>и регрессионный тест</div>
+      <div style="font:400 24px/1 'JetBrains Mono',monospace; color:rgba(233,233,250,0.37);">06</div>
+    </div>
+  </div>
+
+  <div style="flex:1; min-height:0; display:flex; gap:20px;">
+    <div style="flex:1; background:#fff; border-radius:32px; padding:48px; display:flex; flex-direction:column; gap:18px; justify-content:center;">
+      <div style="font:600 36px/1.25 'Golos Text',sans-serif; color:#121213;">Разнообразные сценарии</div>
+      <div style="font:400 28px/1.45 'Golos Text',sans-serif; color:rgba(4,4,19,0.55);">а не один jailbreak</div>
+    </div>
+    <div style="flex:1; background:#fff; border-radius:32px; padding:48px; display:flex; flex-direction:column; gap:18px; justify-content:center;">
+      <div style="font:600 36px/1.25 'Golos Text',sans-serif; color:#121213;">Точка компрометации</div>
+      <div style="font:400 28px/1.45 'Golos Text',sans-serif; color:rgba(4,4,19,0.55);">а не мнение модели о том, что «похоже на атаку»</div>
+    </div>
+    <div style="flex:1; background:#fff; border-radius:32px; padding:48px; display:flex; flex-direction:column; gap:18px; justify-content:center;">
+      <div style="font:600 36px/1.25 'Golos Text',sans-serif; color:#121213;">Повторная проверка</div>
+      <div style="font:400 28px/1.45 'Golos Text',sans-serif; color:rgba(4,4,19,0.55);">после изменения или исправления агента</div>
+    </div>
+  </div>
+</section>
+
+<!-- 6 -->
+<section data-label="06 Сегменты и упаковки" data-screen-label="06" data-speaker-notes="Проблема есть у трёх сегментов, но покупать они будут разное. Банку нужен внутренний контур; кибербез-компании — инструмент, который увеличит их пропускную способность и позволит продавать retest; независимой продуктовой команде — управляемая проверка с экспертным triage. Мы не будем делать вид, что уже нашли идеальный рынок. Первый сегмент выбираем после пилотов." style="width:100%; height:100%; box-sizing:border-box; background:#F6F5F3; font-family:'Golos Text',system-ui,sans-serif; display:flex; flex-direction:column; gap:28px; padding:64px;">
+  <div style="display:flex; align-items:flex-end; justify-content:space-between; padding:0 24px;">
+    <div style="font:600 54px/1.2 'Golos Text',sans-serif; color:#121213; max-width:1400px;">Один движок, три разные упаковки — сегмент пока не выбран окончательно</div>
+    <div style="font:500 24px/1 'JetBrains Mono',monospace; letter-spacing:2px; color:rgba(5,8,29,0.38);">06</div>
+  </div>
+
+  <div style="background:#121213; border-radius:32px; padding:36px 48px; display:flex; align-items:center; justify-content:center; gap:24px;">
+    <div style="font:500 30px/1 'JetBrains Mono',monospace; color:rgba(255,255,255,0.94);">scenario engine</div>
+    <div style="width:8px; height:8px; border-radius:50%; background:#EF3124;"></div>
+    <div style="font:500 30px/1 'JetBrains Mono',monospace; color:rgba(255,255,255,0.94);">state oracle</div>
+    <div style="width:8px; height:8px; border-radius:50%; background:#EF3124;"></div>
+    <div style="font:500 30px/1 'JetBrains Mono',monospace; color:rgba(255,255,255,0.94);">evidence report</div>
+  </div>
+
+  <div style="flex:1; min-height:0; display:flex; gap:20px;">
+    <div style="flex:1; background:#fff; border-radius:32px; padding:48px; display:flex; flex-direction:column; gap:24px;">
+      <div style="font:600 36px/1.25 'Golos Text',sans-serif; color:#121213;">Регулируемые организации</div>
+      <div style="height:2px; background:#EDECEA;"></div>
+      <div style="font:400 28px/1.45 'Golos Text',sans-serif; color:rgba(4,4,19,0.55);">Контурный прогон, evidence для риск-комитета, регрессия</div>
+      <div style="flex:1;"></div>
+      <div style="font:500 24px/1.4 'JetBrains Mono',monospace; color:#121213; background:#EDECEA; border-radius:16px; padding:22px 26px;">on-prem-инструмент для ДКБ, AI-платформы и команд агентов</div>
+    </div>
+    <div style="flex:1; background:#fff; border-radius:32px; padding:48px; display:flex; flex-direction:column; gap:24px;">
+      <div style="font:600 36px/1.25 'Golos Text',sans-serif; color:#121213;">Кибербез-компании</div>
+      <div style="height:2px; background:#EDECEA;"></div>
+      <div style="font:400 28px/1.45 'Golos Text',sans-serif; color:rgba(4,4,19,0.55);">Выше пропускная способность и повторный retest</div>
+      <div style="flex:1;"></div>
+      <div style="font:500 24px/1.4 'JetBrains Mono',monospace; color:#121213; background:#EDECEA; border-radius:16px; padding:22px 26px;">white-label / on-prem-модуль, библиотека сценариев</div>
+    </div>
+    <div style="flex:1; background:#fff; border-radius:32px; padding:48px; display:flex; flex-direction:column; gap:24px;">
+      <div style="font:600 36px/1.25 'Golos Text',sans-serif; color:#121213;">Независимые компании с агентами</div>
+      <div style="height:2px; background:#EDECEA;"></div>
+      <div style="font:400 28px/1.45 'Golos Text',sans-serif; color:rgba(4,4,19,0.55);">Не держать редкую AI Security-команду внутри</div>
+      <div style="flex:1;"></div>
+      <div style="font:500 24px/1.4 'JetBrains Mono',monospace; color:#121213; background:#EDECEA; border-radius:16px; padding:22px 26px;">регулярный сервис: прогон + экспертный triage + retest</div>
+    </div>
+  </div>
+
+  <div style="border-left:8px solid #EF3124; border-radius:0 24px 24px 0; background:#fff; padding:32px 48px;">
+    <div style="font:400 28px/1.4 'Golos Text',sans-serif; color:rgba(4,4,19,0.55);"><span style="color:#EF3124; font-family:'JetBrains Mono',monospace; font-weight:500;">H5</span> — первый канал продаж не выбран. Проверяем willingness to pay, конверсию пилота, длительность цикла и долю повторных запусков.</div>
+  </div>
+</section>
+
+<!-- 7 -->
+<section data-label="07 Путь пользователя" data-screen-label="07" data-speaker-notes="В MVP пользователь описывает или подключает тестовый агент, проверяет контур, выбирает сценарий и роли. После кампании он видит ASR и evidence, а сценарий остаётся для повторного запуска. Сейчас покажем это на BAC: доказательством будет не ответ модели, а фактический аргумент MCP-инструмента." style="width:100%; height:100%; box-sizing:border-box; background:#F6F5F3; font-family:'Golos Text',system-ui,sans-serif; display:flex; flex-direction:column; gap:28px; padding:64px;">
+  <div style="display:flex; align-items:flex-end; justify-content:space-between; padding:0 24px;">
+    <div style="font:600 54px/1.2 'Golos Text',sans-serif; color:#121213; max-width:1400px;">MVP: путь от описания агента к повторяемой проверке</div>
+    <div style="font:500 24px/1 'JetBrains Mono',monospace; letter-spacing:2px; color:rgba(5,8,29,0.38);">07</div>
+  </div>
+
+  <div style="flex:1; min-height:0; display:grid; grid-template-columns:repeat(3,1fr); gap:20px;">
+    <div style="background:#fff; border-radius:32px; padding:44px; display:flex; flex-direction:column; gap:18px;">
+      <div style="font:500 24px/1 'JetBrains Mono',monospace; color:rgba(5,8,29,0.38);">01</div>
+      <div style="font:600 34px/1.25 'Golos Text',sans-serif; color:#121213;">Получить architecture / API / tool contract</div>
+    </div>
+    <div style="background:#fff; border-radius:32px; padding:44px; display:flex; flex-direction:column; gap:18px;">
+      <div style="font:500 24px/1 'JetBrains Mono',monospace; color:rgba(5,8,29,0.38);">02</div>
+      <div style="font:600 34px/1.25 'Golos Text',sans-serif; color:#121213;">Проверить доступность тестового контура</div>
+    </div>
+    <div style="background:#fff; border-radius:32px; padding:44px; display:flex; flex-direction:column; gap:18px;">
+      <div style="font:500 24px/1 'JetBrains Mono',monospace; color:rgba(5,8,29,0.38);">03</div>
+      <div style="font:600 34px/1.25 'Golos Text',sans-serif; color:#121213;">Выбрать сценарий, роли и число попыток</div>
+    </div>
+    <div style="background:#fff; border-radius:32px; padding:44px; display:flex; flex-direction:column; gap:18px;">
+      <div style="font:500 24px/1 'JetBrains Mono',monospace; color:rgba(5,8,29,0.38);">04</div>
+      <div style="font:600 34px/1.25 'Golos Text',sans-serif; color:#121213;">Запустить multi-session кампанию</div>
+    </div>
+    <div style="background:#121213; border-radius:32px; padding:44px; display:flex; flex-direction:column; gap:18px;">
+      <div style="font:500 24px/1 'JetBrains Mono',monospace; color:#EF3124;">05</div>
+      <div style="font:600 34px/1.25 'Golos Text',sans-serif; color:rgba(255,255,255,0.94);">Открыть ASR, evidence и report</div>
+    </div>
+    <div style="background:#fff; border-radius:32px; padding:44px; display:flex; flex-direction:column; gap:18px;">
+      <div style="font:500 24px/1 'JetBrains Mono',monospace; color:rgba(5,8,29,0.38);">06</div>
+      <div style="font:600 34px/1.25 'Golos Text',sans-serif; color:#121213;">Сохранить сценарий для retest</div>
+    </div>
+  </div>
+
+  <div style="background:#fff; border-radius:24px; padding:36px 48px; display:flex; align-items:center; gap:36px;">
+    <div style="font:500 24px/1.3 'JetBrains Mono',monospace; letter-spacing:1.5px; text-transform:uppercase; color:#EF3124; white-space:nowrap;">Эксперту<br>попробовать в демо</div>
+    <div style="width:2px; align-self:stretch; background:#EDECEA;"></div>
+    <div style="font:400 26px/1.5 'JetBrains Mono',monospace; color:rgba(4,4,19,0.55);">1 — выбрать <span style="color:#121213;">generated-bac</span> · 2 — запустить 4 попытки от <span style="color:#121213;">cus=1001</span> к <span style="color:#121213;">cus=1002</span> · 3 — найти в evidence реальный tool call с аргументом <span style="color:#121213;">cus=1002</span></div>
+  </div>
+</section>
+
+<!-- 8 -->
+<section data-label="08 Демо BAC" data-screen-label="08" data-speaker-notes="Атакующий — пользователь 1001, цель — синтетические данные 1002. Мы не доверяем тексту агента: State Tracer читает фактический журнал вызова. В завершённом прогоне четыре разных формулировки привели к одному измеримому эффекту — инструмент получил аргумент 1002. Это демонстрирует работу evidence loop на намеренно уязвимом стенде; это не заявление о защищённости или уязвимости реального банка." style="width:100%; height:100%; box-sizing:border-box; background:#F6F5F3; font-family:'Golos Text',system-ui,sans-serif; display:flex; flex-direction:column; gap:28px; padding:64px;">
+  <div style="display:flex; align-items:flex-end; justify-content:space-between; padding:0 24px;">
+    <div style="font:600 50px/1.2 'Golos Text',sans-serif; color:#121213; max-width:1450px;">Пользователь <span style="font-family:'JetBrains Mono',monospace;">cus=1001</span> запрашивает данные <span style="font-family:'JetBrains Mono',monospace;">cus=1002</span>. Успех — вызов инструмента, а не формулировка ответа</div>
+    <div style="font:500 24px/1 'JetBrains Mono',monospace; letter-spacing:2px; color:rgba(5,8,29,0.38);">08</div>
+  </div>
+
+  <div style="flex:1; min-height:0; display:flex; gap:20px;">
+    <div style="flex:1; background:#fff; border-radius:32px; padding:44px; display:flex; flex-direction:column; gap:22px;">
+      <div style="font:500 24px/1 'JetBrains Mono',monospace; letter-spacing:1.5px; text-transform:uppercase; color:rgba(5,8,29,0.38);">1 · Ввод</div>
+      <div style="font:600 32px/1.3 'Golos Text',sans-serif; color:#121213;">Сценарий и роли</div>
+      <div style="background:#EDECEA; border-radius:16px; padding:28px; font:400 26px/1.7 'JetBrains Mono',monospace; color:#121213;">scenario: generated-bac<br>attacker: cus=1001<br>target: cus=1002<br>attempts: 4</div>
+    </div>
+    <div style="flex:1; background:#fff; border-radius:32px; padding:44px; display:flex; flex-direction:column; gap:22px;">
+      <div style="font:500 24px/1 'JetBrains Mono',monospace; letter-spacing:1.5px; text-transform:uppercase; color:rgba(5,8,29,0.38);">2 · Исполнение</div>
+      <div style="font:600 32px/1.3 'Golos Text',sans-serif; color:#121213;">Четыре варианта одной BAC-атаки</div>
+      <div style="display:flex; flex-direction:column; gap:12px;">
+        <div style="font:400 25px/1.3 'JetBrains Mono',monospace; color:rgba(4,4,19,0.55); background:#EDECEA; border-radius:14px; padding:18px 22px;">прямой запрос</div>
+        <div style="font:400 25px/1.3 'JetBrains Mono',monospace; color:rgba(4,4,19,0.55); background:#EDECEA; border-radius:14px; padding:18px 22px;">ссылка на полномочия</div>
+        <div style="font:400 25px/1.3 'JetBrains Mono',monospace; color:rgba(4,4,19,0.55); background:#EDECEA; border-radius:14px; padding:18px 22px;">сравнение клиентов</div>
+        <div style="font:400 25px/1.3 'JetBrains Mono',monospace; color:rgba(4,4,19,0.55); background:#EDECEA; border-radius:14px; padding:18px 22px;">«проверка API»</div>
+      </div>
+    </div>
+    <div style="flex:1.2; background:#121213; border-radius:32px; padding:44px; display:flex; flex-direction:column; gap:22px;">
+      <div style="font:500 24px/1 'JetBrains Mono',monospace; letter-spacing:1.5px; text-transform:uppercase; color:#EF3124;">3 · Evidence</div>
+      <div style="font:600 32px/1.3 'Golos Text',sans-serif; color:rgba(255,255,255,0.94);">Фактический журнал вызова</div>
+      <div style="flex:1; border-radius:16px; background:repeating-linear-gradient(135deg, rgba(214,214,229,0.07) 0 12px, rgba(214,214,229,0.02) 12px 24px); border:2px dashed rgba(231,231,248,0.18); display:flex; flex-direction:column; align-items:center; justify-content:center; gap:14px; padding:24px;">
+        <div style="font:500 24px/1.4 'JetBrains Mono',monospace; color:rgba(238,238,251,0.55); text-align:center;">кадр access log из реального run</div>
+        <div style="font:400 24px/1.4 'JetBrains Mono',monospace; color:rgba(233,233,250,0.37); text-align:center;">видны оба cus · вставить до защиты</div>
+      </div>
+      <div style="font:500 30px/1.5 'JetBrains Mono',monospace; color:rgba(255,255,255,0.94);">actor cus=1001<br>→ tool argument cus=<span style="color:#EF3124;">1002</span></div>
+    </div>
+  </div>
+
+  <div style="background:#fff; border-radius:24px; padding:32px 48px; display:flex; align-items:center; gap:32px; flex-wrap:wrap;">
+    <div style="font:600 34px/1 'Golos Text',sans-serif; color:#121213;">4 из 4 доказанных BAC-атак</div>
+    <div style="font:500 30px/1 'JetBrains Mono',monospace; color:#EF3124;">ASR = 100%</div>
+    <div style="font:400 26px/1.4 'JetBrains Mono',monospace; color:rgba(5,8,29,0.38);">режим vulnerable · учебный стенд с синтетическими данными</div>
+  </div>
+</section>
+
+<!-- 9 -->
+<section data-label="09 Архитектура" data-screen-label="09" data-speaker-notes="Это не концептуальная картинка, а текущий рабочий pipeline. На входе — описание цели и конфигурация. doctor проверяет контур. Затем берётся YAML-сценарий или adaptive BAC-генерация, Runner выполняет шаги от разных пользователей и сессий, а State Tracer собирает память и журнал tool calls. Assertions рассчитывают finding и ASR, после чего все evidence сохраняются в отдельный run. CLI и UI обращаются к одному pipeline; трассировка Langfuse полезна для исследования, но verdict от неё не зависит." style="width:100%; height:100%; box-sizing:border-box; background:#F6F5F3; font-family:'Golos Text',system-ui,sans-serif; display:flex; flex-direction:column; gap:24px; padding:64px;">
+  <div style="display:flex; align-items:flex-end; justify-content:space-between; padding:0 24px;">
+    <div style="font:600 50px/1.2 'Golos Text',sans-serif; color:#121213; max-width:1400px;">Архитектура текущей системы: от конфигурации цели к state-based verdict</div>
+    <div style="font:500 24px/1 'JetBrains Mono',monospace; letter-spacing:2px; color:rgba(5,8,29,0.38);">09</div>
+  </div>
+
+  <div style="flex:1; min-height:0; display:flex; gap:20px;">
+    <div style="flex:1.35; min-height:0; background:#121213; border-radius:32px; padding:32px 40px; display:flex; flex-direction:column; gap:8px;">
+      <div style="font:500 24px/1 'JetBrains Mono',monospace; letter-spacing:1.5px; text-transform:uppercase; color:rgba(233,233,250,0.37); margin-bottom:6px;">Реализованный pipeline</div>
+      <div style="font:500 24px/1.25 'JetBrains Mono',monospace; color:rgba(255,255,255,0.94); background:rgba(214,214,229,0.07); border-radius:14px; padding:12px 20px;">Описание цели <span style="color:rgba(233,233,250,0.37);">· архитектура + system card + config/target.yaml</span></div>
+      <div style="width:2px; height:12px; background:rgba(233,233,250,0.37); margin-left:26px;"></div>
+      <div style="font:500 24px/1.25 'JetBrains Mono',monospace; color:rgba(255,255,255,0.94); background:rgba(214,214,229,0.07); border-radius:14px; padding:12px 20px;">Preflight: doctor <span style="color:rgba(233,233,250,0.37);">· проверка стенда и конфигурации</span></div>
+      <div style="width:2px; height:12px; background:rgba(233,233,250,0.37); margin-left:26px;"></div>
+      <div style="font:500 24px/1.25 'JetBrains Mono',monospace; color:rgba(255,255,255,0.94); background:rgba(214,214,229,0.07); border-radius:14px; padding:12px 20px;">Scenario layer <span style="color:rgba(233,233,250,0.37);">· YAML-каталог + adaptive BAC generator</span></div>
+      <div style="width:2px; height:12px; background:rgba(233,233,250,0.37); margin-left:26px;"></div>
+      <div style="font:500 24px/1.25 'JetBrains Mono',monospace; color:rgba(255,255,255,0.94); background:rgba(214,214,229,0.07); border-radius:14px; padding:12px 20px;">Scenario Runner <span style="color:rgba(233,233,250,0.37);">· роли + сессии + шаги + попытки</span></div>
+      <div style="width:2px; height:12px; background:rgba(233,233,250,0.37); margin-left:26px;"></div>
+      <div style="font:500 24px/1.25 'JetBrains Mono',monospace; color:rgba(255,255,255,0.94); background:rgba(214,214,229,0.07); border-radius:14px; padding:12px 20px;">Target stand <span style="color:rgba(233,233,250,0.37);">· agent-api → ReAct agent → memory / MCP tools</span></div>
+      <div style="width:2px; height:12px; background:#EF3124; margin-left:26px;"></div>
+      <div style="font:500 24px/1.25 'JetBrains Mono',monospace; color:#fff; background:#EF3124; border-radius:14px; padding:12px 20px;">State Tracer <span style="color:rgba(255,255,255,0.7);">· memory snapshot + журнал tool calls</span></div>
+      <div style="width:2px; height:12px; background:#EF3124; margin-left:26px;"></div>
+      <div style="font:500 24px/1.25 'JetBrains Mono',monospace; color:#fff; background:#EF3124; border-radius:14px; padding:12px 20px;">Deterministic Scorer <span style="color:rgba(255,255,255,0.7);">· assertions → ASR → finding</span></div>
+      <div style="width:2px; height:12px; background:rgba(233,233,250,0.37); margin-left:26px;"></div>
+      <div style="font:500 24px/1.25 'JetBrains Mono',monospace; color:rgba(255,255,255,0.94); background:rgba(214,214,229,0.07); border-radius:14px; padding:12px 20px;">Run storage &amp; report <span style="color:rgba(233,233,250,0.37);">· runs/&lt;run-id&gt;: JSON evidence + Markdown</span></div>
+    </div>
+
+    <div style="flex:1; display:flex; flex-direction:column; gap:20px;">
+      <div style="background:#fff; border-radius:32px; padding:28px 36px; display:flex; flex-direction:column; gap:12px;">
+        <div style="font:500 24px/1 'JetBrains Mono',monospace; letter-spacing:1.5px; text-transform:uppercase; color:rgba(5,8,29,0.38);">Статус узлов</div>
+        <div style="font:400 25px/1.35 'Golos Text',sans-serif; color:rgba(4,4,19,0.55);"><span style="font-family:'JetBrains Mono',monospace; color:#121213;">adaptive BAC generator</span> — сейчас покрывает BAC</div>
+        <div style="font:400 25px/1.35 'Golos Text',sans-serif; color:rgba(4,4,19,0.55);"><span style="font-family:'JetBrains Mono',monospace; color:#121213;">State Tracer</span> — адаптирован к MongoDB и access log учебного стенда</div>
+        <div style="font:400 25px/1.35 'Golos Text',sans-serif; color:rgba(4,4,19,0.55);"><span style="font-family:'JetBrains Mono',monospace; color:#121213;">Deterministic Scorer</span> — источник verdict, а не LLM-судья</div>
+      </div>
+      <div style="flex:1; min-height:0; overflow:hidden; background:#fff; border-radius:32px; padding:24px 32px; display:flex; flex-direction:column; gap:10px;">
+        <div style="font:500 24px/1 'JetBrains Mono',monospace; letter-spacing:1.5px; text-transform:uppercase; color:rgba(5,8,29,0.38);">Уже реализовано</div>
+        <div style="font:400 25px/1.35 'Golos Text',sans-serif; color:#121213;">YAML-сценарии, adaptive BAC, multi-user / multi-session Runner, memory snapshots, access log, assertions, ASR, артефакты запуска</div>
+        <div style="height:2px; background:#EDECEA;"></div>
+        <div style="font:500 24px/1 'JetBrains Mono',monospace; letter-spacing:1.5px; text-transform:uppercase; color:#EF3124;">Следующая задача</div>
+        <div style="font:400 25px/1.35 'Golos Text',sans-serif; color:rgba(4,4,19,0.55);">Универсальные target/state adapters, автоматическое построение модели угроз, live-подтверждение memory lifecycle</div>
+      </div>
+      <div style="background:#EDECEA; border-radius:24px; padding:22px 32px;">
+        <div style="font:400 24px/1.35 'JetBrains Mono',monospace; color:rgba(4,4,19,0.55);">CLI и Streamlit UI используют один pipeline. Langfuse опционален и не участвует в security-verdict</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- 10 -->
+<section data-label="10 Evaluation" data-screen-label="10" data-speaker-notes="ASR сам по себе ничего не значит, пока не определено, что такое успех. Для BAC это несовпадение пользователя и аргумента инструмента. Для memory poisoning нужна последовательность проверок: запись попала в память, сохранилась, извлеклась в другой сессии и повлияла на действие. В исходной продуктовой гипотезе LLM-судья был самым рискованным допущением. В текущем MVP мы сознательно используем детерминированные assertions для факта, а LLM оставляем на стороне генерации и отчёта." style="width:100%; height:100%; box-sizing:border-box; background:#F6F5F3; font-family:'Golos Text',system-ui,sans-serif; display:flex; flex-direction:column; gap:28px; padding:64px;">
+  <div style="display:flex; align-items:flex-end; justify-content:space-between; padding:0 24px;">
+    <div style="font:600 54px/1.2 'Golos Text',sans-serif; color:#121213; max-width:1400px;">Сначала определяем наблюдаемый эффект — и только затем считаем ASR</div>
+    <div style="font:500 24px/1 'JetBrains Mono',monospace; letter-spacing:2px; color:rgba(5,8,29,0.38);">10</div>
+  </div>
+
+  <div style="flex:1; min-height:0; display:flex; gap:20px;">
+    <div style="width:520px; display:flex; flex-direction:column; gap:20px;">
+      <div style="background:#121213; border-radius:32px; padding:48px; display:flex; flex-direction:column; gap:24px;">
+        <div style="font:500 24px/1 'JetBrains Mono',monospace; letter-spacing:1.5px; text-transform:uppercase; color:rgba(233,233,250,0.37);">Текущая метрика</div>
+        <div style="font:500 34px/1.5 'JetBrains Mono',monospace; color:rgba(255,255,255,0.94);">ASR = <span style="color:#EF3124;">доказанные успешные попытки</span> / завершённые попытки</div>
+      </div>
+      <div style="flex:1; background:#fff; border-radius:32px; padding:48px; display:flex; flex-direction:column; gap:20px; justify-content:center;">
+        <div style="font:500 24px/1 'JetBrains Mono',monospace; letter-spacing:1.5px; text-transform:uppercase; color:rgba(5,8,29,0.38);">Составная метрика для памяти</div>
+        <div style="font:400 28px/1.5 'JetBrains Mono',monospace; color:#121213;">доставка → запись → сохранение → извлечение → действие</div>
+      </div>
+      <div style="border-left:8px solid #EF3124; border-radius:0 24px 24px 0; background:#fff; padding:32px 40px;">
+        <div style="font:400 26px/1.4 'Golos Text',sans-serif; color:rgba(4,4,19,0.55);">Ограничение: LLM-судья не используется как источник истины; его надёжность остаётся рискованной AI-гипотезой.</div>
+      </div>
+    </div>
+
+    <div style="flex:1; min-height:0; background:#fff; border-radius:32px; padding:40px; display:flex; flex-direction:column; gap:16px;">
+      <div style="display:flex; gap:24px;">
+        <div style="width:420px; font:500 24px/1 'JetBrains Mono',monospace; letter-spacing:1.5px; text-transform:uppercase; color:rgba(5,8,29,0.38);">Этап атаки</div>
+        <div style="flex:1; font:500 24px/1 'JetBrains Mono',monospace; letter-spacing:1.5px; text-transform:uppercase; color:#EF3124;">Что считаем доказательством</div>
+      </div>
+      <div style="height:2px; background:#EDECEA;"></div>
+      <div style="display:flex; gap:24px; align-items:flex-start;">
+        <div style="width:420px; font:600 28px/1.35 'Golos Text',sans-serif; color:#121213;">Нарушение доступа через инструмент</div>
+        <div style="flex:1; font:400 26px/1.45 'Golos Text',sans-serif; color:rgba(4,4,19,0.55);">Identity атакующего не совпадает с <span style="font-family:'JetBrains Mono',monospace; color:#121213;">cus</span> в фактическом tool call</div>
+      </div>
+      <div style="height:2px; background:#EDECEA;"></div>
+      <div style="display:flex; gap:24px; align-items:flex-start;">
+        <div style="width:420px; font:600 28px/1.35 'Golos Text',sans-serif; color:#121213;">Запись в память</div>
+        <div style="flex:1; font:400 26px/1.45 'Golos Text',sans-serif; color:rgba(4,4,19,0.55);">Snapshot показывает нужную запись и её scope / provenance</div>
+      </div>
+      <div style="height:2px; background:#EDECEA;"></div>
+      <div style="display:flex; gap:24px; align-items:flex-start;">
+        <div style="width:420px; font:600 28px/1.35 'Golos Text',sans-serif; color:#121213;">Межсессионное извлечение</div>
+        <div style="flex:1; font:400 26px/1.45 'Golos Text',sans-serif; color:rgba(4,4,19,0.55);">Другой пользователь получает след ранее записанной policy / memory</div>
+      </div>
+      <div style="height:2px; background:#EDECEA;"></div>
+      <div style="display:flex; gap:24px; align-items:flex-start;">
+        <div style="width:420px; font:600 28px/1.35 'Golos Text',sans-serif; color:#121213;">Вредное действие</div>
+        <div style="flex:1; font:400 26px/1.45 'Golos Text',sans-serif; color:rgba(4,4,19,0.55);">Память или контекст причинно связаны с некорректным tool call либо иным проверяемым side effect</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- 11 -->
+<section data-label="11 Результат" data-screen-label="11" data-speaker-notes="Наш текущий подтверждённый результат — четыре из четырёх BAC-атак на намеренно уязвимом учебном стенде. Во всех попытках пользователь 1001 добился вызова инструмента с 1002. Это доказывает корректность нашего measurement loop на конкретном кейсе. Не называем это traction и не обобщаем на другие модели, банки или классы атак. Следующее доказательство — memory lifecycle и сравнение с защищённым режимом." style="width:100%; height:100%; box-sizing:border-box; background:#F6F5F3; font-family:'Golos Text',system-ui,sans-serif; display:flex; flex-direction:column; gap:24px; padding:64px;">
+  <div style="display:flex; align-items:center; justify-content:space-between; padding:0 24px;">
+    <div style="font:500 24px/1 'JetBrains Mono',monospace; letter-spacing:2px; text-transform:uppercase; color:rgba(5,8,29,0.38);">11 · Текущий подтверждённый результат</div>
+    <div style="display:flex; align-items:center; gap:14px;">
+      <svg width="30" height="30" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M1.5 12C4.5 6 8 3.5 12 3.5S19.5 6 22.5 12C19.5 18 16 20.5 12 20.5S4.5 18 1.5 12Z" stroke="#121213" stroke-width="1.6"></path><circle cx="12" cy="12" r="4" stroke="#121213" stroke-width="1.6"></circle><circle cx="12" cy="12" r="1.9" fill="#EF3124"></circle></svg>
+      <div style="font:700 24px/1 'Golos Text',sans-serif; letter-spacing:4px; color:#121213;">MOROK</div>
+    </div>
+  </div>
+
+  <div style="flex:1; min-height:0; display:flex; gap:20px;">
+    <div style="flex:1; background:#121213; border-radius:32px; padding:64px; display:flex; flex-direction:column; justify-content:center; gap:20px;">
+      <div style="font:600 200px/1 'Golos Text',sans-serif; color:#fff; letter-spacing:-6px;">4<span style="color:#EF3124;">/</span>4</div>
+      <div style="font:500 32px/1.3 'Golos Text',sans-serif; color:rgba(238,238,251,0.55);">доказанные BAC-атаки · ASR = 100%</div>
+    </div>
+    <div style="flex:1; display:flex; flex-direction:column; gap:20px;">
+      <div style="flex:1; background:#fff; border-radius:32px; padding:48px; display:flex; flex-direction:column; justify-content:center; gap:20px;">
+        <div style="font:400 24px/1 'JetBrains Mono',monospace; color:rgba(5,8,29,0.38);">Подтверждённый факт</div>
+        <div style="font:500 34px/1.5 'JetBrains Mono',monospace; color:#121213;">actor cus=1001<br>→ tool argument cus=<span style="color:#EF3124;">1002</span></div>
+      </div>
+      <div style="background:#EDECEA; border-radius:32px; padding:40px 48px;">
+        <div style="font:400 26px/1.45 'Golos Text',sans-serif; color:rgba(4,4,19,0.55);">4 YAML-сценария · 77 автоматических тестов — инженерная готовность, не customer traction</div>
+      </div>
+    </div>
+  </div>
+
+  <div style="border-left:8px solid #EF3124; border-radius:0 24px 24px 0; background:#fff; padding:36px 48px;">
+    <div style="font:400 28px/1.4 'Golos Text',sans-serif; color:rgba(4,4,19,0.55);">Граница интерпретации: 1 класс атак × 1 учебный инвестиционный стенд × 4 попытки × намеренно уязвимый режим.</div>
+  </div>
+</section>
+
+<!-- 12 -->
+<section data-label="12 Гипотезы" data-screen-label="12" data-speaker-notes="Day 1 дал нам не право заявить успех, а правильные вопросы. Мы сформулировали пять продуктовых гипотез: скорость и покрытие, ценность архитектурного контекста, доверие к evidence, регрессия и выбор сегмента. Три интервью подтвердили направление: приоритетны BAC, память, наблюдаемый эффект и контур. Следующий шаг — превратить это в измерения времени, доверия к finding и willingness to pay." style="width:100%; height:100%; box-sizing:border-box; background:#F6F5F3; font-family:'Golos Text',system-ui,sans-serif; display:flex; flex-direction:column; gap:24px; padding:64px;">
+  <div style="display:flex; align-items:flex-end; justify-content:space-between; padding:0 24px;">
+    <div style="font:600 54px/1.2 'Golos Text',sans-serif; color:#121213; max-width:1400px;">Что должно стать правдой, чтобы это был продукт, а не разовое демо</div>
+    <div style="font:500 24px/1 'JetBrains Mono',monospace; letter-spacing:2px; color:rgba(5,8,29,0.38);">12</div>
+  </div>
+
+  <div style="flex:1; min-height:0; display:flex; flex-direction:column; gap:12px;">
+    <div style="display:flex; gap:20px; padding:0 48px;">
+      <div style="width:120px; font:500 24px/1 'JetBrains Mono',monospace; letter-spacing:1.5px; color:rgba(5,8,29,0.38);">#</div>
+      <div style="flex:1.3; font:500 24px/1 'JetBrains Mono',monospace; letter-spacing:1.5px; text-transform:uppercase; color:rgba(5,8,29,0.38);">Гипотеза Day 1</div>
+      <div style="flex:1.2; font:500 24px/1 'JetBrains Mono',monospace; letter-spacing:1.5px; text-transform:uppercase; color:rgba(5,8,29,0.38);">Как проверяем</div>
+      <div style="width:420px; font:500 24px/1 'JetBrains Mono',monospace; letter-spacing:1.5px; text-transform:uppercase; color:#EF3124;">Статус сегодня</div>
+    </div>
+
+    <div style="flex:1; background:#fff; border-radius:24px; padding:24px 48px; display:flex; gap:20px; align-items:center;">
+      <div style="width:120px; font:600 30px/1 'JetBrains Mono',monospace; color:#121213;">H1</div>
+      <div style="flex:1.3; font:500 27px/1.35 'Golos Text',sans-serif; color:#121213;">Автоматизация увеличит покрытие и сократит время аудита</div>
+      <div style="flex:1.2; font:400 25px/1.4 'Golos Text',sans-serif; color:rgba(4,4,19,0.55);">Время, число и разнообразие сценариев, доля проверенных агентов</div>
+      <div style="width:420px; font:500 25px/1.3 'JetBrains Mono',monospace; color:#EF3124;">TODO · нет замера</div>
+    </div>
+    <div style="flex:1; background:#fff; border-radius:24px; padding:24px 48px; display:flex; gap:20px; align-items:center;">
+      <div style="width:120px; font:600 30px/1 'JetBrains Mono',monospace; color:#121213;">H2</div>
+      <div style="flex:1.3; font:500 27px/1.35 'Golos Text',sans-serif; color:#121213;">Архитектура и API улучшают релевантность атак</div>
+      <div style="flex:1.2; font:400 25px/1.4 'Golos Text',sans-serif; color:rgba(4,4,19,0.55);">Сравнить ASR и релевантность с документацией и без неё</div>
+      <div style="width:420px; font:500 25px/1.3 'JetBrains Mono',monospace; color:#EF3124;">TODO · нет сравнения</div>
+    </div>
+    <div style="flex:1; background:#121213; border-radius:24px; padding:24px 48px; display:flex; gap:20px; align-items:center;">
+      <div style="width:120px; font:600 30px/1 'JetBrains Mono',monospace; color:#fff;">H3</div>
+      <div style="flex:1.3; font:500 27px/1.35 'Golos Text',sans-serif; color:rgba(255,255,255,0.94);">Evidence повышает доверие к находке</div>
+      <div style="flex:1.2; font:400 25px/1.4 'Golos Text',sans-serif; color:rgba(238,238,251,0.55);">Доля принятых заказчиком findings, false positives</div>
+      <div style="width:420px; font:500 25px/1.3 'JetBrains Mono',monospace; color:rgba(255,255,255,0.94);">Частично · state-based evidence реализован, внешней оценки нет</div>
+    </div>
+    <div style="flex:1; background:#fff; border-radius:24px; padding:24px 48px; display:flex; gap:20px; align-items:center;">
+      <div style="width:120px; font:600 30px/1 'JetBrains Mono',monospace; color:#121213;">H4</div>
+      <div style="flex:1.3; font:500 27px/1.35 'Golos Text',sans-serif; color:#121213;">Найденная атака станет регулярной проверкой</div>
+      <div style="flex:1.2; font:400 25px/1.4 'Golos Text',sans-serif; color:rgba(4,4,19,0.55);">Доля изменений, прошедших retest; число повторных запусков</div>
+      <div style="width:420px; font:500 25px/1.3 'JetBrains Mono',monospace; color:#EF3124;">TODO · нужен цикл на версии после фикса</div>
+    </div>
+    <div style="flex:1; background:#fff; border-radius:24px; padding:24px 48px; display:flex; gap:20px; align-items:center;">
+      <div style="width:120px; font:600 30px/1 'JetBrains Mono',monospace; color:#121213;">H5</div>
+      <div style="flex:1.3; font:500 27px/1.35 'Golos Text',sans-serif; color:#121213;">Выбрать первый сегмент и упаковку</div>
+      <div style="flex:1.2; font:400 25px/1.4 'Golos Text',sans-serif; color:rgba(4,4,19,0.55);">Willingness to pay, пилот → контракт, цикл сделки</div>
+      <div style="width:420px; font:500 25px/1.3 'JetBrains Mono',monospace; color:#EF3124;">TODO · 3 сегмента не ранжированы</div>
+    </div>
+  </div>
+
+  <div style="background:#EDECEA; border-radius:24px; padding:24px 48px;">
+    <div style="font:400 25px/1.35 'Golos Text',sans-serif; color:rgba(4,4,19,0.55);">Сделанное discovery: 3 экспертных интервью подтвердили приоритет BAC, памяти, evidence и локального контура. Это направление, а не выручка или пилот.</div>
+  </div>
+</section>
+
+<!-- 13 -->
+<section data-label="13 Экономика" data-screen-label="13" data-speaker-notes="Сейчас мы знаем цену проблемы, а не цену нашего продукта. Агентный аудит на рынке может стоить от 400 до 800 тысяч рублей и длиться от двух до шести недель; первичная оценка — порядка 300–500 тысяч. Сильный агент дешевле, но не заменяет контурный воспроизводимый процесс в банке. Наша будущая коммерческая единица — одна агентная система с согласованным scope, кампанией, evidence-отчётом и retest. До пилота нам нужно измерить себестоимость кампании и готовность платить, поэтому цену продукта сейчас не придумываем." style="width:100%; height:100%; box-sizing:border-box; background:#F6F5F3; font-family:'Golos Text',system-ui,sans-serif; display:flex; flex-direction:column; gap:24px; padding:64px;">
+  <div style="display:flex; align-items:flex-end; justify-content:space-between; padding:0 24px;">
+    <div style="font:600 54px/1.2 'Golos Text',sans-serif; color:#121213; max-width:1400px;">Известна цена альтернатив. Свою unit-экономику ещё нужно честно посчитать</div>
+    <div style="font:500 24px/1 'JetBrains Mono',monospace; letter-spacing:2px; color:rgba(5,8,29,0.38);">13</div>
+  </div>
+
+  <div style="flex:1; min-height:0; display:flex; gap:20px;">
+    <div style="flex:1; min-height:0; background:#fff; border-radius:32px; padding:36px 40px; display:flex; flex-direction:column; gap:18px;">
+      <div style="font:500 24px/1 'JetBrains Mono',monospace; letter-spacing:1.5px; text-transform:uppercase; color:rgba(5,8,29,0.38);">Кто платит</div>
+      <div style="font:500 28px/1.4 'Golos Text',sans-serif; color:#121213;">CISO / ДКБ / риск-функция</div>
+      <div style="font:400 25px/1.4 'Golos Text',sans-serif; color:rgba(4,4,19,0.55); margin-top:-14px;">за внутренний on-prem workflow</div>
+      <div style="height:2px; background:#EDECEA;"></div>
+      <div style="font:500 28px/1.4 'Golos Text',sans-serif; color:#121213;">Руководитель offensive security</div>
+      <div style="font:400 25px/1.4 'Golos Text',sans-serif; color:rgba(4,4,19,0.55); margin-top:-14px;">за delivery и retest</div>
+      <div style="height:2px; background:#EDECEA;"></div>
+      <div style="font:500 28px/1.4 'Golos Text',sans-serif; color:#121213;">CTO / CPO / AI lead</div>
+      <div style="font:400 25px/1.4 'Golos Text',sans-serif; color:rgba(4,4,19,0.55); margin-top:-14px;">за регулярную проверку с triage</div>
+    </div>
+
+    <div style="flex:1.1; min-height:0; background:#121213; border-radius:32px; padding:36px 40px; display:flex; flex-direction:column; gap:18px;">
+      <div style="font:500 24px/1 'JetBrains Mono',monospace; letter-spacing:1.5px; text-transform:uppercase; color:rgba(233,233,250,0.37);">Цена текущих альтернатив · факт</div>
+      <div style="display:flex; flex-direction:column; gap:6px;">
+        <div style="font:600 46px/1 'Golos Text',sans-serif; color:#fff;">400–800 тыс. ₽</div>
+        <div style="font:400 25px/1.4 'Golos Text',sans-serif; color:rgba(238,238,251,0.55);">публичный agentic-аудит, 2–6 недель — один открытый прайс</div>
+      </div>
+      <div style="height:2px; background:rgba(231,231,248,0.18);"></div>
+      <div style="display:flex; flex-direction:column; gap:6px;">
+        <div style="font:600 46px/1 'Golos Text',sans-serif; color:#fff;">~300–500 тыс. ₽</div>
+        <div style="font:400 25px/1.4 'Golos Text',sans-serif; color:rgba(238,238,251,0.55);">первичная экспертная оценка — оценка из интервью, не оферта</div>
+      </div>
+      <div style="height:2px; background:rgba(231,231,248,0.18);"></div>
+      <div style="display:flex; flex-direction:column; gap:6px;">
+        <div style="font:600 46px/1 'Golos Text',sans-serif; color:#fff;">от $100/мес.</div>
+        <div style="font:400 25px/1.4 'Golos Text',sans-serif; color:rgba(238,238,251,0.55);">активный исследовательский агент плюс usage — не для контура банка</div>
+      </div>
+    </div>
+
+    <div style="flex:1.1; display:flex; flex-direction:column; gap:20px;">
+      <div style="background:#fff; border-radius:32px; padding:36px 40px; display:flex; flex-direction:column; gap:16px;">
+        <div style="display:flex; align-items:center; gap:14px;">
+          <div style="font:500 24px/1 'JetBrains Mono',monospace; letter-spacing:1.5px; text-transform:uppercase; color:#EF3124;">Наша коммерческая единица</div>
+          <div style="font:500 24px/1 'JetBrains Mono',monospace; color:#fff; background:#EF3124; border-radius:99px; padding:8px 14px;">TODO</div>
+        </div>
+        <div style="font:500 27px/1.5 'JetBrains Mono',monospace; color:#121213;">1 агент × набор инструментов × кампания сценариев × evidence-отчёт × retest</div>
+        <div style="height:2px; background:#EDECEA;"></div>
+        <div style="font:400 25px/1.5 'JetBrains Mono',monospace; color:rgba(4,4,19,0.55);">Себестоимость кампании = LLM / compute + инфраструктура + время аналитика + поддержка адаптера</div>
+      </div>
+      <div style="flex:1; min-height:0; background:#EDECEA; border-radius:32px; padding:36px 40px; display:flex; flex-direction:column; gap:14px;">
+        <div style="font:500 24px/1 'JetBrains Mono',monospace; letter-spacing:1.5px; text-transform:uppercase; color:rgba(5,8,29,0.38);">Как снижаем cost после пилота</div>
+        <div style="font:400 25px/1.5 'Golos Text',sans-serif; color:rgba(4,4,19,0.55);">Библиотека и регрессия повторяют найденные сценарии · reusable адаптеры сокращают интеграцию · локальные модели снимают SaaS-риск · эксперт включается в triage, а не в каждую попытку</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- 14 -->
+<section data-label="14 Agentic-процесс" data-screen-label="14" data-speaker-notes="Мы использовали ИИ как исследовательский и инженерный ускоритель: для поиска и анализа рынка, подготовки и расшифровки интервью, работы с репозиторием. Но источники, продуктовые решения и claims проверяются людьми. В самом продукте действует та же граница: LLM помогает расширять пространство атак, код и state oracle подтверждают факт, а security-эксперт решает, что этот факт значит для бизнеса." style="width:100%; height:100%; box-sizing:border-box; background:#F6F5F3; font-family:'Golos Text',system-ui,sans-serif; display:flex; flex-direction:column; gap:24px; padding:64px;">
+  <div style="display:flex; align-items:flex-end; justify-content:space-between; padding:0 24px;">
+    <div style="font:600 54px/1.2 'Golos Text',sans-serif; color:#121213; max-width:1400px;">ИИ ускоряет исследование. Человек задаёт рамки и проверяет claims</div>
+    <div style="font:500 24px/1 'JetBrains Mono',monospace; letter-spacing:2px; color:rgba(5,8,29,0.38);">14</div>
+  </div>
+
+  <div style="display:flex; gap:20px;">
+    <div style="flex:1; background:#fff; border-radius:32px; padding:32px 40px; display:flex; flex-direction:column; gap:12px;">
+      <div style="font:500 24px/1 'JetBrains Mono',monospace; letter-spacing:1.5px; text-transform:uppercase; color:rgba(5,8,29,0.38);">Иван</div>
+      <div style="font:400 27px/1.4 'Golos Text',sans-serif; color:#121213;">Исследование пользователей, гипотезы, дизайн и продуктовая часть</div>
+    </div>
+    <div style="flex:1; background:#fff; border-radius:32px; padding:32px 40px; display:flex; flex-direction:column; gap:12px;">
+      <div style="font:500 24px/1 'JetBrains Mono',monospace; letter-spacing:1.5px; text-transform:uppercase; color:rgba(5,8,29,0.38);">Даниил и Тамерлан</div>
+      <div style="font:400 27px/1.4 'Golos Text',sans-serif; color:#121213;">Техническая часть продукта</div>
+    </div>
+    <div style="flex:1; background:#fff; border-radius:32px; padding:32px 40px; display:flex; flex-direction:column; gap:12px;">
+      <div style="font:500 24px/1 'JetBrains Mono',monospace; letter-spacing:1.5px; text-transform:uppercase; color:rgba(5,8,29,0.38);">Команда</div>
+      <div style="font:400 27px/1.4 'Golos Text',sans-serif; color:#121213;">Утверждает scope, критерий успеха и то, какие утверждения можно вынести в презентацию</div>
+    </div>
+  </div>
+
+  <div style="flex:1; min-height:0; background:#fff; border-radius:32px; padding:32px 48px; display:flex; flex-direction:column; gap:14px;">
+    <div style="display:flex; gap:24px;">
+      <div style="width:420px; font:500 24px/1 'JetBrains Mono',monospace; letter-spacing:1.5px; text-transform:uppercase; color:rgba(5,8,29,0.38);">Задача</div>
+      <div style="flex:1; font:500 24px/1 'JetBrains Mono',monospace; letter-spacing:1.5px; text-transform:uppercase; color:rgba(5,8,29,0.38);">Инструменты</div>
+      <div style="flex:1.2; font:500 24px/1 'JetBrains Mono',monospace; letter-spacing:1.5px; text-transform:uppercase; color:#EF3124;">Контроль человека</div>
+    </div>
+    <div style="height:2px; background:#EDECEA;"></div>
+    <div style="display:flex; gap:24px; align-items:center;">
+      <div style="width:420px; font:600 28px/1.35 'Golos Text',sans-serif; color:#121213;">Рынок и конкуренты</div>
+      <div style="flex:1; font:400 26px/1.4 'JetBrains Mono',monospace; color:rgba(4,4,19,0.55);">ChatGPT Deep Research, Perplexity</div>
+      <div style="flex:1.2; font:400 26px/1.45 'Golos Text',sans-serif; color:rgba(4,4,19,0.55);">Источники, сегментация и формулировки проверяются командой</div>
+    </div>
+    <div style="height:2px; background:#EDECEA;"></div>
+    <div style="display:flex; gap:24px; align-items:center;">
+      <div style="width:420px; font:600 28px/1.35 'Golos Text',sans-serif; color:#121213;">Интервью</div>
+      <div style="flex:1; font:400 26px/1.4 'JetBrains Mono',monospace; color:rgba(4,4,19,0.55);">ChatGPT, Scribe AI</div>
+      <div style="flex:1.2; font:400 26px/1.45 'Golos Text',sans-serif; color:rgba(4,4,19,0.55);">Выводы сверяются с транскриптами</div>
+    </div>
+    <div style="height:2px; background:#EDECEA;"></div>
+    <div style="display:flex; gap:24px; align-items:center;">
+      <div style="width:420px; font:600 28px/1.35 'Golos Text',sans-serif; color:#121213;">Репозиторий и артефакты</div>
+      <div style="flex:1; font:400 26px/1.4 'JetBrains Mono',monospace; color:rgba(4,4,19,0.55);">Claude</div>
+      <div style="flex:1.2; font:400 26px/1.45 'Golos Text',sans-serif; color:rgba(4,4,19,0.55);">Инженерные результаты подтверждаются кодом, тестами и evidence</div>
+    </div>
+  </div>
+
+  <div style="background:#121213; border-radius:24px; padding:28px 48px;">
+    <div style="font:500 30px/1.35 'Golos Text',sans-serif; color:rgba(255,255,255,0.94);">В продукте тот же принцип: LLM расширяет поиск атак · <span style="color:#EF3124;">code + state oracle подтверждают факт</span> · человек интерпретирует риск</div>
+  </div>
+</section>
+
+<!-- 15 -->
+<section data-label="15 Следующий шаг" data-screen-label="15" data-speaker-notes="Нам нужен design partner: конкретный агент, несколько недопустимых effects и возможность увидеть проверяемый след. В ответ мы проверим, какой state adapter нужен, и покажем evidence, пригодный для исправления и retest. Ближайший технический результат — полная цепочка memory lifecycle между сессиями. Спасибо." style="width:100%; height:100%; box-sizing:border-box; background:#F6F5F3; font-family:'Golos Text',system-ui,sans-serif; display:flex; flex-direction:column; gap:24px; padding:64px;">
+  <div style="background:#121213; border-radius:32px; padding:52px 72px; display:flex; align-items:center; justify-content:space-between; gap:48px;">
+    <div style="font:600 52px/1.25 'Golos Text',sans-serif; color:rgba(255,255,255,0.94); max-width:1300px; text-wrap:pretty;">Помогите проверить, что MOROK становится security workflow, а не остаётся учебным стендом</div>
+    <div style="display:flex; align-items:center; gap:18px;">
+      <svg width="48" height="48" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M1.5 12C4.5 6 8 3.5 12 3.5S19.5 6 22.5 12C19.5 18 16 20.5 12 20.5S4.5 18 1.5 12Z" stroke="#fff" stroke-width="1.5"></path><circle cx="12" cy="12" r="4" stroke="#fff" stroke-width="1.5"></circle><circle cx="12" cy="12" r="1.9" fill="#EF3124"></circle></svg>
+      <div style="font:700 34px/1 'Golos Text',sans-serif; letter-spacing:6px; color:#fff;">MOROK</div>
+    </div>
+  </div>
+
+  <div style="flex:1; min-height:0; display:flex; gap:20px;">
+    <div style="flex:1; background:#fff; border-radius:32px; padding:40px; display:flex; flex-direction:column; gap:18px;">
+      <div style="font:600 40px/1 'JetBrains Mono',monospace; color:#EF3124;">01</div>
+      <div style="font:600 36px/1.25 'Golos Text',sans-serif; color:#121213;">Назвать 3–5 критичных effects</div>
+      <div style="font:400 27px/1.45 'Golos Text',sans-serif; color:rgba(4,4,19,0.55);">конкретного агента: что недопустимо для другого пользователя, данных или инструментов.</div>
+    </div>
+    <div style="flex:1; background:#fff; border-radius:32px; padding:40px; display:flex; flex-direction:column; gap:18px;">
+      <div style="font:600 40px/1 'JetBrains Mono',monospace; color:#EF3124;">02</div>
+      <div style="font:600 36px/1.25 'Golos Text',sans-serif; color:#121213;">Дать авторизованный тестовый контур</div>
+      <div style="font:400 27px/1.45 'Golos Text',sans-serif; color:rgba(4,4,19,0.55);">architecture / API / tool contract и хотя бы один наблюдаемый источник состояния или трасс.</div>
+    </div>
+    <div style="flex:1; background:#fff; border-radius:32px; padding:40px; display:flex; flex-direction:column; gap:18px;">
+      <div style="font:600 40px/1 'JetBrains Mono',monospace; color:#EF3124;">03</div>
+      <div style="font:600 36px/1.25 'Golos Text',sans-serif; color:#121213;">Проверить evidence-отчёт</div>
+      <div style="font:400 27px/1.45 'Golos Text',sans-serif; color:rgba(4,4,19,0.55);">достаточно ли его, чтобы команда агента исправила риск и запустила retest.</div>
+    </div>
+  </div>
+
+  <div style="display:flex; gap:20px;">
+    <div style="flex:1; background:#EDECEA; border-radius:24px; padding:36px 48px; display:flex; align-items:center;">
+      <div style="font:400 28px/1.4 'Golos Text',sans-serif; color:rgba(4,4,19,0.55);">Следующий технический результат: <span style="color:#121213; font-family:'JetBrains Mono',monospace; font-size:26px;">memory lifecycle</span> — запись → сохранение → извлечение → действие в другой сессии</div>
+    </div>
+    <div style="width:300px; background:#fff; border-radius:24px; padding:24px; display:flex; align-items:center; gap:20px;">
+      <div style="width:112px; height:112px; border-radius:12px; border:2px dashed #d2d3d9; background:repeating-linear-gradient(135deg,#F6F5F3 0 8px,#fff 8px 16px);"></div>
+      <div style="font:400 24px/1.4 'JetBrains Mono',monospace; color:rgba(5,8,29,0.38);">QR<br>GitHub / демо<br>TODO</div>
+    </div>
+  </div>
+</section>
+
+<!-- Backup divider -->
+<section data-label="— Backup" data-screen-label="B0" data-speaker-notes="Дальше — резервные слайды для вопросов." style="width:100%; height:100%; box-sizing:border-box; background:#121213; font-family:'Golos Text',system-ui,sans-serif; display:flex; flex-direction:column; justify-content:center; gap:32px; padding:120px;">
+  <div style="display:flex; align-items:center; gap:22px;">
+    <svg width="48" height="48" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M1.5 12C4.5 6 8 3.5 12 3.5S19.5 6 22.5 12C19.5 18 16 20.5 12 20.5S4.5 18 1.5 12Z" stroke="#fff" stroke-width="1.5"></path><circle cx="12" cy="12" r="4" stroke="#fff" stroke-width="1.5"></circle><circle cx="12" cy="12" r="1.9" fill="#EF3124"></circle></svg>
+    <div style="font:700 32px/1 'Golos Text',sans-serif; letter-spacing:6px; color:#fff;">MOROK</div>
+  </div>
+  <div style="font:600 110px/1 'Golos Text',sans-serif; color:#fff;">Backup</div>
+  <div style="font:400 32px/1.5 'JetBrains Mono',monospace; color:rgba(238,238,251,0.55);">разрыв ёмкости · конкуренты · себестоимость ручной проверки · модули MOROK</div>
+</section>
+
+<!-- B1 -->
+<section data-label="B1 Разрыв ёмкости" data-screen-label="B1" data-speaker-notes="Резерв: арифметика потока и ёмкости. До 5 агентов в день на человека против ёмкости 0,3–0,5 агента в день. Разрыв примерно на порядок. Это оценка на пиковом потоке, не статистика рынка." style="width:100%; height:100%; box-sizing:border-box; background:#F6F5F3; font-family:'Golos Text',system-ui,sans-serif; display:flex; flex-direction:column; gap:28px; padding:64px;">
+  <div style="display:flex; align-items:flex-end; justify-content:space-between; padding:0 24px;">
+    <div style="font:600 54px/1.2 'Golos Text',sans-serif; color:#121213; max-width:1400px;">AS-IS: разрыв между входящим потоком и ёмкостью проверки</div>
+    <div style="font:500 24px/1 'JetBrains Mono',monospace; letter-spacing:2px; color:rgba(5,8,29,0.38);">B1</div>
+  </div>
+
+  <div style="flex:1; min-height:0; display:flex; gap:20px;">
+    <div style="flex:1; background:#fff; border-radius:32px; padding:48px; display:flex; flex-direction:column; gap:22px;">
+      <div style="display:flex; justify-content:space-between; align-items:baseline; gap:20px;"><div style="font:400 27px/1.35 'Golos Text',sans-serif; color:rgba(4,4,19,0.55);">Специалистов в команде</div><div style="font:600 34px/1 'Golos Text',sans-serif; color:#121213;">3</div></div>
+      <div style="height:2px; background:#EDECEA;"></div>
+      <div style="display:flex; justify-content:space-between; align-items:baseline; gap:20px;"><div style="font:400 27px/1.35 'Golos Text',sans-serif; color:rgba(4,4,19,0.55);">Входящий поток</div><div style="font:600 34px/1 'Golos Text',sans-serif; color:#121213; text-align:right;">до 5 агентов<br>в день на человека</div></div>
+      <div style="height:2px; background:#EDECEA;"></div>
+      <div style="display:flex; justify-content:space-between; align-items:baseline; gap:20px;"><div style="font:400 27px/1.35 'Golos Text',sans-serif; color:rgba(4,4,19,0.55);">Ручная техническая проверка одного агента</div><div style="font:600 34px/1 'Golos Text',sans-serif; color:#121213; text-align:right;">2–3 дня</div></div>
+      <div style="height:2px; background:#EDECEA;"></div>
+      <div style="display:flex; justify-content:space-between; align-items:baseline; gap:20px;"><div style="font:400 27px/1.35 'Golos Text',sans-serif; color:rgba(4,4,19,0.55);">Ёмкость одного специалиста</div><div style="font:600 34px/1 'Golos Text',sans-serif; color:#121213; text-align:right;">≈ 0,3–0,5<br>агента в день</div></div>
+    </div>
+
+    <div style="flex:1; background:#121213; border-radius:32px; padding:64px; display:flex; flex-direction:column; justify-content:center; gap:20px;">
+      <div style="font:500 24px/1 'JetBrains Mono',monospace; letter-spacing:1.5px; text-transform:uppercase; color:rgba(233,233,250,0.37);">Разрыв между спросом и ёмкостью</div>
+      <div style="font:600 170px/1 'Golos Text',sans-serif; color:#fff; letter-spacing:-4px;">~10–15<span style="color:#EF3124;">×</span></div>
+      <div style="font:400 27px/1.45 'Golos Text',sans-serif; color:rgba(238,238,251,0.55);">Оценка при пиковом потоке 5 агентов в день на человека. Только техническая часть, без согласований.</div>
+    </div>
+  </div>
+
+  <div style="border-left:8px solid #EF3124; border-radius:0 24px 24px 0; background:#fff; padding:36px 48px;">
+    <div style="font:500 32px/1.4 'Golos Text',sans-serif; color:#121213;">Часть изменений уходит в прод без полноценной проверки — не потому, что команда плохая, а потому что арифметика не сходится.</div>
+  </div>
+</section>
+
+<!-- B2 -->
+<section data-label="B2 Конкуренты" data-screen-label="B2" data-speaker-notes="Резерв: конкурентная раскладка. Против HiveTrace Red наш аргумент — измерение состояния и cross-session эффекта. Против сервисных аудитов — цикл вместо разового проекта. С крупными offensive-практиками не конкурируем, даём им инструмент. С OSS — модель compose, not replace." style="width:100%; height:100%; box-sizing:border-box; background:#F6F5F3; font-family:'Golos Text',system-ui,sans-serif; display:flex; flex-direction:column; gap:24px; padding:64px;">
+  <div style="display:flex; align-items:flex-end; justify-content:space-between; padding:0 24px;">
+    <div style="font:600 54px/1.2 'Golos Text',sans-serif; color:#121213; max-width:1400px;">Конкурентная раскладка</div>
+    <div style="font:500 24px/1 'JetBrains Mono',monospace; letter-spacing:2px; color:rgba(5,8,29,0.38);">B2</div>
+  </div>
+
+  <div style="flex:1; min-height:0; display:flex; flex-direction:column; gap:12px;">
+    <div style="display:flex; gap:20px; padding:0 48px;">
+      <div style="width:460px; font:500 24px/1 'JetBrains Mono',monospace; letter-spacing:1.5px; text-transform:uppercase; color:rgba(5,8,29,0.38);">Против кого</div>
+      <div style="flex:1; font:500 24px/1 'JetBrains Mono',monospace; letter-spacing:1.5px; text-transform:uppercase; color:rgba(5,8,29,0.38);">Их сильная сторона</div>
+      <div style="flex:1.3; font:500 24px/1 'JetBrains Mono',monospace; letter-spacing:1.5px; text-transform:uppercase; color:#EF3124;">Наш аргумент</div>
+    </div>
+    <div style="flex:1; background:#121213; border-radius:24px; padding:24px 48px; display:flex; gap:20px; align-items:center;">
+      <div style="width:460px; font:600 30px/1.3 'Golos Text',sans-serif; color:#fff;">HiveTrace Red</div>
+      <div style="flex:1; font:400 25px/1.4 'Golos Text',sans-serif; color:rgba(238,238,251,0.55);">Каталог атак, локальные модели, регуляторный маппинг</div>
+      <div style="flex:1.3; font:400 25px/1.4 'Golos Text',sans-serif; color:rgba(255,255,255,0.94);">Публично не подтверждено измерение долговременной памяти как состояния и cross-session эффекта. Наше отличие показываем на состоянии, а не словами</div>
+    </div>
+    <div style="flex:1; background:#fff; border-radius:24px; padding:24px 48px; display:flex; gap:20px; align-items:center;">
+      <div style="width:460px; font:600 30px/1.3 'Golos Text',sans-serif; color:#121213;">Сервисные аудиты</div>
+      <div style="flex:1; font:400 25px/1.4 'Golos Text',sans-serif; color:rgba(4,4,19,0.55);">Понятный клиенту проект и отчёт, живая экспертиза</div>
+      <div style="flex:1.3; font:400 25px/1.4 'Golos Text',sans-serif; color:#121213;">400–800 тыс. ₽ и 2–6 недель за разовый результат. MOROK превращает повторяемую часть в цикл после каждого релиза</div>
+    </div>
+    <div style="flex:1; background:#fff; border-radius:24px; padding:24px 48px; display:flex; gap:20px; align-items:center;">
+      <div style="width:460px; font:600 30px/1.3 'Golos Text',sans-serif; color:#121213;">Крупные offensive-практики</div>
+      <div style="flex:1; font:400 25px/1.4 'Golos Text',sans-serif; color:rgba(4,4,19,0.55);">Сильнейшая экспертиза и репутация</div>
+      <div style="flex:1.3; font:400 25px/1.4 'Golos Text',sans-serif; color:#121213;">Не конкурируем с экспертом: даём ему кампании, evidence и retest. Мы инструмент в его руках</div>
+    </div>
+    <div style="flex:1; background:#fff; border-radius:24px; padding:24px 48px; display:flex; gap:20px; align-items:center;">
+      <div style="width:460px; font:600 30px/1.3 'Golos Text',sans-serif; color:#121213;">Сильный внешний агент</div>
+      <div style="flex:1; font:400 25px/1.4 'Golos Text',sans-serif; color:rgba(4,4,19,0.55);">Скорость исследования, гибкость</div>
+      <div style="flex:1.3; font:400 25px/1.4 'Golos Text',sans-serif; color:#121213;">Недоступен для контура. Нет state oracle, воспроизводимости и артефакта для риск-комитета</div>
+    </div>
+    <div style="flex:1; background:#fff; border-radius:24px; padding:24px 48px; display:flex; gap:20px; align-items:center;">
+      <div style="width:460px; font:600 30px/1.3 'Golos Text',sans-serif; color:#121213;">OSS: Promptfoo, PyRIT, Giskard, Garak</div>
+      <div style="flex:1; font:400 25px/1.4 'Golos Text',sans-serif; color:rgba(4,4,19,0.55);">Бесплатны, зрелые компоненты</div>
+      <div style="flex:1.3; font:400 25px/1.4 'Golos Text',sans-serif; color:#121213;">Compose, not replace: берём их модули, своими остаются адаптеры цели, state oracle, memory lifecycle и evidence-отчёт</div>
+    </div>
+  </div>
+</section>
+
+<!-- B3 -->
+<section data-label="B3 Себестоимость" data-screen-label="B3" data-speaker-notes="Резерв: себестоимость ручной проверки одного агента. Подрядчик — 80–360 тысяч, штатная команда — 36–66 тысяч. Это база для расчёта экономии на потоке, а не наша цена." style="width:100%; height:100%; box-sizing:border-box; background:#F6F5F3; font-family:'Golos Text',system-ui,sans-serif; display:flex; flex-direction:column; gap:28px; padding:64px;">
+  <div style="display:flex; align-items:flex-end; justify-content:space-between; padding:0 24px;">
+    <div style="font:600 54px/1.2 'Golos Text',sans-serif; color:#121213; max-width:1400px;">Себестоимость одной ручной проверки агента</div>
+    <div style="font:500 24px/1 'JetBrains Mono',monospace; letter-spacing:2px; color:rgba(5,8,29,0.38);">B3</div>
+  </div>
+
+  <div style="flex:1; min-height:0; display:flex; gap:20px;">
+    <div style="flex:1; background:#fff; border-radius:32px; padding:56px; display:flex; flex-direction:column; justify-content:center; gap:20px;">
+      <div style="font:500 24px/1 'JetBrains Mono',monospace; letter-spacing:1.5px; text-transform:uppercase; color:rgba(5,8,29,0.38);">Подрядчик</div>
+      <div style="font:600 92px/1 'Golos Text',sans-serif; color:#121213;">80–360<span style="font-size:44px;"> тыс. ₽</span></div>
+      <div style="font:400 26px/1.45 'JetBrains Mono',monospace; color:rgba(4,4,19,0.55);">2–3 дня × 40–120 тыс. ₽ за специалисто-день</div>
+    </div>
+    <div style="flex:1; background:#121213; border-radius:32px; padding:56px; display:flex; flex-direction:column; justify-content:center; gap:20px;">
+      <div style="font:500 24px/1 'JetBrains Mono',monospace; letter-spacing:1.5px; text-transform:uppercase; color:rgba(233,233,250,0.37);">Штатная команда</div>
+      <div style="font:600 92px/1 'Golos Text',sans-serif; color:#fff;">36–66<span style="font-size:44px;"> тыс. ₽</span></div>
+      <div style="font:400 26px/1.45 'JetBrains Mono',monospace; color:rgba(238,238,251,0.55);">2–3 дня × 18–22 тыс. ₽/день полной стоимости специалиста</div>
+    </div>
+  </div>
+
+  <div style="display:flex; gap:20px;">
+    <div style="flex:1; background:#EDECEA; border-radius:24px; padding:36px 48px;">
+      <div style="font:400 26px/1.45 'Golos Text',sans-serif; color:rgba(4,4,19,0.55);">Штатный senior — 4,5–5,5 млн ₽/год полной стоимости. Оценка, не оферта.</div>
+    </div>
+    <div style="flex:1; border-left:8px solid #EF3124; border-radius:0 24px 24px 0; background:#fff; padding:36px 48px;">
+      <div style="font:400 26px/1.45 'Golos Text',sans-serif; color:rgba(4,4,19,0.55);">Это база для расчёта экономии на потоке, а не цена MOROK. Свою себестоимость меряем после пилота.</div>
+    </div>
+  </div>
+</section>
+
+<!-- B4 -->
+<section data-label="B4 Модули" data-screen-label="B4" data-speaker-notes="Резерв: линейка модулей. Forge атакует. Proof доказывает. Loop не даёт забыть. Каждый модуль соответствует реальному компоненту текущего pipeline." style="width:100%; height:100%; box-sizing:border-box; background:#F6F5F3; font-family:'Golos Text',system-ui,sans-serif; display:flex; flex-direction:column; gap:28px; padding:64px;">
+  <div style="display:flex; align-items:flex-end; justify-content:space-between; padding:0 24px;">
+    <div style="font:600 54px/1.2 'Golos Text',sans-serif; color:#121213; max-width:1400px;">Линейка модулей MOROK</div>
+    <div style="font:500 24px/1 'JetBrains Mono',monospace; letter-spacing:2px; color:rgba(5,8,29,0.38);">B4</div>
+  </div>
+
+  <div style="flex:1; min-height:0; display:flex; gap:20px;">
+    <div style="flex:1; background:#fff; border-radius:32px; padding:44px; display:flex; flex-direction:column; gap:18px;">
+      <div style="font:600 34px/1 'Golos Text',sans-serif; color:#121213;">Core</div>
+      <div style="font:400 26px/1.4 'Golos Text',sans-serif; color:rgba(4,4,19,0.55);">Движок и CLI: конфигурация цели, preflight, запуск кампании</div>
+      <div style="flex:1;"></div>
+      <div style="font:400 24px/1.4 'JetBrains Mono',monospace; color:#121213; background:#EDECEA; border-radius:14px; padding:18px 20px;">agentic_redteam · config/target.yaml · doctor</div>
+    </div>
+    <div style="flex:1; background:#121213; border-radius:32px; padding:44px; display:flex; flex-direction:column; gap:18px;">
+      <div style="font:600 34px/1 'Golos Text',sans-serif; color:#fff;">Forge</div>
+      <div style="font:400 26px/1.4 'Golos Text',sans-serif; color:rgba(238,238,251,0.55);">Генерация и адаптация сценариев атак</div>
+      <div style="flex:1;"></div>
+      <div style="font:400 24px/1.4 'JetBrains Mono',monospace; color:rgba(255,255,255,0.94); background:rgba(214,214,229,0.07); border-radius:14px; padding:18px 20px;">Scenario layer · adaptive BAC generator</div>
+    </div>
+    <div style="flex:1; background:#121213; border-radius:32px; padding:44px; display:flex; flex-direction:column; gap:18px;">
+      <div style="font:600 34px/1 'Golos Text',sans-serif; color:#EF3124;">Proof</div>
+      <div style="font:400 26px/1.4 'Golos Text',sans-serif; color:rgba(238,238,251,0.55);">State oracle: снимки памяти, журнал tool calls, assertions, ASR</div>
+      <div style="flex:1;"></div>
+      <div style="font:400 24px/1.4 'JetBrains Mono',monospace; color:rgba(255,255,255,0.94); background:rgba(214,214,229,0.07); border-radius:14px; padding:18px 20px;">State Tracer · Deterministic Scorer</div>
+    </div>
+    <div style="flex:1; background:#121213; border-radius:32px; padding:44px; display:flex; flex-direction:column; gap:18px;">
+      <div style="font:600 34px/1 'Golos Text',sans-serif; color:#fff;">Loop</div>
+      <div style="font:400 26px/1.4 'Golos Text',sans-serif; color:rgba(238,238,251,0.55);">Регрессия: находка → сценарий → повторный прогон</div>
+      <div style="flex:1;"></div>
+      <div style="font:400 24px/1.4 'JetBrains Mono',monospace; color:rgba(255,255,255,0.94); background:rgba(214,214,229,0.07); border-radius:14px; padding:18px 20px;">YAML-сценарии · run-id · артефакты</div>
+    </div>
+    <div style="flex:1; background:#fff; border-radius:32px; padding:44px; display:flex; flex-direction:column; gap:18px;">
+      <div style="font:600 34px/1 'Golos Text',sans-serif; color:#121213;">Range</div>
+      <div style="font:400 26px/1.4 'Golos Text',sans-serif; color:rgba(4,4,19,0.55);">Учебный намеренно уязвимый полигон для демо и обучения</div>
+      <div style="flex:1;"></div>
+      <div style="font:400 24px/1.4 'JetBrains Mono',monospace; color:#121213; background:#EDECEA; border-radius:14px; padding:18px 20px;">stand/</div>
+    </div>
+  </div>
+
+  <div style="background:#fff; border-radius:24px; padding:36px 48px;">
+    <div style="font:600 38px/1.3 'Golos Text',sans-serif; color:#121213;">Forge атакует. <span style="color:#EF3124;">Proof доказывает.</span> Loop не даёт забыть.</div>
+  </div>
+</section>
+
+</x-import>
+
+</x-dc>
+</body>
+</html>

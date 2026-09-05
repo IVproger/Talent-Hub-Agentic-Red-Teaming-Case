@@ -157,26 +157,11 @@ def main() -> None:
                 or not attacker.strip().isdecimal()
                 or not victim.strip().isdecimal()
             )
-            fingerprint = _config_fingerprint(
-                selected,
-                attacker,
-                victim,
-                int(attempts),
-                auth_mode,
-                scenario_id=scenario_id,
-                target_context=target_runtime_config,
-            )
-            readiness_current = (
-                st.session_state.environment_fingerprint == fingerprint
-                and st.session_state.environment_checks
-                and checks_ok_from_dicts(st.session_state.environment_checks)
-            )
             if invalid_identity:
                 st.error("CUS должны состоять из цифр и различаться.")
             if missing_keys:
                 st.error("Настройте ключи: " + ", ".join(missing_keys) + ".")
-            if not readiness_current:
-                st.caption("Сначала выполните проверку конфигурации.")
+            st.caption("«Проверить» — необязательная диагностика; запуск сам проверит цель.")
 
             check_col, run_col = st.columns(2)
             with check_col:
@@ -186,7 +171,7 @@ def main() -> None:
                     "ЗАПУСТИТЬ",
                     type="primary",
                     width="stretch",
-                    disabled=invalid_identity or bool(missing_keys) or not readiness_current,
+                    disabled=invalid_identity or bool(missing_keys),
                 )
 
         if check_submitted:
@@ -204,7 +189,6 @@ def main() -> None:
             except Exception as exc:
                 checks = [{"name": "preflight", "ok": False, "message": sanitize_error(exc), "blocking": True}]
             st.session_state.environment_checks = checks
-            st.session_state.environment_fingerprint = fingerprint
             st.rerun()
         _render_preflight_checks(st.session_state.get("environment_checks", []))
 
@@ -212,9 +196,6 @@ def main() -> None:
     progress = st.empty()
     live_trace = st.empty()
     status = st.empty()
-    if submitted and not readiness_current:
-        st.session_state.run_error = "Конфигурация изменилась. Выполните preflight ещё раз."
-        submitted = False
     if submitted:
         context_required = scenario_id == GENERATED_BAC_SCENARIO_ID
         arch_content = (
@@ -627,7 +608,6 @@ def _init_state() -> None:
         "last_run_dir": None,
         "last_result": None,
         "environment_checks": [],
-        "environment_fingerprint": None,
         "arch_error": False,
         "card_error": False,
     }
@@ -673,27 +653,6 @@ def _target_runtime_config() -> dict:
 
 def _doctor_target_args(target_config: dict) -> dict:
     return {"target_api": target_config["target_api"], "compose_file": target_config["compose_file"], "target_model": LLMRoleConfig(**target_config["target_model"])}
-
-
-def _config_fingerprint(
-    selected: dict[str, LLMRoleConfig],
-    attacker: str,
-    victim: str,
-    attempts: int,
-    auth_mode: str,
-    scenario_id: str = GENERATED_BAC_SCENARIO_ID,
-    target_context: dict[str, str] | None = None,
-) -> str:
-    value = {
-        "llm": {role: config.safe_dict() for role, config in selected.items()},
-        "attacker": attacker.strip(),
-        "victim": victim.strip(),
-        "attempts": attempts,
-        "auth_mode": auth_mode,
-        "scenario_id": scenario_id,
-        "target": target_context or {},
-    }
-    return hashlib.sha256(json.dumps(value, sort_keys=True).encode("utf-8")).hexdigest()
 
 
 def checks_ok_from_dicts(checks: list[dict]) -> bool:
@@ -842,13 +801,13 @@ def _styles() -> None:
         .check-row strong { font-size:.64rem; }
         .check-row small { color:var(--muted); font-size:.59rem; line-height:1.4; }
         [data-testid="stAlert"],.stAlertContainer { background:var(--surface)!important; color:var(--ink)!important; border-radius:0; }
-        [data-testid="stAlert"] { border:1px solid var(--line); }
+        [data-testid="stAlert"] { border:0; }
         [data-testid="stAlert"] *,.stAlertContainer * { color:var(--ink)!important; }
         [data-testid="stAlert"] svg,.stAlertContainer svg { color:var(--ink)!important; fill:var(--ink)!important; }
         a,a:visited,a:hover,a:active,a * { color:var(--ink)!important; }
         a svg,a path,a line { color:var(--ink)!important; stroke:var(--ink)!important; }
-        [data-testid="stExpander"] { border:1px solid var(--line); border-radius:0; background:transparent; }
-        [data-testid="stCode"] { border-radius:0; border:1px solid var(--line); }
+        [data-testid="stExpander"] { border:0; border-radius:0; background:transparent; }
+        [data-testid="stCode"] { border-radius:0; border:0; }
         .stButton>button,.stDownloadButton>button,.stFormSubmitButton>button { border-radius:0!important; border:1px solid var(--ink)!important; background:var(--paper)!important; color:var(--ink)!important; min-height:2.5rem; font-size:.7rem; font-weight:700; letter-spacing:.04em; }
         .stButton>button:hover,.stDownloadButton>button:hover,.stFormSubmitButton>button:hover,.stFormSubmitButton>button[kind="primary"] { background:var(--ink)!important; color:var(--paper)!important; }
         .stFormSubmitButton>button:disabled { background:var(--surface)!important; color:var(--muted)!important; border-color:var(--line)!important; }
@@ -856,7 +815,7 @@ def _styles() -> None:
         [data-baseweb="tab-list"] { border-bottom:1px solid var(--line); gap:1.1rem; }
         [data-baseweb="tab"] { border-radius:0; padding:.7rem 0; font-size:.68rem; }
         [aria-selected="true"][role="tab"] { color:var(--ink); border-bottom:2px solid var(--ink); }
-        [data-testid="stDataFrame"] { border:1px solid var(--line); }
+        [data-testid="stDataFrame"] { border:0; }
         [data-testid="stProgressBar"]>div>div { background:var(--ink)!important; }
         hr { border-color:var(--line); }
         @media (prefers-reduced-motion:reduce) { *,*::before,*::after { transition-duration:.01ms!important; animation-duration:.01ms!important; } }

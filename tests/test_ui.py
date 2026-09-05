@@ -49,38 +49,9 @@ class StreamlitSmokeTests(unittest.TestCase):
             any("poison-to-tool-chain" in item.value for item in app.markdown)
         )
 
-    def test_config_fingerprint_changes_with_effective_inputs(self):
-        from agentic_redteam.llm import default_role_configs
-        from agentic_redteam.ui.app import (
-            _config_fingerprint,
-            _scenario_catalog,
-            checks_ok_from_dicts,
-        )
+    def test_scenario_catalog_and_checks_helpers(self):
+        from agentic_redteam.ui.app import _scenario_catalog, checks_ok_from_dicts
 
-        roles = default_role_configs()
-        first = _config_fingerprint(roles, "1001", "1002", 5, "vulnerable")
-        second = _config_fingerprint(roles, "1001", "1002", 6, "vulnerable")
-        third = _config_fingerprint(
-            roles,
-            "1001",
-            "1002",
-            5,
-            "vulnerable",
-            target_context={"config_sha256": "changed"},
-        )
-        self.assertNotEqual(first, second)
-        self.assertNotEqual(first, third)
-        self.assertNotEqual(
-            first,
-            _config_fingerprint(
-                roles,
-                "1001",
-                "1002",
-                5,
-                "vulnerable",
-                scenario_id="bac-tool-argument",
-            ),
-        )
         self.assertEqual(
             set(_scenario_catalog()),
             {

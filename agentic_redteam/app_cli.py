@@ -23,6 +23,7 @@ from .campaign.runner import RunnerDeps, ScenarioStep
 from .campaign.scenarios import resolve as resolve_specs
 from .doctor import checks_ok, run_checks
 from .evidence.bundle import EvidenceBundle
+from .evidence.calibrate import check, verify
 from .llm import (
     LLMConfigurationError,
     LLMRequestError,
@@ -88,6 +89,7 @@ def build_parser() -> argparse.ArgumentParser:
 
     doctor = commands.add_parser("doctor", help="проверить локальное окружение, ничего не меняя")
     _add_config_path(doctor)
+    doctor.add_argument("--profile", help="профиль цели: name@version или путь к YAML")
     doctor.add_argument("--offline", action="store_true", help="проверять только файлы и конфигурацию")
     doctor.add_argument("--json", action="store_true", help="вывести один JSON-результат в stdout")
 
@@ -144,9 +146,11 @@ def build_parser() -> argparse.ArgumentParser:
         ("show", "карта поверхности профиля"),
         ("diff", "различия двух версий профиля"),
         ("coverage", "что проверяемо на этой цели (гейт покрытия)"),
+        ("check", "read-only проверка подключения и привязок источников"),
+        ("verify", "проба видимости памяти — МЕНЯЕТ состояние цели"),
     ):
         sub = profile_commands.add_parser(name, help=help_text)
-        if name in ("show", "coverage"):
+        if name in ("show", "coverage", "check", "verify"):
             sub.add_argument("--profile", required=True, help="name@version или путь к YAML")
         if name == "coverage":
             sub.add_argument("--scenario", action="append", default=[],
@@ -275,6 +279,8 @@ def main(argv: list[str] | None = None) -> int:
 
 
 def _doctor(args) -> int:
+    if args.profile:
+        return _calibrate(args, check)
     roles = _role_configs(args)
     try:
         raw = yaml.safe_load(Path(args.config).read_text(encoding="utf-8")) or {}
@@ -682,6 +688,8 @@ def _profile(args) -> int:
         else:
             print(_render_diff(difference))
         return 0
+    if args.profile_command in ("check", "verify"):
+        return _calibrate(args, check if args.profile_command == "check" else verify)
     profile = _load_profile(args.profile)
     if args.profile_command == "show":
         surface = _surface(profile)
@@ -695,6 +703,29 @@ def _profile(args) -> int:
     else:
         print(_render_coverage(rows, available, profile))
     return 0
+
+
+def _calibrate(args, calibrator) -> int:
+    """Обёртка над 3.7: `check` ничего не меняет, `verify` — намеренно меняет."""
+    profile = _load_profile(args.profile)
+    changes_state = calibrator is verify
+    if changes_state and not args.json:
+        print("verify меняет состояние цели: очищает память и пишет пробные маркеры.")
+    with EvidenceBundle.from_profile(profile) as bundle:
+        adapter = HttpChatAdapter.from_profile(profile)
+        try:
+            results = calibrator(bundle, adapter)
+        finally:
+            adapter.close()
+    ok = checks_ok(results)
+    if args.json:
+        print(json.dumps({"ok": ok, "exit_code": 0 if ok else EXIT_PREFLIGHT,
+                          "checks": [item.to_dict() for item in results]},
+                         ensure_ascii=False))
+    else:
+        for item in results:
+            print(f"[{'ок' if item.ok else 'сбой'}] {item.name}: {item.message}")
+    return 0 if ok else EXIT_PREFLIGHT
 
 
 def _surface(profile: TargetProfile) -> dict:

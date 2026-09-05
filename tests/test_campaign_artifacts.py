@@ -77,7 +77,15 @@ class CampaignArtifactTests(unittest.TestCase):
         self.assertEqual(json.loads(second.read_text())["facts"]["tool_calls"][0]["principal"], "1002")
         refs = self.findings["findings"][0]["evidence_refs"]
         self.assertEqual(refs, rows[0]["evidence_refs"])
-        self.assertIn(refs[0], (self.run_dir / "report.md").read_text())
+        finding = self.findings["findings"][0]
+        self.assertEqual(finding["attempt"], 1)
+        self.assertEqual(finding["payload"], "p1")
+        self.assertEqual([step["name"] for step in finding["chain"]], ["inject", "activate"])
+        self.assertEqual(finding["chain"][1]["tool_calls"][0]["principal"], "1003")
+        report = (self.run_dir / "report.md").read_text()
+        self.assertIn(refs[0], report)
+        self.assertIn("p1", report)
+        self.assertIn("tool `get_portfolio`", report)
 
     def test_transcript_records_the_error_that_ended_an_attempt(self):
         root = Path(tempfile.mkdtemp())

@@ -78,6 +78,20 @@ class ReliabilityTests(unittest.TestCase):
         self.assertEqual(findings['attempts_scored'],4)
         self.assertTrue(findings['smoke'][0]['ok'])
 
+    def test_first_proven_metric_ignores_smoke_success(self):
+        attack = PlannedScenario('attack', 'bac', [], 'A', ['p'], [])
+        smoke = PlannedScenario('smoke', 'normal', [], 'A', ['p'], [], expect='pass')
+        attack_result = RunResult('r', 'completed', [
+            AttemptResult(1, 'p', 'A', 'v', 'not_proven'),
+        ], 0)
+        smoke_result = RunResult('r', 'completed', [
+            AttemptResult(1, 'p', 'A', 'v', 'proven'),
+        ], 100)
+        findings = build_findings('r', 'p@1', ['v'], [
+            (attack, attack_result), (smoke, smoke_result),
+        ])
+        self.assertIsNone(findings['attempts_to_first_proven'])
+
     def test_optional_failure_does_not_replace_the_primary_attempt_signal(self):
         scenario = PlannedScenario(
             's', 'bac', [], 'A', ['p'],

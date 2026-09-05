@@ -1396,6 +1396,8 @@ def _report(args) -> int:
         raise PipelineConfigurationError(
             f"В сохранённом прогоне нет корректного findings.json: {run_dir}"
         ) from exc
+    with contextlib.suppress(OSError, ValueError):
+        findings["observability"] = storage.load_json(run_dir, "observability.json")
     reporter = reporter_from_config(args.config) if args.narrative else None
     if args.business:
         business = _business_for_report(run_dir, findings)

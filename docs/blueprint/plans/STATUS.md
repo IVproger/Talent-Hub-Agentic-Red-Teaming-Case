@@ -35,6 +35,18 @@ memory poisoning → другая сессия/роль → foreign tool call, �
   в `findings` попадает только state-доказанный `proven`.
 - После блока: **477 тестов, OK**.
 
+### E7 — доказательная детализация отчёта
+
+- Finding теперь несёт номер доказавшей попытки, точный payload, результаты
+  каждого assertion и цепочку шагов с role/principal/session и state-сигналами
+  (`tool_calls`, `memory_writes`, callbacks).
+- `report.md` показывает payload, пройденные/оборванные шаги, точку
+  компрометации и достаточные данные для воспроизведения; `report --run`
+  добавляет trace ID/URL/root observation из `observability.json`.
+- `attempts_to_first_proven` исключает штатные smoke-сценарии: рабочий агент
+  больше не выглядит как найденная атака.
+- После блока: **479 тестов, OK**.
+
 ## Актуальное дополнение: E8 + сквозное (dseredkin, поверх `b40c513`)
 
 Закрыты последние незакрытые куски зоны dseredkin. **441 тест, весь набор

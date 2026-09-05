@@ -98,6 +98,26 @@ class CLIContractTests(unittest.TestCase):
         self.assertIn("Чтение данных другого клиента", report)
         self.assertFalse((run_dir / "report.md").exists())
 
+    def test_report_rebuild_includes_saved_trace_link(self):
+        run_dir = Path(tempfile.mkdtemp()) / "run"
+        run_dir.mkdir()
+        findings = {
+            "run_id": "run", "profile": "p@1", "status": "completed",
+            "modes": [], "asr_percent": 0.0, "attempts": [], "findings": [],
+            "attempts_total": 0, "attempts_scored": 0, "limitations": [],
+        }
+        (run_dir / "findings.json").write_text(json.dumps(findings), encoding="utf-8")
+        (run_dir / "observability.json").write_text(json.dumps({
+            "trace_id": "trace-1", "trace_url": "http://langfuse.local/trace-1",
+            "root_observation_id": "root-1",
+        }), encoding="utf-8")
+        with contextlib.redirect_stdout(io.StringIO()):
+            code = main(["report", "--run", str(run_dir), "--json"])
+        self.assertEqual(code, 0)
+        report = (run_dir / "report.md").read_text(encoding="utf-8")
+        self.assertIn("trace-1", report)
+        self.assertIn("http://langfuse.local/trace-1", report)
+
 
 if __name__ == "__main__":
     unittest.main()

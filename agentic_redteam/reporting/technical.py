@@ -51,16 +51,53 @@ def _finding(f: dict) -> str:
     total = f.get("attempts_total")
     sample = f" · {f.get('attempts_proven', 0)}/{total} попыток" if total else ""
     scenario = f"{f.get('scenario_id')} · " if f.get("scenario_id") else ""
+    payload = str(f.get("payload") or "—").replace("```", "` ` `")
+    chain = _chain_lines(f.get("chain") or [])
+    outcomes = "\n".join(
+        f"  - `{item.get('assertion')}`: {item.get('grade')} · "
+        f"{'выполнено' if item.get('passed') else 'не выполнено'} · {item.get('detail', '—')}"
+        for item in f.get("outcomes") or []
+    ) or "  - —"
     return (
         f"### [{f.get('severity')}] {scenario}{f.get('attack_class')} ({refs})\n"
+        f"- **Доказавшая попытка:** {f.get('attempt', '—')}\n"
         f"- **Точка компрометации:** {f.get('compromise_point')}\n"
         f"- **Этап цепочки:** {f.get('chain_stage', '—')}\n"
         f"- **Роли/режим:** {f.get('roles', '—')} · {f.get('mode') or '—'} · "
         f"reset {f.get('reset_policy', '—')}{sample}\n"
         f"- **Evidence:** {', '.join(f.get('evidence_refs', [])) or '—'}\n"
         f"- **Verdict:** {f.get('verdict')}\n"
-        f"- **Направление исправления:** {f.get('remediation', '—')}"
+        f"- **Направление исправления:** {f.get('remediation', '—')}\n"
+        f"- **Payload:**\n\n```text\n{payload}\n```\n"
+        f"- **Проверки цели:**\n{outcomes}\n"
+        f"- **Цепочка:**\n{chain}"
     )
+
+
+def _chain_lines(chain: list[dict]) -> str:
+    if not chain:
+        return "  - Детализация шагов отсутствует в этом артефакте."
+    lines = []
+    for step in chain:
+        state = "завершён" if step.get("completed") else "оборван"
+        signals = []
+        for call in step.get("tool_calls") or []:
+            signals.append(f"tool `{call.get('tool')}` → principal `{call.get('principal')}`")
+        for write in step.get("memory_writes") or []:
+            signals.append(
+                f"memory `{write.get('store')}` scope `{write.get('scope')}` "
+                f"({write.get('persistence')})"
+            )
+        for callback in step.get("callbacks") or []:
+            signals.append(f"callback `{callback.get('source')}`")
+        detail = "; ".join(signals) or "state-сигналов нет"
+        if step.get("error"):
+            detail += "; ошибка: " + str(step["error"])
+        lines.append(
+            f"  - `{step.get('name')}` · {step.get('role')} / principal "
+            f"`{step.get('principal')}` · {state}: {detail}"
+        )
+    return "\n".join(lines)
 
 
 def _diversity_section(diversity: dict) -> list[str]:
@@ -97,7 +134,7 @@ def build_skeleton(findings: dict) -> str:
         f"ASR по сценариям и режимам: {findings.get('asr_percent', 0):.0f}%. "
         f"Выборка: {findings.get('attempts_total', 0)} попыток, "
         f"{findings.get('attempts_scored', 0)} зачтено. "
-        f"Попыток до первого proven: {findings.get('attempts_to_first_proven', '—')}. "
+        f"Атакующих попыток до первого proven: {findings.get('attempts_to_first_proven', '—')}. "
         "Формула: сценарии с хотя бы одним proven / сценарии с хотя бы одной неошибочной попыткой, отдельно для каждого режима. indirect входит в знаменатель; error и штатные проверки исключены.",
         f"ASR по попыткам: {findings.get('attempt_asr_percent', 0):.0f}%.",
         "\n".join(f"- {mode}: {row['asr_percent']:.0f}% ({row['scenarios_proven']}/{row['scenarios_scored']})" for mode, row in findings.get("asr_by_mode", {}).items()),
@@ -112,6 +149,13 @@ def build_skeleton(findings: dict) -> str:
     parts.append("\n\n".join(_finding(f) for f in fs) if fs else "_Подтверждённых находок нет._")
     parts += [
         "",
+        "## Точка компрометации и цепочка",
+        *(
+            [f"- `{f.get('scenario_id')}`: {f.get('chain_stage', '—')} — "
+             f"{f.get('compromise_point', '—')}" for f in fs]
+            or ["_State-доказанных цепочек нет._"]
+        ),
+        "",
         "## Условия воспроизведения",
         f"Профиль `{r.get('profile')}`, сценарий `{r.get('scenario')}`, роли {r.get('roles')}, "
         f"режим {r.get('mode')}, reset {r.get('reset_policy')}. "
@@ -122,6 +166,15 @@ def build_skeleton(findings: dict) -> str:
         "## Ограничения",
         "\n".join(f"- {x}" for x in findings.get("limitations", [])) or "—",
     ]
+    observability = findings.get("observability") or {}
+    if observability:
+        parts += [
+            "",
+            "## Трассировка",
+            f"Trace ID: `{observability.get('trace_id') or '—'}`  ",
+            f"Trace URL: {observability.get('trace_url') or '—'}  ",
+            f"Root observation: `{observability.get('root_observation_id') or '—'}`",
+        ]
     if findings.get("status") != "completed":
         parts.insert(2, "**Неполный прогон.** Сохранены результаты завершённых попыток. " + (findings.get("error") or ""))
     if findings.get("smoke"):

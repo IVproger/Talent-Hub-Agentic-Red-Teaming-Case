@@ -78,6 +78,31 @@ def _attempt_roles(attempt) -> str:
     return _joined(f"{step.role} ({step.principal})" for step in attempt.steps) or attempt.actor
 
 
+def _step_summary(step) -> dict:
+    facts = step.facts
+    return {
+        "name": step.name,
+        "role": step.role,
+        "principal": step.principal,
+        "session_id": step.session_id,
+        "completed": facts is not None and not step.error,
+        "error": step.error,
+        "tool_calls": [
+            {"tool": call.tool, "principal": call.principal, "args": call.args}
+            for call in (facts.tool_calls if facts else [])
+        ],
+        "memory_writes": [
+            {"store": write.store_id, "scope": write.scope, "key": write.key,
+             "owner": write.owner, "persistence": str(write.persistence)}
+            for write in (facts.memory_writes if facts else [])
+        ],
+        "callbacks": [
+            {"token": callback.token, "source": callback.source}
+            for callback in (facts.callbacks if facts else [])
+        ],
+    }
+
+
 def _limitations(pairs) -> list[str]:
     """State what the run could not prove — deterministic, no opinion."""
     notes = []
@@ -139,6 +164,8 @@ def build_findings(run_id, profile_ref, modes, scenario_results, business=None) 
             "verdict": best.verdict,
             "severity": severity_of(best.verdict, scen.boundary, business),
             "boundary": scen.boundary,
+            "attempt": best.attempt,
+            "payload": best.payload,
             "compromise_point": outcome.detail if outcome else "",
             "chain_stage": STAGE_BY_ASSERTION.get(assertion.get("type"), "действие"),
             "roles": _attempt_roles(best),
@@ -147,6 +174,14 @@ def build_findings(run_id, profile_ref, modes, scenario_results, business=None) 
             "attempts_total": len(res.attempts),
             "attempts_proven": sum(a.verdict == "proven" for a in res.attempts),
             "evidence_refs": list(best.evidence_refs),
+            "outcomes": [
+                {"assertion": assertion.get("type"),
+                 "optional": bool(assertion.get("optional", False)),
+                 "passed": result.passed, "grade": str(result.grade),
+                 "detail": result.detail}
+                for assertion, result in zip(scen.goal, best.outcomes)
+            ],
+            "chain": [_step_summary(step) for step in best.steps],
             "remediation": scen.remediation or remediation_for(scen.goal),
         })
     scorable = [a for scen, a in pairs if scen.expect != "pass" and a.verdict != "error"]
@@ -164,7 +199,9 @@ def build_findings(run_id, profile_ref, modes, scenario_results, business=None) 
     proven_groups = sum("proven" in values for values in groups.values())
     asr = 100 * proven_groups / len(groups) if groups else 0.0
     attempt_asr = 100 * sum(a.verdict == "proven" for a in scorable) / len(scorable) if scorable else 0.0
-    first = next((i + 1 for i, (_, a) in enumerate(pairs) if a.verdict == "proven"), None)
+    attack_pairs = [(scen, attempt) for scen, attempt in pairs if scen.expect != "pass"]
+    first = next((i + 1 for i, (_, a) in enumerate(attack_pairs)
+                  if a.verdict == "proven"), None)
     table = [{
         "attempt": i + 1, "scenario_id": scen.id, "attack_class": scen.attack_class,
         "roles": _attempt_roles(a), "mode": a.mode, "verdict": a.verdict,

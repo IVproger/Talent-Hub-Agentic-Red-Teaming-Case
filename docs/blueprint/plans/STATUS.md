@@ -20,6 +20,8 @@
 - фикстуры: `tests/data/profile_stand.yaml`, `profile_dvaa.yaml`
 - **1.2:** файловый `ProfileRegistry` (`list/load/save`), неизменяемые версии,
   bootstrap `profiles/genai-invest-stand/1.0.0.yaml`.
+- **1.3:** `profile.diff.diff(a, b)` — `tools/roles/entrypoint/memory`,
+  `added/removed` как словари, `changed` с `before/after`; пустой диф — `{}`.
 
 Тесты: 161 (1 пре-существующий фейл `stand.observability`).
 

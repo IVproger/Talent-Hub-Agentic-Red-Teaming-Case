@@ -22,6 +22,7 @@ from .adapters.http_chat import HttpChatAdapter
 from .campaign.orchestrator import PlannedScenario, run_campaign
 from .reporting.technical import add_narrative, build_skeleton
 from .reporting.regression import RUSSIAN as REGRESSION_RU, compare
+from .campaign.authorization import AuthorizationError, authorization_from_mapping
 from .campaign.plan import Campaign, execution_order
 from .campaign.runner import RunnerDeps, ScenarioStep
 from .campaign.scenarios import resolve as resolve_specs
@@ -129,6 +130,12 @@ def build_parser() -> argparse.ArgumentParser:
         "--dry-run",
         action="store_true",
         help="показать план и payload'ы, ничего не отправляя цели",
+    )
+    run.add_argument(
+        "--read-only",
+        dest="read_only",
+        action="store_true",
+        help="только наблюдение: сценарии, объявляющие запись в цель, не запускаются",
     )
     run.add_argument("--json", action="store_true", help="вывести один JSON-результат в stdout")
 
@@ -254,6 +261,17 @@ def _role_configs_at(config_path) -> dict:
     return roles
 
 
+def _config_mapping(config_path) -> dict:
+    try:
+        raw = yaml.safe_load(Path(config_path).read_text(encoding="utf-8")) or {}
+    except (OSError, yaml.YAMLError) as exc:
+        raise PipelineConfigurationError(
+            f"Не удалось прочитать конфигурацию: {config_path}") from exc
+    if not isinstance(raw, Mapping):
+        raise PipelineConfigurationError("Конфигурация должна быть YAML-отображением (mapping).")
+    return dict(raw)
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = build_parser()
     arguments = sys.argv[1:] if argv is None else argv
@@ -280,7 +298,8 @@ def main(argv: list[str] | None = None) -> int:
         if args.command == "serve":
             return _serve(args)
         parser.error("неизвестная команда")
-    except (LLMConfigurationError, PipelineConfigurationError, StandSyncError) as exc:
+    except (AuthorizationError, LLMConfigurationError, PipelineConfigurationError,
+            StandSyncError) as exc:
         _error(sanitize_error(exc), getattr(args, "json", False), EXIT_USAGE)
         return EXIT_USAGE
     except TargetConfigurationError as exc:
@@ -408,15 +427,31 @@ def new_run_id() -> str:
 
 
 def execute_campaign(profile, planned, modes, trials, output_root, run_id,
-                     reporter_llm=None, on_event=None, telemetry=None) -> dict:
+                     reporter_llm=None, on_event=None, telemetry=None,
+                     metadata=None, read_only=False, authorization=None) -> dict:
     """Собрать реальные адаптер и evidence по профилю и прогнать кампанию.
 
     Общее ядро запуска: CLI и UI зовут его, а не повторяют сборку зависимостей —
     иначе демо и рабочий инструмент разошлись бы в поведении (US-07 AC3).
     """
+    # US-34 стоит здесь, а не в разборе аргументов: рамка авторизации нужна
+    # обоим входам, а UI зовёт это ядро напрямую.
+    if not authorization:
+        raise AuthorizationError(
+            "Кампания не стартует без блока authorization "
+            "(authorized_by, scope, until) в конфигурации."
+        )
+    metadata = {**(metadata or {}), "authorization": authorization,
+                "read_only": bool(read_only)}
     storage = RunStorage(output_root)
+    # US-35 стоит первым: read-only отсекает пишущие сценарии ещё до того, как
+    # поднимутся провайдеры и адаптер, то есть до любого касания цели.
+    skipped_read_only = []
+    if read_only:
+        planned, skipped_read_only = _gate_read_only(planned)
     with EvidenceBundle.from_profile(profile) as bundle:
         selected, skipped = _gate_scenarios(bundle, planned)
+        skipped = skipped_read_only + skipped
         _require_reset_source(bundle, selected)
         adapter = HttpChatAdapter.from_profile(profile)
         try:
@@ -425,7 +460,7 @@ def execute_campaign(profile, planned, modes, trials, output_root, run_id,
                 selected, RunnerDeps(adapter, bundle, telemetry=telemetry), storage, run_id,
                 modes=modes, profile_ref=f"{profile.name}@{profile.version}",
                 reporter_llm=reporter_llm, business=profile.business,
-                trials=trials, on_event=on_event,
+                trials=trials, on_event=on_event, metadata=metadata,
             )
         finally:
             adapter.close()
@@ -442,11 +477,17 @@ def execute_campaign(profile, planned, modes, trials, output_root, run_id,
 def _execute_campaign(args) -> int:
     _reject_conflicting_sources(args)
     if args.from_run:
-        raise PipelineConfigurationError(
-            "--from пока только предпросмотр: добавьте --dry-run."
-        )
-    profile = load_profile(args.profile)
-    campaign, planned, _ = _campaign_from_profile(args)
+        # US-29 AC4: повтор читает сохранённую кампанию и пишет новый каталог,
+        # исходный остаётся нетронутым.
+        campaign, planned, _ = _campaign_from_run(args.from_run)
+        metadata = {"replay_of": Path(args.from_run).expanduser().resolve().name}
+    else:
+        campaign, planned, _ = _campaign_from_profile(args)
+        metadata = {}
+    # Разрешение читается из конфигурации кампании; сам гейт — в execute_campaign,
+    # чтобы CLI и UI не расходились. Предпросмотр цель не трогает и сюда не заходит.
+    authorization = authorization_from_mapping(_config_mapping(args.config)).as_record()
+    profile = load_profile(campaign.profile)
     run_id = new_run_id()
     if not args.json:
         print(f"прогон {run_id}: {', '.join(s.id for s in planned)}", file=sys.stderr)
@@ -458,7 +499,8 @@ def _execute_campaign(args) -> int:
     summary = execute_campaign(
         profile, planned, campaign.modes, campaign.trials, args.output, run_id,
         reporter_llm=reporter_from_config(args.config), on_event=progress,
-        telemetry=telemetry_from_config(args.config),
+        telemetry=telemetry_from_config(args.config), metadata=metadata,
+        read_only=args.read_only, authorization=authorization,
     )
     try:
         store = KnowledgeStore(KB_PATH)
@@ -495,6 +537,43 @@ def _gate_scenarios(bundle, planned) -> tuple[list, list[str]]:
     if not selected:
         raise PipelineConfigurationError(
             "Ни один сценарий не покрыт источниками профиля — " + "; ".join(skipped)
+        )
+    return selected, skipped
+
+
+def _state_changing(scenario) -> list[str]:
+    """Чем сценарий пишет в цель — по объявленным шагам, а не по догадке.
+
+    Судим только по тому, что план объявляет: шаг с payload'ом (внедрение),
+    `commit_memory` (запись памяти) и сброс состояния. Обычный `message`
+    остаётся наблюдением — хотя цель и может записать что-то себе сама, из
+    плана это не видно, и заявлять обратное значило бы обещать больше, чем
+    режим проверяет.
+    """
+    reasons = []
+    steps = scenario.steps or ()
+    if not steps or any(step.payload for step in steps):
+        reasons.append("шаг с payload (внедрение)")
+    if any(step.commit_memory for step in steps):
+        reasons.append("шаг commit_memory")
+    if scenario.reset_policy != "none":
+        reasons.append(f"сброс состояния reset_policy={scenario.reset_policy}")
+    return reasons
+
+
+def _gate_read_only(planned) -> tuple[list, list[str]]:
+    """US-35: в режиме без записи остаётся только наблюдаемое."""
+    selected, skipped = [], []
+    for scenario in planned:
+        reasons = _state_changing(scenario)
+        if reasons:
+            skipped.append(f"{scenario.id}: меняет состояние цели — " + ", ".join(reasons))
+        else:
+            selected.append(scenario)
+    if not selected:
+        raise PipelineConfigurationError(
+            "В режиме read-only не осталось ни одного наблюдательного сценария — "
+            + "; ".join(skipped)
         )
     return selected, skipped
 
@@ -612,6 +691,8 @@ def _planned_from_saved(data: dict) -> PlannedScenario:
         boundary=data.get("boundary"),
         reset_policy=data.get("reset_policy", "per_scenario"),
         steps=[ScenarioStep(**step) for step in data.get("steps", [])],
+        expect=data.get("expect", "attack_success"),
+        remediation=data.get("remediation", ""),
     )
 
 

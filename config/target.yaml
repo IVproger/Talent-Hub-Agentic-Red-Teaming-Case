@@ -1,5 +1,12 @@
 # Machine-driving configuration for the red-team pipeline.
 
+# US-34: без этого блока кампания не стартует. Наш стенд — учебный полигон
+# с синтетическими данными, но отметка обязательна и для него.
+authorization:
+  authorized_by: Zero Trace — владелец стенда genai-invest
+  scope: genai-invest-stand, локальный учебный полигон, синтетические данные
+  until: 2026-12-31
+
 target:
   name: genai-invest-stand
   profile: profiles/genai-invest-stand/1.0.0.yaml

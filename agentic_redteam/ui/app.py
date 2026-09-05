@@ -19,6 +19,7 @@ if str(REPO_ROOT) not in sys.path:
 from agentic_redteam.adapters.http_chat import HttpChatAdapter  # noqa: E402
 from agentic_redteam.app_cli import (  # noqa: E402
     PROFILES_ROOT,
+    _config_mapping,
     coverage_of,
     execute_campaign,
     load_profile,
@@ -28,6 +29,7 @@ from agentic_redteam.app_cli import (  # noqa: E402
     reporter_from_config,
     surface_of,
 )
+from agentic_redteam.campaign.authorization import authorization_from_mapping  # noqa: E402
 from agentic_redteam.campaign.scenarios import resolve as resolve_specs  # noqa: E402
 from agentic_redteam.evidence.bundle import EvidenceBundle  # noqa: E402
 from agentic_redteam.evidence.calibrate import check  # noqa: E402
@@ -177,9 +179,12 @@ def _start_run(profile, planned, modes, trials, progress, live_trace, status) ->
 
     run_id = new_run_id()
     try:
-        summary = execute_campaign(profile, planned, modes, trials, RUNS_ROOT, run_id,
-                                   reporter_llm=reporter_from_config(TARGET_CONFIG),
-                                   on_event=on_event)
+        summary = execute_campaign(
+            profile, planned, modes, trials, RUNS_ROOT, run_id,
+            reporter_llm=reporter_from_config(TARGET_CONFIG), on_event=on_event,
+            # US-34: демо подчиняется той же рамке, что и CLI.
+            authorization=authorization_from_mapping(
+                _config_mapping(TARGET_CONFIG)).as_record())
         st.session_state.skipped = summary["skipped"]
         run_dir = Path(summary["run_dir"])
         st.session_state.last_result = _saved_result(

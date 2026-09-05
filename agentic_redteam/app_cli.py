@@ -1233,9 +1233,14 @@ def _profile_init(args) -> int:
     document = _read_openapi(args.openapi)
     name = args.name or _slug(document.get("info", {}).get("title") or "target")
     analyst = None
+    judge = None
     if not args.offline:
         try:
-            analyst = make_llm_client(_role_configs_at(args.config)["analyst"])
+            roles = _role_configs_at(args.config)
+            analyst = make_llm_client(roles["analyst"])
+            # Judge is its own role, so it can be a different model than the
+            # proposer; it defaults to the same local model when unset.
+            judge = make_llm_client(roles["judge"])
         except LLMConfigurationError as exc:
             raise PipelineConfigurationError(
                 f"{exc} Для детерминированного черновика без LLM добавьте --offline."
@@ -1248,6 +1253,7 @@ def _profile_init(args) -> int:
         [path for path in (args.arch, args.system_card) if path],
         analyst,
         args.bindings,
+        judge,
     )
     # Keep documented offline principal guesses, explicitly gated as unreviewed.
     hypotheses = []

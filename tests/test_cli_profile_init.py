@@ -10,8 +10,11 @@ from pathlib import Path
 
 import yaml
 
+import unittest.mock
+
 from agentic_redteam.app_cli import main
 from agentic_redteam.profile.schema import TargetProfile
+from tests.fakes import FakeLLM
 
 
 OPENAPI = {
@@ -115,6 +118,37 @@ class ProfileInitTests(unittest.TestCase):
                             "--base-url", "http://localhost:8600", "--offline")
         self.assertEqual(code, 0)
         self.assertIn("get_portfolio", out)
+
+
+    def test_judge_path_applies_bindings_and_records_provenance(self):
+        analyst_out = json.dumps({
+            "tools": [{"name": "get_portfolio", "sensitive": True}],
+        })
+        judge_out = json.dumps({
+            "accepted": {"entrypoint": {"review_required": ["осталась только память"]}},
+            "rejected": [{"binding": "get_portfolio.sensitive",
+                          "reason": "прямо в документе не сказано"}],
+            "confidence": {},
+        })
+        clients = iter([FakeLLM([analyst_out]), FakeLLM([judge_out])])
+        target = Path(tempfile.mkdtemp()) / "draft.yaml"
+        with unittest.mock.patch(
+            "agentic_redteam.app_cli.make_llm_client",
+            side_effect=lambda *a, **k: next(clients),
+        ):
+            code, out = run_cli("profile", "init", "--openapi", write_spec(),
+                                "--base-url", "http://localhost:8600",
+                                "-o", str(target))
+        self.assertEqual(code, 0, out)
+        draft = yaml.safe_load(target.read_text(encoding="utf-8"))
+        # judge-accepted fragment merged into the profile itself
+        self.assertEqual(draft["entrypoint"]["review_required"],
+                         ["осталась только память"])
+        # verdict recorded with explicit, honest provenance
+        judgement = draft["ingest"]["judgement"]
+        self.assertEqual(judgement["provenance"], "llm-judged")
+        self.assertEqual(len(judgement["rejected"]), 1)
+
 
 
 if __name__ == "__main__":

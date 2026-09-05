@@ -18,6 +18,8 @@
 ### oushtt — готово (Фаза 0)
 - `adapters/base.py` (2.1), `evidence/base.py` (3.1), `profile/schema.py` (1.1), `errors.py`
 - фикстуры: `tests/data/profile_stand.yaml`, `profile_dvaa.yaml`
+- **1.2:** файловый `ProfileRegistry` (`list/load/save`), неизменяемые версии,
+  bootstrap `profiles/genai-invest-stand/1.0.0.yaml`.
 
 Тесты: 161 (1 пре-существующий фейл `stand.observability`).
 

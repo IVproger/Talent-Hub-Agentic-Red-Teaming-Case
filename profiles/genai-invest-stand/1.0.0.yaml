@@ -39,7 +39,8 @@ surface:
         provider: db-query
         config:
           driver: mongo
-          uri_env: TARGET_MONGO_URI
+          compose_file: stand/docker-compose.yml
+          service: mongo
           db: agent_memory
           collection: agent_policy_memories
       record: {key: _id, content: statement, owner: null}
@@ -47,7 +48,8 @@ surface:
       scope_from: record
       read:
         provider: db-query
-        config: {driver: mongo, db: agent_memory, collection: semantic_memories}
+        config: {driver: mongo, compose_file: stand/docker-compose.yml, service: mongo,
+                 db: agent_memory, collection: semantic_memories}
       record:
         key: fact_id
         content: fact

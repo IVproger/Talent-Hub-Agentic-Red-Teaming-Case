@@ -29,6 +29,9 @@
 - **2.4:** `HttpChatAdapter(profile, identities, transport=None)` и
   `HttpChatAdapter.from_profile(profile)`. `entrypoint.preflight.path` проверяется GET
   без mint. `per_deployment` требует переданный `mode_switcher(mode, declaration)`.
+- **3.2:** `DbQueryProvider(config, runner)` — Mongo через mongosh (локально/Compose),
+  payload `{store_id, documents, record, scope}`, read-only калибровка; пустая коллекция
+  означает неподтверждённую привязку. `uri_env` необязателен для локального Compose Mongo.
 
 Тесты: 161 (1 пре-существующий фейл `stand.observability`).
 

@@ -25,11 +25,11 @@ def run_cli(*argv) -> tuple[int, str]:
     return code, output.getvalue()
 
 
-def execute_cli(argv) -> tuple[int, str, object]:
+def execute_cli(argv, kb=None) -> tuple[int, str, object]:
     """Исполнение через CLI на подставных адаптере и evidence (как в test_cli_execute)."""
     adapter = Adapter({"attacker": "1001", "victim": "1002"}, ["ok"] * 40)
     output = io.StringIO()
-    kb = Path(tempfile.mkdtemp()) / "kb.sqlite"   # не писать в рабочую knowledge.db
+    kb = kb or Path(tempfile.mkdtemp()) / "kb.sqlite"  # не писать в рабочую knowledge.db
     with patch("agentic_redteam.app_cli.EvidenceBundle") as bundle_cls, \
          patch("agentic_redteam.app_cli.HttpChatAdapter") as adapter_cls, \
          patch("agentic_redteam.app_cli.KB_PATH", kb), \
@@ -183,6 +183,37 @@ class ReplayExecutionTests(unittest.TestCase):
         campaign = json.loads(
             (Path(json.loads(out)["run"]["run_dir"]) / "campaign.json").read_text("utf-8"))
         self.assertEqual(campaign["replay_of"], "saved")
+        self.assertEqual(campaign["source_runs"], ["saved"])
+
+    def test_replay_closes_a_fixed_source_finding_in_the_knowledge_base(self):
+        from agentic_redteam.knowledge.store import KnowledgeStore
+
+        kb = self.root / "kb.sqlite"
+        store = KnowledgeStore(kb)
+        store.record({
+            "id": "saved:chain:1",
+            "campaign_run_id": "saved",
+            "profile_name": "genai-invest-stand",
+            "profile_version": "1.0.0",
+            "scenario_id": "chain",
+            "attack_class": "cls",
+            "payload": "отрава",
+            "mode": "vulnerable",
+            "verdict": "proven",
+        })
+        store.set_status("saved:chain:1", "fixed")
+        store.close()
+
+        code, out, _ = execute_cli(
+            ["run", "--from", str(self.run_dir), "-o", str(self.root), "--json"],
+            kb=kb,
+        )
+        self.assertEqual(code, 0, out)
+        payload = json.loads(out)["run"]
+        self.assertEqual(payload["lifecycle_updates"][0]["status"], "closed")
+        store = KnowledgeStore(kb)
+        self.addCleanup(store.close)
+        self.assertEqual(store.get("saved:chain:1")["status"], "closed")
 
 
 if __name__ == "__main__":

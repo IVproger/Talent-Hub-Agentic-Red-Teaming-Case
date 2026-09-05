@@ -62,6 +62,20 @@ Rebase `478305f` поверх `08cd40f` сведён без потери фун�
 - `profile surface`, `surface.json` запуска и Streamlit используют результат
   одного `build_surface`; UI только визуализирует его.
 
+### US-36 — lifecycle после перепроверки
+
+- `knowledge/lifecycle.py::advance_retests` связывает результат `run --from`
+  с исходными `source_runs`. Только запись `verdict=proven,status=fixed` и
+  действительно исполненная пара scenario+mode получает автоматические
+  переходы `fixed → retested → closed|reopened`.
+- Регрессионный набор сохраняет source-run IDs сквозь следующие replay; прямой
+  повтор добавляет ID исходного прогона. История переходов остаётся в
+  `status_history`, результат виден в `run.lifecycle_updates`.
+- Неисполненный/error-сценарий не считается закрытым; `reported`, `closed` и
+  другие статусы человека не перезаписываются. Ошибка производной базы знаний
+  fail-open для verdict, но теперь выдаётся как `knowledge_warning`, а не
+  проглатывается молча.
+
 ## Актуальное дополнение: E8 + сквозное (dseredkin, поверх `b40c513`)
 
 Закрыты последние незакрытые куски зоны dseredkin. **441 тест, весь набор

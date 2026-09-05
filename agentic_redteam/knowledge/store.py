@@ -121,6 +121,9 @@ class KnowledgeStore:
     def all_for(self, profile_name: str) -> list[dict]:
         return self._rows("profile_name = ?", (profile_name,))
 
+    def all_for_run(self, campaign_run_id: str) -> list[dict]:
+        return self._rows("campaign_run_id = ?", (campaign_run_id,))
+
     def payloads_for(self, profile_name: str) -> list[str]:
         cursor = self._conn.execute(
             "SELECT DISTINCT payload FROM attacks WHERE profile_name = ? AND payload IS NOT NULL",

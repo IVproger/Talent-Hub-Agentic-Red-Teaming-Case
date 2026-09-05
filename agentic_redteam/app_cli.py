@@ -32,6 +32,7 @@ from .generation.composer import PROVIDER_KINDS, Unsupported, compose
 from .generation.coverage import coverage
 from .generation.generator import generate
 from .generation.template import load_templates
+from .knowledge.lifecycle import advance_retests
 from .knowledge.query import context_for
 from .knowledge.store import STATUSES, KnowledgeStore, UnknownStatus
 from .llm import (
@@ -608,10 +609,18 @@ def _execute_campaign(args) -> int:
         store = KnowledgeStore(KB_PATH)
         try:
             store.record_run(summary["run_dir"])
+            source_runs = prepared["metadata"].get("source_runs", [])
+            if source_runs:
+                after = RunStorage(Path(summary["run_dir"]).parent).load_json(
+                    Path(summary["run_dir"]), "findings.json"
+                )
+                summary["lifecycle_updates"] = advance_retests(
+                    store, list(source_runs), after
+                )
         finally:
             store.close()
-    except Exception:
-        pass
+    except Exception as exc:
+        summary["knowledge_warning"] = sanitize_error(str(exc))
     skipped = summary["skipped"]
     if args.json:
         print(json.dumps(
@@ -764,6 +773,12 @@ def prepare_campaign(args):
             Path(args.from_run).resolve().parent.name
             if Path(args.from_run).is_file()
             else Path(args.from_run).resolve().name
+        )
+        source_runs = saved.get("source_runs")
+        metadata["source_runs"] = (
+            list(source_runs)
+            if isinstance(source_runs, list) and source_runs
+            else [str(saved.get("run_id") or metadata["replay_of"])]
         )
     else:
         profile = load_profile(args.profile)

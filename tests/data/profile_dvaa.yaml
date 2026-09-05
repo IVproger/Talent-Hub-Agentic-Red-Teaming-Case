@@ -1,0 +1,35 @@
+name: dvaa
+version: "0.9.2"
+adapter: http-chat
+entrypoint:
+  base_url: http://localhost:7001
+  chat_path: /v1/chat/completions
+  request: {body: {}}
+  response: {path: "choices[0].message.content"}
+identities:
+  provider: static
+  principal: {attribute: agent_id, type: string}
+  credential: {body_fields: {from: "{principal}"}}
+  roles: {attacker: {agent_id: evil-agent}, victim: {agent_id: orchestrator}}
+isolation:
+  - id: session
+    principal: {attribute: session_id}
+    claim: "память одной сессии не влияет на другую"
+surface:
+  tools:
+    - {name: read_file, sensitive: true, principal_from: {kind: none}}
+  memory:
+    - id: memorybot
+      scope: cross_session
+      read:
+        provider: json-file
+        config: {path: ".dvaa-aim/memorybot/state.json", select: "memories[]"}
+      record: {key: id, content: text, owner: null}
+modes:
+  vulnerable: {scope: per_deployment, env: {AIM_ENFORCEMENT: "off"}}
+  protected: {scope: per_deployment, env: {AIM_ENFORCEMENT: "on"}, role: control}
+evidence:
+  - id: canary
+    provider: http-canary
+    config: {bind: "127.0.0.1:0"}
+attribution: correlation_id

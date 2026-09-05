@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import argparse
+import contextlib
 import json
 import subprocess
 import sys
@@ -13,7 +14,9 @@ import yaml
 
 from . import __version__
 from .assertions.registry import required_kinds
+from .campaign.orchestrator import PlannedScenario
 from .campaign.plan import Campaign, execution_order
+from .campaign.runner import ScenarioStep
 from .campaign.scenarios import resolve as resolve_specs
 from .doctor import checks_ok, run_checks
 from .llm import (
@@ -39,6 +42,7 @@ from .profile.registry import ProfileRegistry
 from .profile.schema import TargetProfile
 from .scenario import Scenario, bundled_scenarios
 from .stand_sync import StandSyncError, sync_stand
+from .storage.runs import RunStorage
 from .target_runtime import TargetConfigurationError
 
 
@@ -92,6 +96,12 @@ def build_parser() -> argparse.ArgumentParser:
     run.add_argument(
         "--mode",
         help="режимы кампании через запятую, например vulnerable,protected (только с --profile)",
+    )
+    run.add_argument(
+        "--from",
+        dest="from_run",
+        metavar="RUN_DIR",
+        help="повторить кампанию, сохранённую в runs/<id>/campaign.json",
     )
     run.add_argument(
         "--scenario",
@@ -296,7 +306,7 @@ def _doctor(args) -> int:
 def _run_scenarios(args) -> int:
     if args.trials < 1:
         raise PipelineConfigurationError("--trials должен быть не меньше 1.")
-    if args.profile:
+    if args.profile or args.from_run:
         return _preview_campaign(args)
     scenario_ids = _resolve_scenario_ids(args.scenario)
     roles = _role_configs(args)
@@ -366,21 +376,18 @@ def _preview_campaign(args) -> int:
     Предпросмотр не трогает цель, поэтому адаптер здесь не нужен: профиль даёт
     состав и принципалы ролей, каталог — цепочки шагов и payload'ы.
     """
+    if args.profile and args.from_run:
+        raise PipelineConfigurationError(
+            "--from повторяет сохранённую кампанию целиком; --profile с ним не сочетается."
+        )
     if not args.dry_run:
         raise PipelineConfigurationError(
             "Запуск по профилю пока доступен только с --dry-run: адаптер цели ещё не подключён."
         )
-    profile = _load_profile(args.profile)
-    specs = resolve_specs(args.scenario)
-    modes = [mode.strip() for mode in (args.mode or "").split(",") if mode.strip()]
-    campaign = Campaign(
-        profile=f"{profile.name}@{profile.version}",
-        scenarios=[spec.id for spec in specs],
-        trials=args.trials,
-        modes=modes,
-    )
-    scope = _modes_scope(profile, modes)
-    principals = _profile_principals(profile)
+    if args.from_run:
+        campaign, planned, scope = _campaign_from_run(args.from_run)
+    else:
+        campaign, planned, scope = _campaign_from_profile(args)
     payload = {
         "ok": True,
         "dry_run": True,
@@ -390,7 +397,7 @@ def _preview_campaign(args) -> int:
             {"mode": mode, "scenario": scenario}
             for mode, scenario in execution_order(campaign, scope)
         ],
-        "scenarios": [_preview_scenario(spec.to_planned(principals)) for spec in specs],
+        "scenarios": [_preview_scenario(item) for item in planned],
     }
     if args.json:
         print(json.dumps(payload, ensure_ascii=False))
@@ -400,6 +407,51 @@ def _preview_campaign(args) -> int:
 
 
 PROFILES_ROOT = Path(__file__).resolve().parents[1] / "profiles"
+
+
+def _campaign_from_profile(args):
+    profile = _load_profile(args.profile)
+    specs = resolve_specs(args.scenario)
+    modes = [mode.strip() for mode in (args.mode or "").split(",") if mode.strip()]
+    campaign = Campaign(profile=f"{profile.name}@{profile.version}",
+                        scenarios=[spec.id for spec in specs],
+                        trials=args.trials, modes=modes)
+    principals = _profile_principals(profile)
+    return campaign, [spec.to_planned(principals) for spec in specs], _modes_scope(profile, modes)
+
+
+def _campaign_from_run(reference: str):
+    """US-29: повтор берётся из артефакта прогона, а не пересобирается заново."""
+    run_dir = Path(reference).expanduser().resolve()
+    try:
+        saved = RunStorage(run_dir.parent).load_json(run_dir, "campaign.json")
+        scenarios = [_planned_from_saved(item) for item in saved["scenarios"]]
+    except (OSError, ValueError, KeyError, TypeError) as exc:
+        raise PipelineConfigurationError(
+            f"В сохранённом прогоне нет корректного campaign.json: {run_dir}"
+        ) from exc
+    campaign = Campaign(profile=saved.get("profile", ""),
+                        scenarios=[item.id for item in scenarios],
+                        trials=saved.get("trials", 1),
+                        modes=list(saved.get("modes", [])))
+    scope = "per_request"
+    with contextlib.suppress(PipelineConfigurationError):
+        scope = _modes_scope(_load_profile(campaign.profile), campaign.modes)
+    return campaign, scenarios, scope
+
+
+def _planned_from_saved(data: dict) -> PlannedScenario:
+    return PlannedScenario(
+        id=data["id"],
+        attack_class=data.get("attack_class", ""),
+        standard_refs=data.get("standard_refs", []),
+        actor=data.get("actor", ""),
+        payloads=data.get("payloads", []),
+        goal=data.get("goal", []),
+        boundary=data.get("boundary"),
+        reset_policy=data.get("reset_policy", "per_scenario"),
+        steps=[ScenarioStep(**step) for step in data.get("steps", [])],
+    )
 
 
 def _load_profile(reference: str) -> TargetProfile:

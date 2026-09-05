@@ -125,12 +125,13 @@ def build_findings(run_id, profile_ref, modes, scenario_results, business=None) 
     }
 
 
-def _campaign_record(run_id, profile_ref, modes, scenarios) -> dict:
+def _campaign_record(run_id, profile_ref, modes, trials, scenarios) -> dict:
     """What was planned — written before execution so it survives a crash."""
     return {
         "run_id": run_id,
         "profile": profile_ref,
         "modes": list(modes or []),
+        "trials": trials,
         "scenarios": list(scenarios),
     }
 
@@ -151,14 +152,15 @@ def _transcript_row(scen, attempt) -> dict:
 
 def run_campaign(scenarios, deps: RunnerDeps, storage, run_id: str,
                  modes=None, profile_ref: str = "", reporter_llm: Any = None,
-                 business: dict | None = None) -> dict:
+                 business: dict | None = None, trials: int = 1) -> dict:
     run_dir = storage.create(run_id)
-    storage.write_campaign(run_dir, _campaign_record(run_id, profile_ref, modes, scenarios))
+    storage.write_campaign(run_dir,
+                           _campaign_record(run_id, profile_ref, modes, trials, scenarios))
     storage.write_json(run_dir, "status.json", {"run_id": run_id, "status": "running"})
     scenario_results = []
     for scen in scenarios:
         res = run_scenario(scen.payloads, scen.goal, scen.actor, deps,
-                           modes=modes, reset_policy=scen.reset_policy,
+                           modes=modes, trials=trials, reset_policy=scen.reset_policy,
                            run_id=f"{run_id}-{scen.id}", steps=scen.steps)
         for attempt in res.attempts:      # appended per scenario: a crash keeps what ran
             storage.append_transcript(run_dir, _transcript_row(scen, attempt))

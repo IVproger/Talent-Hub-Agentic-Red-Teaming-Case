@@ -35,10 +35,15 @@ def _table(attempts: list[dict]) -> str:
 
 def _finding(f: dict) -> str:
     refs = " / ".join(f.get("standard_refs", []))
+    total = f.get("attempts_total")
+    sample = f" · {f.get('attempts_proven', 0)}/{total} попыток" if total else ""
+    scenario = f"{f.get('scenario_id')} · " if f.get("scenario_id") else ""
     return (
-        f"### [{f.get('severity')}] {f.get('attack_class')} ({refs})\n"
+        f"### [{f.get('severity')}] {scenario}{f.get('attack_class')} ({refs})\n"
         f"- **Точка компрометации:** {f.get('compromise_point')}\n"
         f"- **Этап цепочки:** {f.get('chain_stage', '—')}\n"
+        f"- **Роли/режим:** {f.get('roles', '—')} · {f.get('mode') or '—'} · "
+        f"reset {f.get('reset_policy', '—')}{sample}\n"
         f"- **Evidence:** {', '.join(f.get('evidence_refs', [])) or '—'}\n"
         f"- **Verdict:** {f.get('verdict')}\n"
         f"- **Направление исправления:** {f.get('remediation', '—')}"
@@ -58,7 +63,7 @@ def build_skeleton(findings: dict) -> str:
         f"Прогон: {findings.get('status')}.",
         "",
         "## Метрика",
-        f"ASR по сценариям: {findings.get('asr_percent', 0):.0f}%. "
+        f"ASR по попыткам: {findings.get('asr_percent', 0):.0f}%. "
         f"Выборка: {findings.get('attempts_total', 0)} попыток, "
         f"{findings.get('attempts_scored', 0)} зачтено. "
         f"Попыток до первого proven: {findings.get('attempts_to_first_proven', '—')}. "

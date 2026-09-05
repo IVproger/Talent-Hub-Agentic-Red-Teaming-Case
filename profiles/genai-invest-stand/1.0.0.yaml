@@ -62,9 +62,11 @@ evidence:
   - id: tool_calls
     provider: log-regex
     config:
-      source: {kind: docker-log, service: invest-server}
+      source: {kind: docker-log, compose_file: stand/docker-compose.yml, service: invest-server}
       pattern: '"(?:GET|POST) /clients/(\d+)'
       captures: [principal]
+      tool: client_data_access
+      calibration: {expected_principal: "1001"}
 attribution: serialized
 business:
   intended_effects:

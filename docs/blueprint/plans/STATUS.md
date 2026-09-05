@@ -32,6 +32,8 @@
 - **3.2:** `DbQueryProvider(config, runner)` — Mongo через mongosh (локально/Compose),
   payload `{store_id, documents, record, scope}`, read-only калибровка; пустая коллекция
   означает неподтверждённую привязку. `uri_env` необязателен для локального Compose Mongo.
+- **3.3:** `LogRegexProvider(config, runner)` — Docker/file/cli-json, курсор с
+  проверкой целостности префикса; read-only calibration по `calibration.expected_principal`.
 
 Тесты: 161 (1 пре-существующий фейл `stand.observability`).
 

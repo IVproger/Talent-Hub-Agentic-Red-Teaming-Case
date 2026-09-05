@@ -67,6 +67,7 @@ class CampaignScreenTests(unittest.TestCase):
         self.assertEqual(sorted(scenarios.options), [
             "bac-tool-argument · state",
             "mem-policy-conformant · state",
+            "normal-own-portfolio · state",
             "poison-to-tool-chain · state",
             "system-prompt-leak · text · потолок indirect",
         ])

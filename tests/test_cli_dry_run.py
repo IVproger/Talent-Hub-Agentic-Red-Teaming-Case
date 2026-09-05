@@ -58,7 +58,7 @@ class ProfileDryRunTests(unittest.TestCase):
 
     def test_scenario_all_takes_the_whole_catalog(self):
         payload = self._preview("--scenario", "all")
-        self.assertEqual(len(payload["campaign"]["scenarios"]), 4)
+        self.assertEqual(len(payload["campaign"]["scenarios"]), 5)
 
     def test_human_output_shows_plan_and_payloads(self):
         code, out = run_cli("run", "--profile", PROFILE, "--scenario", "bac-tool-argument",

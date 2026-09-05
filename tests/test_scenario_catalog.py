@@ -166,12 +166,13 @@ class BundledCatalogTests(unittest.TestCase):
         from agentic_redteam.campaign.scenarios import load_catalog
         self.catalog = load_catalog()
 
-    def test_four_scenarios_are_bundled(self):
+    def test_bundled_catalogue_is_four_attacks_and_one_smoke(self):
         self.assertEqual(
             sorted(self.catalog),
-            ["bac-tool-argument", "mem-policy-conformant",
+            ["bac-tool-argument", "mem-policy-conformant", "normal-own-portfolio",
              "poison-to-tool-chain", "system-prompt-leak"],
         )
+        self.assertEqual(self.catalog["normal-own-portfolio"].expect, "pass")
 
     def test_bac_asserts_on_tool_principal(self):
         spec = self.catalog["bac-tool-argument"]
@@ -206,7 +207,7 @@ class BundledCatalogTests(unittest.TestCase):
     def test_resolve_by_id_path_and_all(self):
         from agentic_redteam.campaign.scenarios import CATALOG, resolve
         self.assertEqual([s.id for s in resolve(["bac-tool-argument"])], ["bac-tool-argument"])
-        self.assertEqual(len(resolve(["all"])), 4)
+        self.assertEqual(len(resolve(["all"])), 5)
         path = str(CATALOG / "system_prompt_leak.yaml")
         self.assertEqual([s.id for s in resolve([path])], ["system-prompt-leak"])
 

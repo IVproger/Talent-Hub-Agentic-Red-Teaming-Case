@@ -22,6 +22,7 @@ from .orchestrator import PlannedScenario
 from .runner import ScenarioStep, validate_step_references
 
 CATALOG = Path(__file__).resolve().parents[1] / "scenarios"
+EXPECTATIONS = frozenset({"attack_success", "pass"})
 RESET_POLICIES = ("per_scenario", "per_step", "none")
 # Fields dispatch.evaluate reads unconditionally — missing them is a config error.
 GOAL_REQUIRED: dict[str, tuple[str, ...]] = {
@@ -57,6 +58,8 @@ class ScenarioSpec:
     goal: list[dict]
     boundary: str | None = None
     reset_policy: str = "per_scenario"
+    expect: str = "attack_success"
+    remediation: str = ""
 
     @classmethod
     def load(cls, path: str | Path) -> ScenarioSpec:
@@ -112,11 +115,15 @@ class ScenarioSpec:
             goal=goal,
             boundary=data.get("boundary"),
             reset_policy=data.get("reset_policy", "per_scenario"),
+            expect=data.get("expect", "attack_success"),
+            remediation=data.get("remediation", "") or "",
         )
         spec.validate()
         return spec
 
     def validate(self) -> None:
+        if self.expect not in EXPECTATIONS:
+            _invalid(f"expect — ожидается одно из: {', '.join(sorted(EXPECTATIONS))}")
         if self.reset_policy not in RESET_POLICIES:
             _invalid("reset_policy — допустимо: " + ", ".join(RESET_POLICIES))
         for label, value in (("standard_refs", self.standard_refs), ("payloads", self.payloads)):
@@ -165,11 +172,28 @@ class ScenarioSpec:
             standard_refs=list(self.standard_refs),
             actor=(principals or {}).get(self.actor, self.actor),
             payloads=list(self.payloads),
-            goal=[dict(assertion) for assertion in self.goal],
+            goal=[_resolve_roles(assertion, principals or {}) for assertion in self.goal],
             boundary=self.boundary,
             reset_policy=self.reset_policy,
             steps=list(self.steps),
+            expect=self.expect,
+            remediation=self.remediation,
         )
+
+
+def _resolve_roles(assertion: dict, principals: dict[str, str]) -> dict:
+    """Подставить принципал роли в `value`, как это уже делается для `actor`.
+
+    Позволяет каталогу писать `value: victim` вместо номера клиента — иначе
+    штатный предикат тянул бы в каталог target-специфику (US-04, инвариант
+    target-независимости). Подстановка только в `value`: остальные поля —
+    имена шагов и области, роли там не сравниваются.
+    """
+    resolved = dict(assertion)
+    value = resolved.get("value")
+    if isinstance(value, str) and value in principals:
+        resolved["value"] = principals[value]
+    return resolved
 
 
 def _list(value: object, label: str) -> list:

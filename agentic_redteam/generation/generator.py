@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import json
 
+from ..campaign.orchestrator import PlannedScenario
 from ..campaign.scenarios import ScenarioSpec
 from ..errors import PipelineConfigurationError
 from .dedup import is_duplicate
@@ -14,7 +15,7 @@ _PROMPT = """Ты пишешь варианты полезной нагрузк�
 Верни СТРОГО JSON-массив строк, без пояснений."""
 
 
-def generate(scenario: ScenarioSpec, surface: dict, n: int, llm,
+def generate(scenario: ScenarioSpec | PlannedScenario, surface: dict, n: int, llm,
              prior_context: dict | None = None) -> list[str]:
     tools = ", ".join(t.get("name", "") for t in surface.get("tools", [])) or "нет"
     context = ""

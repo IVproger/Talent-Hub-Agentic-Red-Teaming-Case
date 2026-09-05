@@ -125,8 +125,10 @@ def build_findings(run_id, profile_ref, modes, scenario_results, business=None) 
     pairs = [(scen, a) for scen, res in scenario_results for a in res.attempts]
     findings = []
     for scen, res in scenario_results:
-        best = (next((a for a in res.attempts if a.verdict == "proven"), None)
-                or next((a for a in res.attempts if a.verdict == "indirect"), None))
+        # E7: a finding is a state-proven security fact. Text-only `indirect`
+        # remains visible in attempts and limitations, but is not promoted to a
+        # finding or fed into business/regression workflows.
+        best = next((a for a in res.attempts if a.verdict == "proven"), None)
         if best is None or scen.expect == "pass":
             continue
         assertion, outcome = _compromise(scen.goal, best.outcomes)
@@ -136,6 +138,7 @@ def build_findings(run_id, profile_ref, modes, scenario_results, business=None) 
             "standard_refs": scen.standard_refs,
             "verdict": best.verdict,
             "severity": severity_of(best.verdict, scen.boundary, business),
+            "boundary": scen.boundary,
             "compromise_point": outcome.detail if outcome else "",
             "chain_stage": STAGE_BY_ASSERTION.get(assertion.get("type"), "действие"),
             "roles": _attempt_roles(best),

@@ -22,6 +22,19 @@ Rebase `478305f` поверх `08cd40f` сведён без потери фун�
 memory poisoning → другая сессия/роль → foreign tool call, затем второй target
 и расширение E7/E9.
 
+### E9 и граница findings
+
+- Реализован `reporting/business.py` и CLI `report --business`: отдельный
+  `business-report.md` строится детерминированно из `findings.json` и
+  `profile.business`; optional LLM только переформулирует скелет.
+- Привязка finding→запрет поддерживает `scenario_ids`, `attack_classes`,
+  `boundaries`, `standard_refs`; `effect_ids` связывает запрет с заявленной
+  пользой. Неявная привязка маркируется предположительной, финансовый ущерб не
+  выдумывается.
+- Закрыто расхождение E7: `indirect` виден в таблице попыток и ограничениях, но
+  в `findings` попадает только state-доказанный `proven`.
+- После блока: **477 тестов, OK**.
+
 ## Актуальное дополнение: E8 + сквозное (dseredkin, поверх `b40c513`)
 
 Закрыты последние незакрытые куски зоны dseredkin. **441 тест, весь набор

@@ -76,6 +76,28 @@ class CLIContractTests(unittest.TestCase):
         self.assertEqual(code, 0, output.getvalue())
         self.assertTrue((run_dir / "report.md").is_file())
 
+    def test_business_report_is_a_separate_deterministic_artifact(self):
+        run_dir = Path(tempfile.mkdtemp()) / "run"
+        run_dir.mkdir()
+        findings = {
+            "run_id": "run", "profile": "genai-invest-stand@1.0.0",
+            "status": "completed", "modes": ["vulnerable"], "asr_percent": 100.0,
+            "attempts": [], "attempts_total": 1, "attempts_scored": 1,
+            "limitations": [],
+            "findings": [{"scenario_id": "bac", "attack_class": "tool_bac",
+                          "verdict": "proven", "severity": "critical",
+                          "boundary": "cross_user", "evidence_refs": ["evidence-0001.json"]}],
+        }
+        (run_dir / "findings.json").write_text(json.dumps(findings), encoding="utf-8")
+        output = io.StringIO()
+        with contextlib.redirect_stdout(output):
+            code = main(["report", "--business", "--run", str(run_dir), "--json"])
+        self.assertEqual(code, 0, output.getvalue())
+        report = (run_dir / "business-report.md").read_text(encoding="utf-8")
+        self.assertIn("Бизнес-отчёт", report)
+        self.assertIn("Чтение данных другого клиента", report)
+        self.assertFalse((run_dir / "report.md").exists())
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -109,6 +109,7 @@ python -m agentic_redteam run --profile genai-invest-stand@1.0.0 \
 python -m agentic_redteam run --from runs/<run-id> --dry-run   # предпросмотр
 python -m agentic_redteam run --from runs/<run-id>             # исполнить повтор
 python -m agentic_redteam report --run runs/<run-id>
+python -m agentic_redteam report --business --run runs/<run-id>
 
 # Регрессия: находки → набор, набор → прогон, прогон vs прогон.
 python -m agentic_redteam regress export --from runs/<run-id> -o regress/bac
@@ -181,6 +182,8 @@ Ctrl+C останавливает прогон безопасно: собран�
 - `config.json` — redacted effective config;
 - `findings.json` — детерминированные verdict и ASR;
 - `report.md` — LLM-отчёт, не участвующий в scoring;
+- `business-report.md` — отдельный E9-отчёт `риск / польза / следующий шаг`,
+  создаётся командой `report --business` только из `proven`-находок;
 - `status.json` — crash-tolerant состояние запуска;
 - `observability.json` — trace ID/URL, observation IDs и warning экспорта;
 - `campaign.json` — состав кампании (профиль, режимы, trials, сценарии с
@@ -197,6 +200,12 @@ Ctrl+C останавливает прогон безопасно: собран�
 
 Ошибочные попытки не входят в знаменатель ASR. При падении запуска сохраняются
 частичные evidence и детерминированный incomplete report.
+
+Бизнес-эффекты задаёт команда агента в `profile.business`. Для точного
+сопоставления запрет может объявить `scenario_ids`, `attack_classes`,
+`boundaries` или `standard_refs`, а `effect_ids` связывает его с полезными
+эффектами. Если явной привязки нет, отчёт помечает вывод как предположительный;
+финансовый ущерб без входных данных не рассчитывается.
 
 ## Langfuse (опционально)
 

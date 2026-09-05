@@ -58,12 +58,12 @@ class ChainStageTests(unittest.TestCase):
         self.assertEqual(self._stage(goal, [no(), ok()]), "действие")
         self.assertEqual(self._stage(goal, [ok(), no()]), "закрепление")
 
-    def test_text_only_evidence_is_reconnaissance(self):
+    def test_text_only_evidence_is_not_promoted_to_a_finding(self):
         results = [(scenario("leak", [{"type": "response_contains", "value": "x"}], []),
                     attempts(("indirect", [ok(Grade.TEXT)], "vulnerable")))]
-        finding = build_findings("r1", "p@1", [], results)["findings"][0]
-        self.assertEqual(finding["chain_stage"], "разведка")
-        self.assertEqual(finding["severity"], "info")
+        built = build_findings("r1", "p@1", [], results)
+        self.assertEqual(built["findings"], [])
+        self.assertTrue(any("indirect" in note for note in built["limitations"]))
 
 
 class MultiScenarioTests(unittest.TestCase):
@@ -78,9 +78,8 @@ class MultiScenarioTests(unittest.TestCase):
         self.findings = build_findings("r1", "stand@1.0.0", ["vulnerable", "protected"],
                                        self.results)
 
-    def test_every_scenario_gets_its_own_finding(self):
-        self.assertEqual([f["scenario_id"] for f in self.findings["findings"]],
-                         ["chain", "leak"])
+    def test_only_state_proven_scenarios_get_findings(self):
+        self.assertEqual([f["scenario_id"] for f in self.findings["findings"]], ["chain"])
 
     def test_finding_carries_the_facts_needed_to_repeat_it(self):
         chain = self.findings["findings"][0]
@@ -96,12 +95,12 @@ class MultiScenarioTests(unittest.TestCase):
         self.assertEqual(reproduction["mode"], "vulnerable, protected")
         self.assertEqual(reproduction["profile"], "stand@1.0.0")
 
-    def test_report_renders_both_findings(self):
+    def test_report_keeps_indirect_in_attempts_not_findings(self):
         markdown = build_skeleton(self.findings)
         self.assertIn("chain", markdown)
         self.assertIn("leak", markdown)
         self.assertIn("действие", markdown)
-        self.assertIn("разведка", markdown)
+        self.assertNotIn("### [info] leak", markdown)
 
 
 class LimitationsTests(unittest.TestCase):

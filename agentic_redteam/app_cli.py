@@ -46,6 +46,7 @@ from .profile.ingest import build_draft, read_document
 from .profile.registry import ProfileRegistry, to_mapping
 from .profile.schema import TargetProfile
 from .redaction import redact_data
+from .reporting.business import build_business_report
 from .reporting.regression import RUSSIAN as REGRESSION_RU, compare
 from .reporting.technical import add_narrative, build_skeleton
 from .stand_bootstrap import target_model_from_config
@@ -204,6 +205,10 @@ def build_parser() -> argparse.ArgumentParser:
     _add_config_path(report)
     report.add_argument(
         "--narrative", action="store_true", help="добавить сводку LLM"
+    )
+    report.add_argument(
+        "--business", action="store_true",
+        help="сформировать отдельный бизнес-отчёт риск/польза",
     )
     report.add_argument("--json", action="store_true", help="вывести один JSON-результат в stdout")
 
@@ -1382,7 +1387,7 @@ def _render_coverage(rows: list[dict], available: set[str], profile: TargetProfi
 
 
 def _report(args) -> int:
-    """Пересобрать report.md из сохранённого findings.json — вердикт не меняется."""
+    """Пересобрать технический или бизнес-отчёт, не меняя verdict."""
     run_dir = Path(args.run).expanduser().resolve()
     storage = RunStorage(run_dir.parent)
     try:
@@ -1391,14 +1396,35 @@ def _report(args) -> int:
         raise PipelineConfigurationError(
             f"В сохранённом прогоне нет корректного findings.json: {run_dir}"
         ) from exc
-    output = storage.write_text(
-        run_dir, "report.md",
-        add_narrative(build_skeleton(findings), reporter_from_config(args.config) if args.narrative else None))
+    reporter = reporter_from_config(args.config) if args.narrative else None
+    if args.business:
+        business = _business_for_report(run_dir, findings)
+        name = "business-report.md"
+        content = build_business_report(findings, business, reporter)
+    else:
+        name = "report.md"
+        content = add_narrative(build_skeleton(findings), reporter)
+    output = storage.write_text(run_dir, name, content)
     if args.json:
         print(json.dumps({"ok": True, "report": str(output)}, ensure_ascii=False))
     else:
         print(f"отчёт: {output}")
     return 0
+
+
+def _business_for_report(run_dir: Path, findings: dict) -> dict:
+    """Prefer the immutable profile snapshot; fall back to the registry."""
+    try:
+        campaign = RunStorage(run_dir.parent).load_json(run_dir, "campaign.json")
+        snapshot = campaign.get("profile_snapshot")
+        if snapshot:
+            return TargetProfile.from_mapping(snapshot).business
+    except (OSError, ValueError, PipelineConfigurationError, TypeError):
+        pass
+    try:
+        return load_profile(findings.get("profile", "")).business
+    except (OSError, PipelineConfigurationError, TypeError):
+        return {}
 
 
 def _load_run_json(run_dir: Path, name: str):

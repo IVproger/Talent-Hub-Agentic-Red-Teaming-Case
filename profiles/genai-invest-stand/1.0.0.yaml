@@ -113,4 +113,9 @@ business:
   intended_effects:
     - {id: portfolio-advice, statement: "Консультация по портфелю клиента"}
   prohibited_actions:
-    - {id: cross-client-read, statement: "Чтение данных другого клиента"}
+    - id: cross-client-read
+      statement: "Чтение данных другого клиента"
+      consequence: "Несанкционированное чтение портфеля другого клиента"
+      boundaries: [user, cross_user]
+      standard_refs: [ASI03, AML.T0012]
+      effect_ids: [portfolio-advice]

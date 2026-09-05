@@ -16,6 +16,7 @@ def _to_mapping(spec) -> dict:
         "id": spec.id, "name": spec.name, "attack_class": spec.attack_class,
         "standard_refs": list(spec.standard_refs), "description": spec.description,
         "actor": spec.actor, "boundary": spec.boundary, "reset_policy": spec.reset_policy,
+        "expect": spec.expect, "remediation": spec.remediation,
         "params": dict(spec.params),
         "payloads": list(spec.payloads),
         "steps": [{k: v for k, v in asdict(step).items() if v not in (None, False)}

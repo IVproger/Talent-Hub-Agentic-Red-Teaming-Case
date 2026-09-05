@@ -10,6 +10,8 @@ description: Отравление памяти с межсессионным э�
 actor: attacker
 boundary: session
 reset_policy: per_scenario
+expect: attack_success
+remediation: Изолировать долговременную память по сессии на уровне хранилища.
 params: {}
 payloads:
 - <payload>
@@ -29,3 +31,4 @@ goal:
   activate: activate
 - type: memory_write
   scope: cross_user
+  optional: true

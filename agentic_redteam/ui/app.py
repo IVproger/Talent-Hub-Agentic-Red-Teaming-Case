@@ -27,7 +27,7 @@ from agentic_redteam.app_cli import (  # noqa: E402
     preview_scenario,
     profile_principals,
     reporter_from_config,
-    surface_of,
+    telemetry_from_config,
 )
 from agentic_redteam.campaign.authorization import authorization_from_mapping  # noqa: E402
 from agentic_redteam.campaign.scenarios import resolve as resolve_specs  # noqa: E402
@@ -35,6 +35,7 @@ from agentic_redteam.evidence.bundle import EvidenceBundle  # noqa: E402
 from agentic_redteam.evidence.calibrate import check  # noqa: E402
 from agentic_redteam.profile.registry import ProfileRegistry  # noqa: E402
 from agentic_redteam.storage.runs import RunStorage  # noqa: E402
+from agentic_redteam.surface.map import build_surface  # noqa: E402
 
 RUNS_ROOT = REPO_ROOT / "runs"
 TARGET_CONFIG = REPO_ROOT / "config" / "target.yaml"
@@ -109,7 +110,9 @@ def main() -> None:
             st.rerun()
         _render_preflight_checks(st.session_state.get("environment_checks", []))
 
-    _render_surface(surface_of(profile))
+    _render_surface(build_surface(
+        profile, st.session_state.get("environment_checks", [])
+    ))
     planned = _planned(profile, scenario_ids)
     _render_preview(planned)
 
@@ -184,7 +187,9 @@ def _start_run(profile, planned, modes, trials, progress, live_trace, status) ->
             reporter_llm=reporter_from_config(TARGET_CONFIG), on_event=on_event,
             # US-34: демо подчиняется той же рамке, что и CLI.
             authorization=authorization_from_mapping(
-                _config_mapping(TARGET_CONFIG)).as_record())
+                _config_mapping(TARGET_CONFIG)).as_record(),
+            telemetry=telemetry_from_config(TARGET_CONFIG),
+            config=_config_mapping(TARGET_CONFIG))
         st.session_state.skipped = summary["skipped"]
         run_dir = Path(summary["run_dir"])
         st.session_state.last_result = _saved_result(
@@ -199,7 +204,7 @@ def _start_run(profile, planned, modes, trials, progress, live_trace, status) ->
 
 
 def _render_surface(surface: dict) -> None:
-    with st.expander(f"Поверхность цели · {surface['name']}@{surface['version']}"):
+    with st.expander(f"Поверхность цели · {surface['profile']}"):
         st.caption(f"{surface['adapter']} · {surface['base_url']} · "
                    f"атрибуция {surface['attribution']}")
         columns = st.columns(2)
@@ -211,6 +216,7 @@ def _render_surface(surface: dict) -> None:
                 "SENSITIVE": "да" if tool["sensitive"] else "нет",
                 "PRINCIPAL": tool["principal_from"].get("name")
                              or tool["principal_from"].get("kind", "—"),
+                "СТАТУС": tool["status"],
             } for tool in surface["tools"]], width="stretch", hide_index=True)
             st.markdown("##### Границы изоляции")
             st.dataframe([{"BOUNDARY": item["id"], "ПО": item["principal"],
@@ -219,11 +225,12 @@ def _render_surface(surface: dict) -> None:
         with columns[1]:
             st.markdown("##### Память")
             st.dataframe([{"STORE": item["id"], "SCOPE": item["scope"],
-                           "READER": item["provider"]} for item in surface["memory"]],
+                           "СТАТУС": item["status"]} for item in surface["memory"]],
                          width="stretch", hide_index=True)
             st.markdown("##### Evidence")
             st.dataframe([{"ID": item["id"], "PROVIDER": item["provider"],
-                           "KIND": item["kind"] or "неизвестен"}
+                           "KIND": item["kind"] or "неизвестен",
+                           "СТАТУС": item["status"]}
                           for item in surface["evidence"]], width="stretch", hide_index=True)
         st.caption("Режимы: " + (", ".join(f"{name} ({scope})" for name, scope
                                            in surface["modes"].items()) or "—"))
@@ -273,26 +280,26 @@ def _render_results() -> None:
 def _render_outcome(data: dict) -> None:
     attempts = _valid_dict_list(data.get("attempts"))
     findings = _valid_dict_list(data.get("findings"))
-    scorable = [item for item in attempts if item.get("verdict") in ("proven", "not_proven")]
-    proven = sum(item.get("verdict") == "proven" for item in scorable)
+    scenarios_scored = int(data.get("scenarios_scored", 0) or 0)
+    scenarios_proven = int(data.get("scenarios_proven", 0) or 0)
     if data.get("status") in ("failed", "interrupted"):
         verdict = "INCOMPLETE"
     elif any(item.get("verdict") == "proven" for item in findings):
         verdict = "COMPROMISED"
     elif any(item.get("verdict") == "indirect" for item in findings):
         verdict = "INDIRECT"
-    elif not scorable:
+    elif not scenarios_scored:
         verdict = "NOT SCORED"
     else:
         verdict = "NOT PROVEN"
-    ratio = proven / len(scorable) * 100 if scorable else 0
+    ratio = float(data.get("asr_percent", 0) or 0) if scenarios_scored else 0
     st.markdown(
         '<section class="result-summary">'
         '<div class="result-title"><span>ИТОГ</span>'
         f'<strong>{_safe(verdict)}</strong><small>{_safe(data.get("run_id", "unknown"))}</small></div>'
         '<dl>'
-        f'<div><dt>ASR</dt><dd>{_safe(_format_asr(data.get("asr_percent"), len(scorable)))}</dd></div>'
-        f'<div><dt>Подтверждено</dt><dd>{proven}/{len(scorable)}</dd></div>'
+        f'<div><dt>ASR</dt><dd>{_safe(_format_asr(data.get("asr_percent"), scenarios_scored))}</dd></div>'
+        f'<div><dt>Сценарии</dt><dd>{scenarios_proven}/{scenarios_scored}</dd></div>'
         f'<div><dt>Находок</dt><dd>{len(findings)}</dd></div>'
         f'<div><dt>Статус</dt><dd>{_safe(str(data.get("status", "unknown")).upper())}</dd></div>'
         '</dl>'
@@ -301,6 +308,12 @@ def _render_outcome(data: dict) -> None:
     )
     st.caption(f"Профиль {data.get('profile', '—')} · режимы "
                f"{', '.join(data.get('modes', [])) or '—'}")
+    if data.get("asr_by_mode"):
+        st.dataframe([{
+            "РЕЖИМ": mode,
+            "ASR": _format_asr(row.get("asr_percent"), row.get("scenarios_scored")),
+            "СЦЕНАРИИ": f"{row.get('scenarios_proven', 0)}/{row.get('scenarios_scored', 0)}",
+        } for mode, row in data["asr_by_mode"].items()], width="stretch", hide_index=True)
     if findings:
         st.markdown("#### Находки")
         st.dataframe([{
@@ -350,6 +363,9 @@ def _render_artifacts(data: dict) -> None:
         ("CAMPAIGN.JSON", "campaign.json", "application/json"),
         ("TRANSCRIPT.JSONL", "transcript.jsonl", "application/x-ndjson"),
         ("STATUS.JSON", "status.json", "application/json"),
+        ("SURFACE.JSON", "surface.json", "application/json"),
+        ("CONFIG.JSON", "config.json", "application/json"),
+        ("OBSERVABILITY.JSON", "observability.json", "application/json"),
     )
     columns = st.columns(2)
     for index, (label, filename, mime) in enumerate(artifacts):
@@ -372,7 +388,7 @@ def _render_history() -> None:
         st.dataframe([{
             "RUN ID": item.get("run_id"),
             "STATUS": str(item.get("status", "unknown")).upper(),
-            "ASR": _format_asr(item.get("asr_percent"), 1),
+            "ASR": _format_asr(item.get("asr_percent"), item.get("scenarios_scored")),
         } for item in history], width="stretch", hide_index=True)
         available = [item for item in history
                      if item.get("status") not in ("invalid", "running")

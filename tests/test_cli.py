@@ -4,7 +4,9 @@ from __future__ import annotations
 import contextlib
 import io
 import json
+import tempfile
 import unittest
+from pathlib import Path
 
 from agentic_redteam.app_cli import build_parser, main
 
@@ -55,6 +57,24 @@ class CLIContractTests(unittest.TestCase):
             code = main(["report", "--run", "/definitely/missing-run", "--json"])
         self.assertEqual(code, 2)
         self.assertFalse(json.loads(output.getvalue())["ok"])
+
+    def test_report_rebuild_does_not_require_config_json_or_llm_config(self):
+        run_dir = Path(tempfile.mkdtemp()) / "run"
+        run_dir.mkdir()
+        findings = {
+            "run_id": "run", "profile": "p@1", "status": "completed",
+            "modes": [], "asr_percent": 0.0, "attempts": [], "findings": [],
+            "attempts_total": 0, "attempts_scored": 0, "limitations": [],
+        }
+        (run_dir / "findings.json").write_text(json.dumps(findings), encoding="utf-8")
+        output = io.StringIO()
+        with contextlib.redirect_stdout(output):
+            code = main([
+                "report", "--run", str(run_dir), "--config",
+                "/definitely/missing-config.yaml", "--json",
+            ])
+        self.assertEqual(code, 0, output.getvalue())
+        self.assertTrue((run_dir / "report.md").is_file())
 
 
 if __name__ == "__main__":

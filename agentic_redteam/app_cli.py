@@ -16,37 +16,42 @@ from pathlib import Path
 import yaml
 
 from . import __version__
-from .assertions.registry import required_kinds
 from .adapters.base import AdapterFeature
 from .adapters.http_chat import HttpChatAdapter
+from .assertions.registry import required_kinds
 from .campaign.orchestrator import PlannedScenario, run_campaign
-from .reporting.technical import add_narrative, build_skeleton
-from .reporting.regression import RUSSIAN as REGRESSION_RU, compare
 from .campaign.authorization import AuthorizationError, authorization_from_mapping
 from .campaign.plan import Campaign, execution_order
 from .campaign.runner import RunnerDeps, ScenarioStep
-from .campaign.scenarios import resolve as resolve_specs
-from .stand_bootstrap import target_model_from_config
+from .campaign.scenarios import ScenarioSpec, resolve as resolve_specs
 from .doctor import checks_ok, run_checks
+from .errors import PipelineConfigurationError, sanitize_error
 from .evidence.bundle import EvidenceBundle
 from .evidence.calibrate import check, verify
-from .generation.composer import PROVIDER_KINDS
+from .generation.composer import PROVIDER_KINDS, Unsupported, compose
+from .generation.coverage import coverage
 from .generation.generator import generate
-from .knowledge.store import STATUSES, KnowledgeStore, UnknownStatus
+from .generation.template import load_templates
 from .knowledge.query import context_for
-from .observability import LangfuseTelemetry, langfuse_config_from_mapping
+from .knowledge.store import STATUSES, KnowledgeStore, UnknownStatus
 from .llm import (
     LLMConfigurationError,
     LLMRequestError,
     make_llm_client,
     role_configs_from_mapping,
 )
-from .errors import PipelineConfigurationError, sanitize_error
+from .observability import LangfuseTelemetry, langfuse_config_from_mapping
 from .profile.diff import diff as profile_diff
-from .profile.registry import ProfileRegistry
+from .profile.ingest import build_draft, read_document
+from .profile.registry import ProfileRegistry, to_mapping
 from .profile.schema import TargetProfile
+from .redaction import redact_data
+from .reporting.regression import RUSSIAN as REGRESSION_RU, compare
+from .reporting.technical import add_narrative, build_skeleton
+from .stand_bootstrap import target_model_from_config
 from .stand_sync import StandSyncError, sync_stand
 from .storage.runs import RunStorage
+from .surface.map import build_surface
 from .target_runtime import TargetConfigurationError
 
 
@@ -137,6 +142,18 @@ def build_parser() -> argparse.ArgumentParser:
         action="store_true",
         help="только наблюдение: сценарии, объявляющие запись в цель, не запускаются",
     )
+    run.add_argument(
+        "--baseline", action="store_true",
+        help="скомпоновать применимые шаблоны стандартов под профиль цели",
+    )
+    run.add_argument(
+        "--smoke", action="store_true", help="добавить проверку штатной работы"
+    )
+    run.add_argument(
+        "--save-plan", help="новый JSON-файл с точным планом для run --from"
+    )
+    run.add_argument("--arch", help="документ архитектуры для генерации")
+    run.add_argument("--system-card", help="system card для генерации")
     run.add_argument("--json", action="store_true", help="вывести один JSON-результат в stdout")
 
     profile_cmd = commands.add_parser("profile", help="работа с профилями цели")
@@ -157,6 +174,10 @@ def build_parser() -> argparse.ArgumentParser:
                              help="точка входа цели")
             sub.add_argument("--name", help="имя профиля (по умолчанию из info.title)")
             sub.add_argument("--version", default="0.1.0", help="версия профиля (SemVer)")
+            _add_config_path(sub)
+            sub.add_argument("--arch", help="документ архитектуры цели")
+            sub.add_argument("--system-card", help="system card цели")
+            sub.add_argument("--bindings", help="YAML с проверенными привязками")
             sub.add_argument("--offline", action="store_true",
                              help="без LLM: привязки — эвристики по именам, помечены TODO")
             sub.add_argument("-o", "--output", help="куда записать черновик (иначе stdout)")
@@ -170,9 +191,20 @@ def build_parser() -> argparse.ArgumentParser:
             sub.add_argument("right", help="name@version или путь к YAML")
         sub.add_argument("--json", action="store_true", help="вывести один JSON-результат в stdout")
 
+    surface = profile_commands.add_parser(
+        "surface", help="карта компонентов и подтверждённые статусы"
+    )
+    surface.add_argument("--profile", required=True)
+    surface.add_argument("--check", action="store_true")
+    surface.add_argument("--output")
+    surface.add_argument("--json", action="store_true")
+
     report = commands.add_parser("report", help="пересобрать отчёт из сохранённого запуска")
     report.add_argument("--run", required=True, help="каталог сохранённого прогона")
     _add_config_path(report)
+    report.add_argument(
+        "--narrative", action="store_true", help="добавить сводку LLM"
+    )
     report.add_argument("--json", action="store_true", help="вывести один JSON-результат в stdout")
 
     regress = commands.add_parser("regress", help="регрессия: находки → тест, сравнение прогонов")
@@ -250,23 +282,17 @@ def _role_configs(args) -> dict:
 
 
 def _role_configs_at(config_path) -> dict:
-    config_path = Path(config_path)
-    try:
-        raw = yaml.safe_load(config_path.read_text(encoding="utf-8")) or {}
-    except (OSError, yaml.YAMLError) as exc:
-        raise PipelineConfigurationError(f"Не удалось прочитать конфигурацию: {config_path}") from exc
-    if not isinstance(raw, Mapping):
-        raise PipelineConfigurationError("Конфигурация должна быть YAML-отображением (mapping).")
+    raw = _config_mapping(config_path)
     roles = role_configs_from_mapping(raw.get("llm"))
     return roles
 
 
 def _config_mapping(config_path) -> dict:
+    config_path = Path(config_path).expanduser()
     try:
-        raw = yaml.safe_load(Path(config_path).read_text(encoding="utf-8")) or {}
+        raw = yaml.safe_load(config_path.read_text(encoding="utf-8")) or {}
     except (OSError, yaml.YAMLError) as exc:
-        raise PipelineConfigurationError(
-            f"Не удалось прочитать конфигурацию: {config_path}") from exc
+        raise PipelineConfigurationError(f"Не удалось прочитать конфигурацию: {config_path}") from exc
     if not isinstance(raw, Mapping):
         raise PipelineConfigurationError("Конфигурация должна быть YAML-отображением (mapping).")
     return dict(raw)
@@ -372,11 +398,18 @@ def _doctor(args) -> int:
 def _run_scenarios(args) -> int:
     if args.trials < 1:
         raise PipelineConfigurationError("--trials должен быть не меньше 1.")
-    if args.generate is not None and args.generate < 1:
-        raise PipelineConfigurationError("--generate должен быть не меньше 1.")
+    if args.generate is not None and not 1 <= args.generate <= 30:
+        raise PipelineConfigurationError("--generate должен быть от 1 до 30.")
     if not args.profile and not args.from_run:
         raise PipelineConfigurationError(
             "Укажите --profile name@version|path.yaml (или --from runs/<id> для повтора)."
+        )
+    if args.save_plan and not args.dry_run:
+        raise PipelineConfigurationError("--save-plan используется вместе с --dry-run.")
+    if args.baseline and not args.generate and not args.dry_run:
+        raise PipelineConfigurationError(
+            "Исполнение --baseline требует --generate N: шаблоны не содержат "
+            "готового target-specific payload."
         )
     if args.dry_run:
         return _preview_campaign(args)
@@ -389,11 +422,22 @@ def _preview_campaign(args) -> int:
     Предпросмотр не трогает цель, поэтому адаптер здесь не нужен: профиль даёт
     состав и принципалы ролей, каталог — цепочки шагов и payload'ы.
     """
-    _reject_conflicting_sources(args)
-    if args.from_run:
-        campaign, planned, scope = _campaign_from_run(args.from_run)
-    else:
-        campaign, planned, scope = _campaign_from_profile(args)
+    prepared = prepare_campaign(args)
+    campaign = prepared["campaign"]
+    planned = prepared["planned"]
+    scope = prepared["scope"]
+    if args.save_plan:
+        target = Path(args.save_plan).expanduser()
+        target.parent.mkdir(parents=True, exist_ok=True)
+        record = {
+            "profile": campaign.profile,
+            "trials": campaign.trials,
+            "modes": campaign.modes,
+            "scenarios": [asdict(item) for item in planned],
+            **prepared["metadata"],
+        }
+        with target.open("x", encoding="utf-8") as output:
+            json.dump(redact_data(record), output, ensure_ascii=False, indent=2)
     payload = {
         "ok": True,
         "dry_run": True,
@@ -404,6 +448,9 @@ def _preview_campaign(args) -> int:
             for mode, scenario in execution_order(campaign, scope)
         ],
         "scenarios": [preview_scenario(item) for item in planned],
+        "coverage": prepared["metadata"].get("coverage", {}),
+        "surface": build_surface(prepared["profile"]),
+        "saved_plan": args.save_plan,
     }
     if args.json:
         print(json.dumps(payload, ensure_ascii=False))
@@ -416,9 +463,21 @@ PROFILES_ROOT = Path(__file__).resolve().parents[1] / "profiles"
 
 
 def _reject_conflicting_sources(args) -> None:
-    if args.profile and args.from_run:
+    overrides = (
+        args.profile
+        or args.scenario
+        or args.mode
+        or args.generate
+        or args.baseline
+        or args.smoke
+        or args.trials != 1
+        or args.arch
+        or args.system_card
+    )
+    if args.from_run and overrides:
         raise PipelineConfigurationError(
-            "--from повторяет сохранённую кампанию целиком; --profile с ним не сочетается."
+            "--from повторяет сохранённую кампанию целиком; параметры профиля, "
+            "сценариев, режимов, генерации и trials с ним не сочетаются."
         )
 
 
@@ -428,7 +487,8 @@ def new_run_id() -> str:
 
 def execute_campaign(profile, planned, modes, trials, output_root, run_id,
                      reporter_llm=None, on_event=None, telemetry=None,
-                     metadata=None, read_only=False, authorization=None) -> dict:
+                     metadata=None, config=None, should_stop=None,
+                     read_only=False, authorization=None) -> dict:
     """Собрать реальные адаптер и evidence по профилю и прогнать кампанию.
 
     Общее ядро запуска: CLI и UI зовут его, а не повторяют сборку зависимостей —
@@ -443,6 +503,21 @@ def execute_campaign(profile, planned, modes, trials, output_root, run_id,
         )
     metadata = {**(metadata or {}), "authorization": authorization,
                 "read_only": bool(read_only)}
+    if profile.entrypoint.get("review_required"):
+        raise PipelineConfigurationError(
+            "Неподтверждённый черновик: заполните привязки и очистите "
+            "entrypoint.review_required."
+        )
+    campaign = Campaign(
+        f"{profile.name}@{profile.version}", [item.id for item in planned], trials, modes
+    )
+    _validate_plan(profile, planned, campaign)
+    scope = modes_scope(profile, modes)
+    metadata = {
+        **(metadata or {}),
+        "profile_snapshot": to_mapping(profile),
+        "mode_scope": scope,
+    }
     storage = RunStorage(output_root)
     # US-35 стоит первым: read-only отсекает пишущие сценарии ещё до того, как
     # поднимутся провайдеры и адаптер, то есть до любого касания цели.
@@ -453,19 +528,46 @@ def execute_campaign(profile, planned, modes, trials, output_root, run_id,
         selected, skipped = _gate_scenarios(bundle, planned)
         skipped = skipped_read_only + skipped
         _require_reset_source(bundle, selected)
-        adapter = HttpChatAdapter.from_profile(profile)
+        adapter = HttpChatAdapter.from_profile(profile, telemetry=telemetry)
         try:
             _require_adapter_features(adapter, selected)
+            # Real bundles expose their providers so the run can persist the
+            # same component-level calibration used by `profile surface`.
+            # Narrow runner fakes may only implement the frozen evidence seam.
+            preflight = (
+                check(bundle, adapter)
+                if isinstance(getattr(bundle, "providers", None), Mapping)
+                else adapter.preflight()
+            )
+            if not checks_ok(preflight):
+                raise TargetConfigurationError(
+                    "; ".join(item.message for item in preflight if not item.ok and item.blocking)
+                )
+            metadata["limitations"] = list(metadata.get("limitations", [])) + skipped
             findings = run_campaign(
-                selected, RunnerDeps(adapter, bundle, telemetry=telemetry), storage, run_id,
-                modes=modes, profile_ref=f"{profile.name}@{profile.version}",
-                reporter_llm=reporter_llm, business=profile.business,
-                trials=trials, on_event=on_event, metadata=metadata,
+                selected,
+                RunnerDeps(adapter, bundle, telemetry=telemetry),
+                storage,
+                run_id,
+                modes=modes,
+                profile_ref=f"{profile.name}@{profile.version}",
+                reporter_llm=reporter_llm,
+                business=profile.business,
+                trials=trials,
+                on_event=on_event,
+                should_stop=should_stop,
+                metadata=metadata,
+                config=config,
+                mode_scope=scope,
             )
         finally:
             adapter.close()
+    storage.write_json(
+        storage.root / run_id, "surface.json", build_surface(profile, preflight)
+    )
     return {
         "run_id": run_id,
+        "status": findings["status"],
         "run_dir": str(Path(output_root).expanduser().resolve() / run_id),
         "scenarios": [scenario.id for scenario in selected],
         "skipped": skipped,
@@ -475,19 +577,14 @@ def execute_campaign(profile, planned, modes, trials, output_root, run_id,
 
 
 def _execute_campaign(args) -> int:
-    _reject_conflicting_sources(args)
-    if args.from_run:
-        # US-29 AC4: повтор читает сохранённую кампанию и пишет новый каталог,
-        # исходный остаётся нетронутым.
-        campaign, planned, _ = _campaign_from_run(args.from_run)
-        metadata = {"replay_of": Path(args.from_run).expanduser().resolve().name}
-    else:
-        campaign, planned, _ = _campaign_from_profile(args)
-        metadata = {}
-    # Разрешение читается из конфигурации кампании; сам гейт — в execute_campaign,
-    # чтобы CLI и UI не расходились. Предпросмотр цель не трогает и сюда не заходит.
-    authorization = authorization_from_mapping(_config_mapping(args.config)).as_record()
-    profile = load_profile(campaign.profile)
+    prepared = prepare_campaign(args)
+    profile = prepared["profile"]
+    campaign = prepared["campaign"]
+    planned = prepared["planned"]
+    # Разрешение читается из effective config; гейт расположен в общем ядре,
+    # поэтому CLI и UI не расходятся в правилах запуска.
+    config = _config_mapping(args.config)
+    authorization = authorization_from_mapping(config).as_record()
     run_id = new_run_id()
     if not args.json:
         print(f"прогон {run_id}: {', '.join(s.id for s in planned)}", file=sys.stderr)
@@ -499,8 +596,8 @@ def _execute_campaign(args) -> int:
     summary = execute_campaign(
         profile, planned, campaign.modes, campaign.trials, args.output, run_id,
         reporter_llm=reporter_from_config(args.config), on_event=progress,
-        telemetry=telemetry_from_config(args.config), metadata=metadata,
-        read_only=args.read_only, authorization=authorization,
+        telemetry=telemetry_from_config(args.config), metadata=prepared["metadata"],
+        config=config, read_only=args.read_only, authorization=authorization,
     )
     try:
         store = KnowledgeStore(KB_PATH)
@@ -512,13 +609,16 @@ def _execute_campaign(args) -> int:
         pass
     skipped = summary["skipped"]
     if args.json:
-        print(json.dumps({"ok": True, "run": summary}, ensure_ascii=False))
+        print(json.dumps(
+            {"ok": summary["status"] == "completed", "run": summary},
+            ensure_ascii=False,
+        ))
     else:
         print(f"{run_id}: ASR {summary['asr_percent']:.0f}% · "
               f"находок {summary['findings']} · {summary['run_dir']}")
         for note in skipped:
             print(f"пропущено: {note}")
-    return 0
+    return 0 if summary["status"] == "completed" else EXIT_PIPELINE
 
 
 def _gate_scenarios(bundle, planned) -> tuple[list, list[str]]:
@@ -623,21 +723,195 @@ def reporter_from_config(config_path):
         return None
 
 
+def _saved_campaign(reference):
+    path = Path(reference).expanduser().resolve()
+    campaign_path = path if path.is_file() else path / "campaign.json"
+    try:
+        saved = json.loads(campaign_path.read_text(encoding="utf-8"))
+    except (OSError, ValueError) as exc:
+        raise PipelineConfigurationError(
+            f"Не удалось прочитать сохранённую кампанию campaign.json: {campaign_path}."
+        ) from exc
+    if not isinstance(saved, dict):
+        raise PipelineConfigurationError(
+            f"Сохранённая кампания должна быть JSON-объектом: {campaign_path}."
+        )
+    return saved
+
+
+def prepare_campaign(args):
+    _reject_conflicting_sources(args)
+    if args.from_run:
+        saved = _saved_campaign(args.from_run)
+        campaign, planned, scope = _campaign_from_run(args.from_run)
+        profile = (
+            TargetProfile.from_mapping(saved["profile_snapshot"])
+            if saved.get("profile_snapshot")
+            else load_profile(campaign.profile)
+        )
+        metadata = {
+            key: saved[key]
+            for key in ("coverage", "context", "limitations")
+            if key in saved
+        }
+        metadata["source_run"] = str(Path(args.from_run).resolve())
+        metadata["replay_of"] = (
+            Path(args.from_run).resolve().parent.name
+            if Path(args.from_run).is_file()
+            else Path(args.from_run).resolve().name
+        )
+    else:
+        profile = load_profile(args.profile)
+        campaign, planned, scope = _campaign_from_profile(args)
+        metadata = {
+            "coverage": getattr(args, "coverage", {}),
+            "context": getattr(args, "context", []),
+        }
+    metadata.update(profile_snapshot=to_mapping(profile), mode_scope=scope)
+    _validate_plan(profile, planned, campaign)
+    return {
+        "profile": profile,
+        "planned": planned,
+        "campaign": campaign,
+        "scope": scope,
+        "metadata": metadata,
+    }
+
+
+def _validate_plan(profile, planned, campaign):
+    if (
+        not isinstance(campaign.trials, int)
+        or not 1 <= campaign.trials <= 1000
+        or not planned
+    ):
+        raise PipelineConfigurationError("Пустая кампания или недопустимое число попыток.")
+    for mode in campaign.modes or []:
+        if profile.modes and mode not in profile.modes:
+            raise PipelineConfigurationError(f"Режим {mode} отсутствует в профиле.")
+    for item in planned:
+        validation_goal = [dict(assertion) for assertion in item.goal]
+        # Backward compatibility for smoke scenarios saved before `value` was
+        # explicit: their actor is already the resolved expected principal.
+        for assertion in validation_goal:
+            if assertion.get("type") == "tool_principal_equals" and "value" not in assertion:
+                assertion["value"] = item.actor
+        ScenarioSpec.from_mapping({
+            "id": item.id,
+            "name": item.id,
+            "attack_class": item.attack_class,
+            "standard_refs": item.standard_refs,
+            "actor": next(
+                (step.actor for step in item.steps if step.actor), "attacker"
+            ),
+            "payloads": item.payloads,
+            "steps": [
+                {
+                    key: value
+                    for key, value in asdict(step).items()
+                    if value not in (None, False)
+                }
+                for step in item.steps
+            ],
+            "goal": validation_goal,
+            "boundary": item.boundary,
+            "reset_policy": item.reset_policy,
+            "expect": item.expect,
+            "remediation": item.remediation,
+        })
+        for step in item.steps:
+            if step.actor not in profile.identities.get("roles", {}):
+                raise PipelineConfigurationError(f"Роль {step.actor} не объявлена в профиле.")
+
+
+def build_baseline(profile):
+    templates = load_templates(Path(__file__).resolve().parents[1] / "templates")
+    report = coverage(templates, profile)
+    scenarios = []
+    for template in templates:
+        item = compose(template, profile)
+        if not isinstance(item, Unsupported):
+            scenarios.append(item.to_planned(profile_principals(profile)))
+    supported = sorted({row.standard for row in report.rows if row.status == "composed"})
+    return scenarios, {
+        "templates": [asdict(row) for row in report.rows],
+        "supported_items": supported,
+        "excluded_agentic_items": [
+            {
+                "id": f"ASI{index:02d}",
+                "reason": "Нет применимого реализованного шаблона.",
+            }
+            for index in range(1, 11)
+            if f"ASI{index:02d}" not in supported
+        ],
+        "note": "Наличие шаблона не означает полное покрытие пункта стандарта.",
+    }
+
+
+def smoke_scenarios(profile):
+    principals = profile_principals(profile)
+    if not principals:
+        return []
+    role = "victim" if "victim" in principals else next(iter(principals))
+    reset_policy = (
+        "per_scenario"
+        if any(item["provider"] == "state-reset" for item in profile.evidence)
+        else "none"
+    )
+    return [
+        PlannedScenario(
+            f"smoke-own-{tool.name}",
+            "normal_operation",
+            [],
+            principals[role],
+            [
+                f"Use {tool.name} with {tool.principal_from['name']}="
+                f"{principals[role]} to show my own data."
+            ],
+            [{
+                "type": "tool_principal_equals",
+                "value": principals[role],
+                "at": "activate",
+            }],
+            reset_policy=reset_policy,
+            steps=[ScenarioStep("activate", role, payload=True)],
+            expect="pass",
+        )
+        for tool in profile.tools
+        if tool.principal_from.get("kind") == "argument"
+    ]
+
+
 def _campaign_from_profile(args):
     profile = load_profile(args.profile)
-    specs = resolve_specs(args.scenario)
+    if args.baseline:
+        planned, args.coverage = build_baseline(profile)
+        if args.scenario and args.scenario != ["all"]:
+            planned = [s for s in planned if s.id in args.scenario]
+    else:
+        planned = [
+            spec.to_planned(profile_principals(profile))
+            for spec in resolve_specs(args.scenario)
+        ]
     modes = [mode.strip() for mode in (args.mode or "").split(",") if mode.strip()]
-    campaign = Campaign(profile=f"{profile.name}@{profile.version}",
-                        scenarios=[spec.id for spec in specs],
-                        trials=args.trials, modes=modes)
-    principals = profile_principals(profile)
-    planned = [spec.to_planned(principals) for spec in specs]
+    args.context = [
+        read_document(path) for path in (args.arch, args.system_card) if path
+    ]
     if args.generate:
-        planned = _generate_payloads(planned, profile, args.generate, args.config)
+        planned = _generate_payloads(
+            planned, profile, args.generate, args.config, documents=args.context
+        )
+    if args.smoke:
+        planned += smoke_scenarios(profile)
+    campaign = Campaign(
+        f"{profile.name}@{profile.version}",
+        [scenario.id for scenario in planned],
+        args.trials,
+        modes,
+    )
     return campaign, planned, modes_scope(profile, modes)
 
 
-def _generate_payloads(planned, profile, n, config_path):
+def _generate_payloads(planned, profile, n, config_path, documents=None):
     """US-11: заменить статические payload'ы сгенерированным списком.
 
     Только для сценариев с шагом payload; остальные не трогаем. Генератор —
@@ -646,6 +920,7 @@ def _generate_payloads(planned, profile, n, config_path):
     """
     llm = make_llm_client(_role_configs_at(config_path)["attack_generator"])
     surface = surface_of(profile)
+    surface["documents"] = documents or []
     store = KnowledgeStore(KB_PATH)
     try:
         prior_context = context_for(store, profile.name)
@@ -664,7 +939,7 @@ def _campaign_from_run(reference: str):
     """US-29: повтор берётся из артефакта прогона, а не пересобирается заново."""
     run_dir = Path(reference).expanduser().resolve()
     try:
-        saved = RunStorage(run_dir.parent).load_json(run_dir, "campaign.json")
+        saved = _saved_campaign(reference)
         scenarios = [_planned_from_saved(item) for item in saved["scenarios"]]
     except (OSError, ValueError, KeyError, TypeError) as exc:
         raise PipelineConfigurationError(
@@ -674,29 +949,34 @@ def _campaign_from_run(reference: str):
                         scenarios=[item.id for item in scenarios],
                         trials=saved.get("trials", 1),
                         modes=list(saved.get("modes", [])))
-    scope = "per_request"
+    scope = saved.get("mode_scope", "per_request")
     with contextlib.suppress(PipelineConfigurationError):
         scope = modes_scope(load_profile(campaign.profile), campaign.modes)
     return campaign, scenarios, scope
 
 
 def _planned_from_saved(data: dict) -> PlannedScenario:
+    steps = [ScenarioStep(**step) for step in data.get("steps", [])]
+    payloads = list(data.get("payloads", []))
+    # Старые smoke-артефакты использовали [""] как маркер одной попытки без
+    # payload-шага. Runner и без него выполняет одну попытку, а нормализация
+    # делает сохранённый план валидным по текущей схеме ScenarioSpec.
+    if not any(step.payload for step in steps):
+        payloads = [payload for payload in payloads if payload]
     return PlannedScenario(
         id=data["id"],
         attack_class=data.get("attack_class", ""),
         standard_refs=data.get("standard_refs", []),
         actor=data.get("actor", ""),
-        payloads=data.get("payloads", []),
+        payloads=payloads,
         goal=data.get("goal", []),
         boundary=data.get("boundary"),
         reset_policy=data.get("reset_policy", "per_scenario"),
-        steps=[ScenarioStep(**step) for step in data.get("steps", [])],
+        steps=steps,
         expect=data.get("expect", "attack_success"),
         remediation=data.get("remediation", ""),
     )
 
-
-PROFILES_ROOT = Path(__file__).resolve().parents[1] / "profiles"
 
 def load_profile(reference: str) -> TargetProfile:
     """`name@version` — из реестра, иначе путь к YAML (спек §12)."""
@@ -811,6 +1091,27 @@ def _render_assertion(assertion: dict) -> str:
 # Имя плагина-провайдера → источник, который он даёт. Переедет в реестр
 # провайдеров бандла (3.6); пока имена связывает CLI как composition root.
 def _profile(args) -> int:
+    if args.profile_command == "surface":
+        profile = load_profile(args.profile)
+        results = []
+        if args.check:
+            with EvidenceBundle.from_profile(profile) as bundle:
+                adapter = HttpChatAdapter.from_profile(profile)
+                try:
+                    results = check(bundle, adapter)
+                finally:
+                    adapter.close()
+        surface = build_surface(profile, results)
+        if args.output:
+            path = Path(args.output).expanduser().resolve()
+            path.parent.mkdir(parents=True, exist_ok=True)
+            RunStorage(path.parent).write_json(path.parent, path.name, surface)
+        print(json.dumps(
+            {"ok": checks_ok(results), "surface": surface},
+            ensure_ascii=False,
+            indent=None if args.json else 2,
+        ))
+        return 0 if checks_ok(results) else EXIT_PREFLIGHT
     if args.profile_command == "list":
         rows = ProfileRegistry(PROFILES_ROOT).list()
         if args.json:
@@ -845,51 +1146,64 @@ def _profile(args) -> int:
     return 0
 
 
-# Имена аргументов, по которым принято адресовать субъекта. Это эвристика:
-# она порождает гипотезу для человека, а не факт для ядра.
-PRINCIPAL_HINTS = frozenset({
-    "cus", "user_id", "client_id", "customer_id", "account_id", "owner_id",
-    "tenant", "tenant_id", "sub", "principal", "subject",
-})
-_HTTP_METHODS = ("get", "post", "put", "patch", "delete")
-
-
 def _profile_init(args) -> int:
-    """US-01: из документа берётся структура, семантику подтверждает человек."""
-    if not args.offline:
-        raise PipelineConfigurationError(
-            "LLM-гипотезы привязок ещё не подключены (эпик ingest). "
-            "Запустите с --offline: структура возьмётся из документа, "
-            "семантика будет помечена TODO."
-        )
     document = _read_openapi(args.openapi)
-    tools, hypotheses = _tools_from_openapi(document)
     name = args.name or _slug(document.get("info", {}).get("title") or "target")
-    draft = {
-        "name": name,
-        "version": args.version,
-        "adapter": "http-chat",
-        "entrypoint": {"base_url": args.base_url},
-        "identities": {},
-        "isolation": [],
-        "surface": {"tools": tools, "memory": []},
-        "modes": {},
-        "evidence": [],
-        "attribution": "serialized",
-    }
+    analyst = None
+    if not args.offline:
+        try:
+            analyst = make_llm_client(_role_configs_at(args.config)["analyst"])
+        except LLMConfigurationError as exc:
+            raise PipelineConfigurationError(
+                f"{exc} Для детерминированного черновика без LLM добавьте --offline."
+            ) from exc
+    draft = build_draft(
+        args.openapi,
+        args.base_url,
+        name,
+        args.version,
+        [path for path in (args.arch, args.system_card) if path],
+        analyst,
+        args.bindings,
+    )
+    # Keep documented offline principal guesses, explicitly gated as unreviewed.
+    hypotheses = []
+    for tool, operation in zip(
+        draft["surface"]["tools"], draft["ingest"]["operations"]
+    ):
+        candidates = operation["principal_candidates"]
+        if candidates and tool.get("principal_from", {}).get("kind") == "none":
+            tool["principal_from"] = {"kind": "argument", "name": candidates[0]}
+            tool["sensitive"] = True
+            hypotheses.append(
+                f"{tool['name']}: principal — {candidates[0]} (гипотеза)"
+            )
+    TargetProfile.from_mapping(draft)
     text = _draft_header(name, hypotheses) + yaml.safe_dump(
-        draft, sort_keys=False, allow_unicode=True)
+        redact_data(draft), sort_keys=False, allow_unicode=True
+    )
     if not args.output:
         print(text)
         return 0
-    target = Path(args.output).expanduser()
-    target.write_text(text, encoding="utf-8")
+    path = Path(args.output).expanduser()
+    path.parent.mkdir(parents=True, exist_ok=True)
+    with path.open("x", encoding="utf-8") as output:
+        output.write(text)
     if args.json:
-        print(json.dumps({"ok": True, "draft": str(target), "tools": len(tools),
-                          "hypotheses": hypotheses}, ensure_ascii=False))
+        print(json.dumps(
+            {
+                "ok": True,
+                "draft": str(path),
+                "tools": len(draft["surface"]["tools"]),
+                "hypotheses": hypotheses,
+            },
+            ensure_ascii=False,
+        ))
     else:
-        print(f"черновик: {target} · инструментов {len(tools)} · "
-              f"гипотез к подтверждению {len(hypotheses)}")
+        print(
+            f"черновик: {path} · инструментов {len(draft['surface']['tools'])} · "
+            f"гипотез к подтверждению {len(hypotheses)}"
+        )
     return 0
 
 
@@ -901,34 +1215,6 @@ def _read_openapi(path: str) -> dict:
     if not isinstance(document, dict) or not isinstance(document.get("paths"), dict):
         raise PipelineConfigurationError("OpenAPI: ожидается документ с секцией paths.")
     return document
-
-
-def _tools_from_openapi(document: dict) -> tuple[list[dict], list[str]]:
-    tools, hypotheses, seen = [], [], set()
-    for path, operations in document["paths"].items():
-        if not isinstance(operations, dict):
-            continue
-        for method, operation in operations.items():
-            if method.lower() not in _HTTP_METHODS or not isinstance(operation, dict):
-                continue
-            name = operation.get("operationId") or "_".join(
-                [method.lower(), *re.findall(r"[A-Za-z0-9]+", str(path))])
-            if not isinstance(name, str) or name in seen:
-                continue
-            seen.add(name)
-            arguments = [item["name"] for item in operation.get("parameters") or []
-                         if isinstance(item, dict) and isinstance(item.get("name"), str)]
-            candidate = next((a for a in arguments if a.lower() in PRINCIPAL_HINTS), None)
-            tools.append({
-                "name": name,
-                "args": list(dict.fromkeys(arguments)),
-                "sensitive": candidate is not None,
-                "principal_from": {"kind": "argument", "name": candidate} if candidate
-                                  else {"kind": "none"},
-            })
-            if candidate:
-                hypotheses.append(f"{name}: принципал — аргумент '{candidate}' (угадан по имени)")
-    return tools, hypotheses
 
 
 def _slug(text: str) -> str:
@@ -1107,7 +1393,7 @@ def _report(args) -> int:
         ) from exc
     output = storage.write_text(
         run_dir, "report.md",
-        add_narrative(build_skeleton(findings), reporter_from_config(args.config)))
+        add_narrative(build_skeleton(findings), reporter_from_config(args.config) if args.narrative else None))
     if args.json:
         print(json.dumps({"ok": True, "report": str(output)}, ensure_ascii=False))
     else:

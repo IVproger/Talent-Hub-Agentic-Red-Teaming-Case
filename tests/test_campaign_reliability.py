@@ -77,3 +77,19 @@ class ReliabilityTests(unittest.TestCase):
         self.assertEqual(findings['asr_by_mode']['v']['asr_percent'],50)
         self.assertEqual(findings['attempts_scored'],4)
         self.assertTrue(findings['smoke'][0]['ok'])
+
+    def test_optional_failure_does_not_replace_the_primary_attempt_signal(self):
+        scenario = PlannedScenario(
+            's', 'bac', [], 'A', ['p'],
+            [
+                {'type': 'memory_write', 'scope': 'cross_user', 'optional': True},
+                {'type': 'tool_principal_mismatch'},
+            ],
+        )
+        result = run_scenario(
+            ['p'], scenario.goal, 'A',
+            RunnerDeps(FakeAdapter({'attacker': 'A'}, ['ok']), FakeEvidenceSource([hit()])),
+        )
+        findings = build_findings('r', 'p@1', [], [(scenario, result)])
+        self.assertIn('принципалу', findings['attempts'][0]['signal'])
+        self.assertNotIn('память', findings['attempts'][0]['signal'])

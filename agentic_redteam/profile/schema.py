@@ -107,6 +107,10 @@ class TargetProfile:
             raise PipelineConfigurationError(
                 "Не удалось прочитать YAML-профиль; проверьте файл и его синтаксис."
             ) from exc
+        return cls.from_mapping(data)
+
+    @classmethod
+    def from_mapping(cls, data):
         data = _mapping(data, "profile")
         surface = _mapping(data.get("surface", {}), "surface")
         tools = []

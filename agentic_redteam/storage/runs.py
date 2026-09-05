@@ -5,6 +5,7 @@ import json
 import os
 import tempfile
 from dataclasses import asdict, is_dataclass
+from datetime import date, datetime
 from pathlib import Path
 from typing import Any
 from ..redaction import redact_data, redact_secrets
@@ -127,6 +128,8 @@ def _jsonable(value: Any) -> Any:
         return {key: _jsonable(item) for key, item in asdict(value).items()}
     if isinstance(value, Path):
         return str(value)
+    if isinstance(value, (date, datetime)):
+        return value.isoformat()
     if isinstance(value, dict):
         return {str(key): _jsonable(item) for key, item in value.items()}
     if isinstance(value, (list, tuple)):

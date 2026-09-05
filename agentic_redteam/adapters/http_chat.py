@@ -47,12 +47,13 @@ def _response_at(value, path):
 
 
 class HttpChatAdapter:
-    def __init__(self, profile, identities, transport=None, *, mode_switcher=None):
+    def __init__(self, profile, identities, transport=None, *, mode_switcher=None, telemetry=None):
         profile.validate()
         self.profile = profile
         self.identities = identities
         self.transport = transport or partial(urllib_post, timeout=profile.entrypoint.get("timeout", 300))
         self.mode_switcher = mode_switcher
+        self.telemetry = telemetry
         self._credentials = {}
         self._mode = None
         self._closed = False
@@ -86,6 +87,12 @@ class HttpChatAdapter:
         if self._closed:
             raise TargetUnavailable("Адаптер уже закрыт.")
         url = self._url(path)
+        headers = dict(headers)
+        if self.telemetry:
+            try:
+                headers.update(self.telemetry.propagation_headers())
+            except Exception:
+                pass
         try:
             if method == "POST":
                 return self.transport(url, body, headers)

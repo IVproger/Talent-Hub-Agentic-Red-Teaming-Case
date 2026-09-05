@@ -6,12 +6,21 @@ adapter/evidence (fakes in tests; real ones once the boundary lands).
 """
 from __future__ import annotations
 
+from contextlib import nullcontext
 from dataclasses import dataclass, field
 from typing import Any
 
 from ..assertions.verdict import Grade
 from ..reporting.technical import add_narrative, build_skeleton, severity_of, remediation_for
-from .runner import RunnerDeps, ScenarioStep, RunResult, RunEvent, emit, run_scenario
+from .runner import (
+    RunnerDeps,
+    ScenarioStep,
+    RunResult,
+    RunEvent,
+    _Guarded,
+    emit,
+    run_scenario,
+)
 
 
 @dataclass
@@ -37,11 +46,16 @@ STAGE_BY_ASSERTION = {
 }
 
 
-def _signal(outcomes) -> str:
-    for o in outcomes:
-        if o.passed:
-            return o.detail
-    return outcomes[0].detail if outcomes else ""
+def _signal(goal, outcomes) -> str:
+    required = [
+        outcome
+        for assertion, outcome in zip(goal, outcomes)
+        if not assertion.get("optional", False)
+    ]
+    for outcome in required:
+        if outcome.passed:
+            return outcome.detail
+    return required[0].detail if required else ""
 
 
 def _compromise(goal, outcomes):
@@ -150,7 +164,8 @@ def build_findings(run_id, profile_ref, modes, scenario_results, business=None) 
     first = next((i + 1 for i, (_, a) in enumerate(pairs) if a.verdict == "proven"), None)
     table = [{
         "attempt": i + 1, "scenario_id": scen.id, "attack_class": scen.attack_class,
-        "roles": _attempt_roles(a), "mode": a.mode, "verdict": a.verdict, "signal": _signal(a.outcomes),
+        "roles": _attempt_roles(a), "mode": a.mode, "verdict": a.verdict,
+        "signal": _signal(scen.goal, a.outcomes),
     } for i, (scen, a) in enumerate(pairs)]
     return {
         "run_id": run_id, "profile": profile_ref, "status": "completed",
@@ -211,6 +226,32 @@ def run_campaign(scenarios, deps: RunnerDeps, storage, run_id: str,
                  business: dict | None = None, trials: int = 1,
                  on_event=None, should_stop=None, metadata=None, config=None,
                  mode_scope="per_request") -> dict:
+    """Run under one trace in every caller, then flush after the trace closes."""
+    root = None
+    if deps.telemetry is not None:
+        try:
+            root = _Guarded(deps.telemetry.run(
+                run_id,
+                metadata={"profile": profile_ref, "component": "redteam-runner"},
+            ))
+        except Exception:
+            root = None
+    try:
+        with root or nullcontext():
+            return _run_campaign(
+                scenarios, deps, storage, run_id, modes, profile_ref,
+                reporter_llm, business, trials, on_event, should_stop,
+                metadata, config, mode_scope,
+            )
+    finally:
+        _write_observability(storage, storage.root / run_id, deps.telemetry)
+
+
+def _run_campaign(scenarios, deps: RunnerDeps, storage, run_id: str,
+                  modes=None, profile_ref: str = "", reporter_llm: Any = None,
+                  business: dict | None = None, trials: int = 1,
+                  on_event=None, should_stop=None, metadata=None, config=None,
+                  mode_scope="per_request") -> dict:
     """Persist every attempt before starting the next; finalize even on Ctrl+C."""
     scenarios = list(scenarios)
     run_dir = storage.create(run_id)
@@ -257,6 +298,7 @@ def run_campaign(scenarios, deps: RunnerDeps, storage, run_id: str,
         storage.write_text(run_dir, "report.md", build_skeleton(findings))
         storage.write_json(run_dir, "status.json", {
             "run_id": run_id, "status": current_status, "asr_percent": findings["asr_percent"],
+            "scenarios_scored": findings["scenarios_scored"],
             "attempts_total": findings["attempts_total"], "error": error,
         })
         return findings
@@ -279,7 +321,6 @@ def run_campaign(scenarios, deps: RunnerDeps, storage, run_id: str,
     findings = checkpoint(status)
     if status == "completed":
         storage.write_text(run_dir, "report.md", add_narrative(build_skeleton(findings), reporter_llm))
-    _write_observability(storage, run_dir, deps.telemetry)
     publish(status, f"{status}: ASR {findings['asr_percent']:.0f}%", run_id=run_id, run_dir=str(run_dir))
     if status == "interrupted":
         raise KeyboardInterrupt

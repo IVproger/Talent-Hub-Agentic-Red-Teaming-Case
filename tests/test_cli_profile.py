@@ -72,8 +72,10 @@ class ProfileCoverageTests(unittest.TestCase):
     def test_scenario_with_its_sources_present_can_reach_state(self):
         rows, _ = self._rows()
         self.assertEqual(rows["poison-to-tool-chain"]["reachable"], "state")
+        # The memory predicate is an optional amplifier; the foreign tool call
+        # is the primary proof and therefore the only capability gate.
         self.assertEqual(sorted(rows["poison-to-tool-chain"]["required_kinds"]),
-                         ["memory_snapshot", "tool_calls"])
+                         ["tool_calls"])
         self.assertEqual(rows["poison-to-tool-chain"]["missing_kinds"], [])
 
     def test_text_only_scenario_is_capped_at_indirect(self):

@@ -87,8 +87,8 @@ class ExecuteCampaignTests(unittest.TestCase):
         payload = json.loads(out)
         self.assertTrue(payload["ok"])
         run_dir = Path(payload["run"]["run_dir"])
-        for name in ("campaign.json", "transcript.jsonl", "findings.json",
-                     "report.md", "status.json"):
+        for name in ("campaign.json", "config.json", "surface.json",
+                     "transcript.jsonl", "findings.json", "report.md", "status.json"):
             self.assertTrue((run_dir / name).exists(), name)
         self.assertEqual(payload["run"]["asr_percent"], 100.0)
 

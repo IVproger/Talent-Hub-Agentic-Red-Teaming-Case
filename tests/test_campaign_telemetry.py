@@ -6,10 +6,14 @@ import tempfile
 import unittest
 from contextlib import nullcontext
 from pathlib import Path
+from unittest.mock import patch
 
+from agentic_redteam.app_cli import execute_campaign
+from agentic_redteam.adapters.base import AdapterFeature
 from agentic_redteam.campaign.orchestrator import PlannedScenario, run_campaign
 from agentic_redteam.campaign.runner import RunnerDeps, ScenarioStep
 from agentic_redteam.normalize.facts import Facts, ObservedToolCall
+from agentic_redteam.profile.schema import TargetProfile
 from agentic_redteam.storage.runs import RunStorage
 from tests.fakes import FakeAdapter, FakeEvidenceSource
 
@@ -25,6 +29,11 @@ class Telemetry:
         self.breaks = breaks
         self.flushed = False
         self.names: list[str] = []
+        self.run_ids: list[str] = []
+
+    def run(self, run_id, **_kw):
+        self.run_ids.append(run_id)
+        return nullcontext()
 
     def observation(self, name, **_kw):
         self.names.append(name)
@@ -89,6 +98,38 @@ class CliWiringTests(unittest.TestCase):
     def test_unusable_configuration_yields_no_telemetry_not_a_crash(self):
         from agentic_redteam.app_cli import telemetry_from_config
         self.assertIsNone(telemetry_from_config("/definitely/missing.yaml"))
+
+    def test_shared_cli_ui_path_wraps_run_and_passes_telemetry_to_http(self):
+        telemetry = Telemetry()
+        bundle = FakeEvidenceSource([Facts(), Facts(tool_calls=[
+            ObservedToolCall("get_portfolio", "1002", {}, "raw")
+        ])])
+        bundle.capabilities = lambda: {"tool_calls"}
+        bundle.supports = lambda _goal: (True, [])
+        adapter = FakeAdapter(
+            {"attacker": "1001", "victim": "1002"}, ["ok", "ok"],
+            features=frozenset({AdapterFeature.SESSIONS}),
+        )
+        profile = TargetProfile.load("tests/data/profile_stand.yaml")
+        planned = PlannedScenario(
+            "bac", "cls", [], "1001", ["p"],
+            [{"type": "tool_principal_mismatch", "at": "activate"}],
+            reset_policy="none",
+            steps=[ScenarioStep("inject", "attacker", payload=True),
+                   ScenarioStep("activate", "victim", message="portfolio?")],
+        )
+        with tempfile.TemporaryDirectory() as root, \
+             patch("agentic_redteam.app_cli.EvidenceBundle.from_profile",
+                   return_value=nullcontext(bundle)), \
+             patch("agentic_redteam.app_cli.HttpChatAdapter.from_profile",
+                   return_value=adapter) as factory:
+            execute_campaign(
+                profile, [planned], [], 1, root, "wired", telemetry=telemetry,
+                authorization={"authorized_by": "test", "scope": "local fixture",
+                               "until": "2099-01-01"},
+            )
+        self.assertEqual(telemetry.run_ids, ["wired"])
+        self.assertIs(factory.call_args.kwargs["telemetry"], telemetry)
 
 
 if __name__ == "__main__":

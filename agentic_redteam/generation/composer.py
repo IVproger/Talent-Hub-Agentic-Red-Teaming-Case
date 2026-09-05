@@ -67,8 +67,11 @@ def compose(template: Template, profile: TargetProfile,
     refs = [str(template.standard[k]) for k in ("asi", "llm") if template.standard.get(k)]
     refs += [str(a) for a in template.standard.get("atlas", [])]
     steps = [_bind_step(step) for step in template.steps]
-    goal = [_bind_assertion(item) for item in template.success
-            if item.get("when") != "enhanced" or enhanced]
+    goal = [
+        _bind_assertion(item)
+        for item in template.success
+        if item.get("when") != "enhanced" or enhanced
+    ]
     data = {
         "id": f"{template.id}-{profile.name}",
         "name": template.title,
@@ -82,6 +85,7 @@ def compose(template: Template, profile: TargetProfile,
         "payloads": ["<payload>"] if any(s.get("payload") for s in steps) else [],
         "steps": steps,
         "goal": goal,
+        "remediation": template.remediation,
     }
     return ScenarioSpec.from_mapping(data)
 
@@ -102,4 +106,9 @@ def _bind_step(step: dict) -> dict:
 def _bind_assertion(item: dict) -> dict:
     goal = {("type" if key == "assert" else key): value
             for key, value in item.items() if key != "when"}
+    # Enhanced evidence strengthens the explanation but must not veto the
+    # primary state proof.  For example, a confirmed foreign tool call remains
+    # a finding even when a memory snapshot cannot prove how it was induced.
+    if item.get("when") == "enhanced":
+        goal["optional"] = True
     return goal

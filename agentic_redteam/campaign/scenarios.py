@@ -149,12 +149,16 @@ class ScenarioSpec:
         if self.payloads and not carriers:
             _invalid("payloads заданы, но ни один шаг не помечен payload: true")
         for index, assertion in enumerate(self.goal, start=1):
+            if not isinstance(assertion.get("optional", False), bool):
+                _invalid("optional должен быть boolean")
             kind = assertion.get("type")
             if kind not in ASSERTION_TYPES:
                 _invalid(f"цель {index} — неизвестный предикат '{kind}'")
             missing = [f for f in GOAL_REQUIRED.get(kind, ()) if f not in assertion]
             if missing:
                 _invalid(f"цель {index} ({kind}) — не хватает полей: {', '.join(missing)}")
+        if not self.goal or all(a.get("optional") for a in self.goal):
+            _invalid("нужен хотя бы один обязательный критерий")
         try:
             validate_step_references(self.goal, self.steps)
         except ValueError as exc:

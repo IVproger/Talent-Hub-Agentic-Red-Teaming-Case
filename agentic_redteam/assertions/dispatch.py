@@ -18,7 +18,10 @@ def evaluate(assertion: dict, facts: Facts, actor: str) -> CheckOutcome:
     if t == "tool_principal_mismatch":
         return P.tool_principal_mismatch(facts, actor, assertion.get("at"), assertion.get("tool"))
     if t == "tool_principal_equals":
-        return P.tool_principal_equals(facts, assertion["value"], assertion.get("at"), assertion.get("tool"))
+        # Old replay artifacts used the resolved actor as the smoke expectation.
+        return P.tool_principal_equals(
+            facts, assertion.get("value", actor), assertion.get("at"), assertion.get("tool")
+        )
     if t == "memory_write":
         persistence = Persistence(assertion["persistence"]) if assertion.get("persistence") else None
         return P.memory_write(facts, assertion["scope"], assertion.get("contains"), persistence)

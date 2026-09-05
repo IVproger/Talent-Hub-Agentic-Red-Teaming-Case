@@ -77,3 +77,23 @@ class HttpChatTests(unittest.TestCase):
         self.assertTrue(result[0].ok)
         self.assertEqual(self.transport.call_args.kwargs["method"], "GET")
         self.identities.acquire.assert_not_called()
+
+    def test_active_trace_context_is_propagated_to_the_target(self):
+        telemetry = Mock()
+        telemetry.propagation_headers.return_value = {
+            "traceparent": "00-0123456789abcdef0123456789abcdef-0123456789abcdef-01"
+        }
+        session = HttpChatAdapter(
+            self.profile, self.identities, self.transport, telemetry=telemetry
+        ).open_session("attacker", "s", "vulnerable")
+        session.send("hi")
+        headers = self.transport.call_args.args[2]
+        self.assertEqual(headers["traceparent"], telemetry.propagation_headers.return_value["traceparent"])
+
+    def test_broken_trace_propagation_is_fail_open(self):
+        telemetry = Mock()
+        telemetry.propagation_headers.side_effect = RuntimeError("collector down")
+        session = HttpChatAdapter(
+            self.profile, self.identities, self.transport, telemetry=telemetry
+        ).open_session("attacker", "s", "vulnerable")
+        self.assertEqual(session.send("hi"), "hello")

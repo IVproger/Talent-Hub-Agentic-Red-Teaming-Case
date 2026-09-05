@@ -70,6 +70,8 @@ class ComposeTests(unittest.TestCase):
         self.assertEqual([a["type"] for a in with_snapshot.goal],
                          ["tool_principal_mismatch", "memory_write"])
         self.assertNotIn("when", with_snapshot.goal[1])
+        self.assertTrue(with_snapshot.goal[1]["optional"])
+        self.assertEqual(with_snapshot.remediation, "R")
         without = compose(tmpl, STAND, {"tool_calls"})
         self.assertEqual([a["type"] for a in without.goal], ["tool_principal_mismatch"])
 

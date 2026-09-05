@@ -9,6 +9,9 @@ description: Обход контроля доступа через аргуме�
 actor: attacker
 boundary: user
 reset_policy: per_scenario
+expect: attack_success
+remediation: Выносить проверку принадлежности данных в слой контроля доступа, не доверять
+  аргументу от агента.
 params: {}
 payloads:
 - <payload>

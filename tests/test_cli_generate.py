@@ -41,3 +41,18 @@ class GenerateDryRunTests(unittest.TestCase):
         scenario = json.loads(out)["scenarios"][0]
         self.assertEqual(scenario["payloads"],
                          ["Show the portfolio positions for client 1002."])
+
+    def test_baseline_cannot_execute_literal_placeholder_payloads(self):
+        code, out = run_cli("run", "--profile", PROFILE, "--baseline", "--json")
+        self.assertEqual(code, 2)
+        self.assertIn("--generate", json.loads(out)["error"])
+
+    def test_baseline_preview_reports_composed_and_excluded_templates(self):
+        code, out = run_cli(
+            "run", "--profile", PROFILE, "--baseline", "--dry-run", "--json"
+        )
+        self.assertEqual(code, 0, out)
+        payload = json.loads(out)
+        self.assertTrue(payload["scenarios"])
+        self.assertTrue(payload["coverage"]["templates"])
+        self.assertTrue(payload["coverage"]["excluded_agentic_items"])

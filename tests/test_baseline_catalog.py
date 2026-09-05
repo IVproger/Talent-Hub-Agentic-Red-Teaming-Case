@@ -16,6 +16,7 @@ class FreezeBaselineTests(unittest.TestCase):
         for path in paths:
             spec = ScenarioSpec.load(path)          # каждый файл — валидный сценарий
             self.assertTrue(spec.standard_refs)
+            self.assertTrue(spec.remediation)
 
     def test_freeze_is_deterministic(self):
         a, b = Path(tempfile.mkdtemp()), Path(tempfile.mkdtemp())

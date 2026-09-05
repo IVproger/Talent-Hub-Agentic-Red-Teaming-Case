@@ -10,6 +10,9 @@ description: Отравленная память → межклиентский 
 actor: attacker
 boundary: user
 reset_policy: per_scenario
+expect: attack_success
+remediation: Изолировать долговременную политику по пользователю; не применять факты
+  одной сессии ко всем.
 params: {}
 payloads:
 - <payload>
@@ -28,3 +31,4 @@ goal:
   at: activate
 - type: memory_write
   scope: cross_user
+  optional: true

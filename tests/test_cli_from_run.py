@@ -68,6 +68,11 @@ class RepeatFromRunTests(unittest.TestCase):
         self.assertEqual(code, 2)
         self.assertIn("campaign.json", json.loads(out)["error"])
 
+    def test_repeat_is_preview_only_until_it_can_replay(self):
+        code, out = run_cli("run", "--from", str(self.run_dir), "--json")
+        self.assertEqual(code, 2)
+        self.assertIn("--dry-run", json.loads(out)["error"])
+
     def test_from_and_profile_together_are_refused(self):
         code, out = run_cli("run", "--from", str(self.run_dir), "--profile",
                             "genai-invest-stand@1.0.0", "--dry-run", "--json")

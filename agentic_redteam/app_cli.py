@@ -4,21 +4,25 @@ from __future__ import annotations
 import argparse
 import contextlib
 import json
+import secrets
 import subprocess
 import sys
 from collections.abc import Mapping
 from dataclasses import asdict
+from datetime import UTC, datetime
 from pathlib import Path
 
 import yaml
 
 from . import __version__
 from .assertions.registry import required_kinds
-from .campaign.orchestrator import PlannedScenario
+from .adapters.http_chat import HttpChatAdapter
+from .campaign.orchestrator import PlannedScenario, run_campaign
 from .campaign.plan import Campaign, execution_order
-from .campaign.runner import ScenarioStep
+from .campaign.runner import RunnerDeps, ScenarioStep
 from .campaign.scenarios import resolve as resolve_specs
 from .doctor import checks_ok, run_checks
+from .evidence.bundle import EvidenceBundle
 from .llm import (
     LLMConfigurationError,
     LLMRequestError,
@@ -307,7 +311,9 @@ def _run_scenarios(args) -> int:
     if args.trials < 1:
         raise PipelineConfigurationError("--trials должен быть не меньше 1.")
     if args.profile or args.from_run:
-        return _preview_campaign(args)
+        if args.dry_run:
+            return _preview_campaign(args)
+        return _execute_campaign(args)
     scenario_ids = _resolve_scenario_ids(args.scenario)
     roles = _role_configs(args)
     context_overrides = {}
@@ -376,14 +382,7 @@ def _preview_campaign(args) -> int:
     Предпросмотр не трогает цель, поэтому адаптер здесь не нужен: профиль даёт
     состав и принципалы ролей, каталог — цепочки шагов и payload'ы.
     """
-    if args.profile and args.from_run:
-        raise PipelineConfigurationError(
-            "--from повторяет сохранённую кампанию целиком; --profile с ним не сочетается."
-        )
-    if not args.dry_run:
-        raise PipelineConfigurationError(
-            "Запуск по профилю пока доступен только с --dry-run: адаптер цели ещё не подключён."
-        )
+    _reject_conflicting_sources(args)
     if args.from_run:
         campaign, planned, scope = _campaign_from_run(args.from_run)
     else:
@@ -407,6 +406,99 @@ def _preview_campaign(args) -> int:
 
 
 PROFILES_ROOT = Path(__file__).resolve().parents[1] / "profiles"
+
+
+def _reject_conflicting_sources(args) -> None:
+    if args.profile and args.from_run:
+        raise PipelineConfigurationError(
+            "--from повторяет сохранённую кампанию целиком; --profile с ним не сочетается."
+        )
+
+
+def _execute_campaign(args) -> int:
+    """Собрать реальные адаптер и evidence по профилю и прогнать кампанию."""
+    _reject_conflicting_sources(args)
+    if args.from_run:
+        raise PipelineConfigurationError(
+            "--from пока только предпросмотр: добавьте --dry-run."
+        )
+    profile = _load_profile(args.profile)
+    campaign, planned, _ = _campaign_from_profile(args)
+    storage = RunStorage(args.output)
+    run_id = f"{datetime.now(UTC).strftime('%Y%m%d-%H%M%S')}-{secrets.token_hex(3)}"
+    with EvidenceBundle.from_profile(profile) as bundle:
+        selected, skipped = _gate_scenarios(bundle, planned)
+        _require_reset_source(bundle, selected)
+        adapter = HttpChatAdapter.from_profile(profile)
+        try:
+            if not args.json:
+                print(f"прогон {run_id}: {', '.join(s.id for s in selected)}", file=sys.stderr)
+            findings = run_campaign(
+                selected, RunnerDeps(adapter, bundle), storage, run_id,
+                modes=campaign.modes, profile_ref=campaign.profile,
+                reporter_llm=_reporter(args), business=profile.business,
+                trials=campaign.trials,
+            )
+        finally:
+            adapter.close()
+    summary = {
+        "run_id": run_id,
+        "run_dir": str(Path(args.output).expanduser().resolve() / run_id),
+        "scenarios": [scenario.id for scenario in selected],
+        "skipped": skipped,
+        "asr_percent": findings["asr_percent"],
+        "findings": len(findings["findings"]),
+    }
+    if args.json:
+        print(json.dumps({"ok": True, "run": summary}, ensure_ascii=False))
+    else:
+        print(f"{run_id}: ASR {summary['asr_percent']:.0f}% · "
+              f"находок {summary['findings']} · {summary['run_dir']}")
+        for note in skipped:
+            print(f"пропущено: {note}")
+    return 0
+
+
+def _gate_scenarios(bundle, planned) -> tuple[list, list[str]]:
+    """Гейт покрытия: сценарий без своего источника не запускается вовсе.
+
+    Прогнать его было бы хуже, чем пропустить: он дал бы `not_proven`, который
+    неотличим от «атака не сработала» (US-04 AC2).
+    """
+    selected, skipped = [], []
+    for scenario in planned:
+        supported, reasons = bundle.supports(scenario.goal)
+        if supported:
+            selected.append(scenario)
+        else:
+            skipped.append(f"{scenario.id}: {', '.join(reasons)}")
+    if not selected:
+        raise PipelineConfigurationError(
+            "Ни один сценарий не покрыт источниками профиля — " + "; ".join(skipped)
+        )
+    return selected, skipped
+
+
+def _require_reset_source(bundle, selected) -> None:
+    if "session_reset" in {str(kind) for kind in bundle.capabilities()}:
+        return
+    needing = [scenario.id for scenario in selected if scenario.reset_policy != "none"]
+    if needing:
+        raise PipelineConfigurationError(
+            "Профиль не объявляет источник session_reset, а сценарии требуют сброса: "
+            + ", ".join(needing)
+            + ". Добавьте reset-провайдер или возьмите сценарии с reset_policy: none."
+        )
+
+
+def _reporter(args):
+    """Нарратив отчёта необязателен и fail-open — скелет остаётся детерминированным."""
+    try:
+        roles = _role_configs(args)
+        roles["report_writer"].validate()
+        return make_llm_client(roles["report_writer"])
+    except Exception:
+        return None
 
 
 def _campaign_from_profile(args):

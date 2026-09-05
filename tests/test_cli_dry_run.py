@@ -69,12 +69,6 @@ class ProfileDryRunTests(unittest.TestCase):
         self.assertIn("Show the portfolio positions for client 1002.", out)
         self.assertIn("tool_principal_mismatch", out)
 
-    def test_execution_without_dry_run_is_refused_for_now(self):
-        code, out = run_cli("run", "--profile", PROFILE, "--scenario", "bac-tool-argument", "--json")
-        self.assertEqual(code, 2)
-        self.assertFalse(json.loads(out)["ok"])
-        self.assertIn("--dry-run", json.loads(out)["error"])
-
     def test_unknown_scenario_is_a_usage_error(self):
         code, out = run_cli("run", "--profile", PROFILE, "--scenario", "nope",
                             "--dry-run", "--json")

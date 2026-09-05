@@ -76,7 +76,7 @@
   При удалении старого `target_runtime.py` нужно сохранить используемые
   `stand_sync` проверки модели в модуле bootstrap (задача 4.4).
 
-Тесты: 304 (1 пре-существующий фейл `stand.observability`).
+Тесты: 295 (1 пре-существующий фейл `stand.observability`).
 
 ## Контракты стыковки (ВАЖНО — согласовать)
 
@@ -135,7 +135,7 @@ RunnerDeps(adapter, evidence, id_factory=None, now=None, telemetry=None)
 | Исполнение `run --profile` | ✅ сделано: `HttpChatAdapter.from_profile` + `EvidenceBundle.from_profile` → `RunnerDeps` |
 | 5.3 CLI `profile check/verify` · `doctor --profile` | ✅ сделано поверх `evidence.calibrate` |
 | 5.4 порт Streamlit-UI | не начат (в `ui/app.py` незакоммиченная работа) |
-| 4.4 big-bang: удаление старого pipeline | не начат — новый путь заменил старый, можно приступать |
+| 4.4 big-bang: удаление старого pipeline | ✅ сделано |
 | `run --from` с исполнением (реплей) | пока только предпросмотр |
 | 4.4 удаление старого · перевод `scenario.py` | big-bang — когда новый путь заменит старый |
 
@@ -156,18 +156,26 @@ RunnerDeps(adapter, evidence, id_factory=None, now=None, telemetry=None)
 6. **Живой стенд:** `profile check/verify` и BAC в двух режимах прошли;
    [протокол проверки](live-validation-2026-09-05.md).
    Многошаговые сценарии и UI требуют отдельного живого прогона.
-7. **Big-bang** (4.4): удалить `client.py`/`tracer.py`/`state.py`/`scorers.py`/
-   `target_runtime.py`/`pipeline.py`, схлопнуть `scenarios/v2/` в `scenarios/`,
-   перенести ценные тест-кейсы.
-8. **Порт UI** (5.4) на `run_campaign`.
+7. ~~Big-bang~~ (4.4) — сделано. `target_runtime.py` **оставлен**: он держит
+   `stand sync` и `doctor`, а не старый прогон.
+8. ~~Порт UI~~ (5.4) — сделано.
+9. **Вернуть генерацию payload'ов** — см. «Потеряно при big-bang».
+10. **Живой прогон многошаговых сценариев и UI** — на стенде не гонялись.
+
+## Потеряно при big-bang (осознанно)
+
+**Adaptive BAC больше нет.** Вместе с `pipeline.py` ушли `generate_payloads()`,
+роль `attack_generator` и сценарий `generated-bac` — LLM-генерация вариативных
+payload'ов. Замены нет: генерация это эпик E3/E4, он не начат. Пока в кампании
+только фиксированные payload'ы из каталога, то есть вариативность атаки
+потеряна до E4. Двухэтапная модель runner'а под возврат генерации готова:
+`PlannedScenario.payloads` — ровно тот «фиксированный список этапа 1».
 
 ## Временное, что переедет
 
 - `PROVIDER_KINDS` в `app_cli.py` (имя плагина → `EvidenceKind`) — CLI как
   composition root связывает имена, пока нет реестра провайдеров бандла (3.6).
   Нужен для `profile coverage`; переезжает в 3.6.
-- Каталог `agentic_redteam/scenarios/v2/` схлопывается в `scenarios/`, когда
-  старый `scenario.py` уйдёт при big-bang.
 - При удалении `target_runtime.py` (4.4) сохранить проверки модели, которыми
   пользуется `stand_sync` — перенести в модуль bootstrap.
 

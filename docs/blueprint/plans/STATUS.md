@@ -7,11 +7,21 @@
 
 ## Что в `main`
 
-### dseredkin — готово (14 задач + оркестрация)
+### dseredkin — готово (14 задач + оркестрация + каталог/CLI-предпросмотр)
 - **Фаза 0:** `tests/fakes.py`, `normalize/facts.py`, `assertions/verdict.py`
 - **S1 core-logic:** `normalize/memdiff.py`, `normalize/projection.py`, `assertions/predicates.py`, `assertions/registry.py`, `assertions/dispatch.py`, `tests/test_no_target_leak.py`
 - **S5:** `storage/runs.py` (4.1), `campaign/plan.py` (4.2), `campaign/runner.py` (4.3), `campaign/orchestrator.py` (`run_campaign` + `build_findings` + `PlannedScenario`)
 - **S7:** телеметрия в runner fail-open (6.2), `reporting/technical.py` (6.3)
+- **S6 (частично):** `campaign/scenarios.py` — загрузчик каталога на новом
+  словаре (5.1 в новом модуле, старый `scenario.py` не тронут);
+  `agentic_redteam/scenarios/v2/` — четыре встроенных сценария как данные;
+  `run --profile … --dry-run` — предпросмотр кампании (5.2, US-16).
+- **Цепочки шагов:** `ScenarioStep` в runner, `PlannedScenario.steps`.
+  Многошаговая атака (внедрение → финализация → активация другой ролью) —
+  одна попытка с одним сбросом и одним окном evidence.
+- **Отчёт:** этап цепочки выводится из сработавшего предиката, находка несёт
+  роли/режим/выборку, условия воспроизведения покрывают все сценарии,
+  ограничения собираются детерминированно.
 
 **Пайплайн работает end-to-end на фейках:** `run_campaign(scenarios, deps, storage)` → перебирает `PlannedScenario` → `run_scenario` → агрегирует → пишет `findings.json` + `report.md` + `status.json`. Осталось заменить фейки на реальные `adapter`/`evidence` и подать реальные `PlannedScenario` (из composer/registry).
 
@@ -33,7 +43,7 @@
   payload `{store_id, documents, record, scope}`, read-only калибровка; пустая коллекция
   означает неподтверждённую привязку. `uri_env` необязателен для локального Compose Mongo.
 
-Тесты: 161 (1 пре-существующий фейл `stand.observability`).
+Тесты: 236 (1 пре-существующий фейл `stand.observability`).
 
 ## Контракты стыковки (ВАЖНО — согласовать)
 
@@ -52,7 +62,17 @@ def reset(self) -> None: ...
 ### 2. Runner ↔ adapter (уже совпадает)
 
 Runner использует замороженный `TargetAdapter` (2.1):
-`adapter.open_session(role, session_id, mode)` → session; `session.send(msg)->str`; `session.commit_memory()`. Роль актора в runner сейчас — `"attacker"`.
+`adapter.open_session(role, session_id, mode)` → session; `session.send(msg)->str`; `session.commit_memory()`.
+**Роль берётся из шага цепочки** (`ScenarioStep.actor`), а не константа `"attacker"`:
+каждый актор держит одну сессию на свои шаги, поэтому `commit_memory` попадает
+в ту же сессию, что и внедрение.
+
+### 2a. Сценарий → runner
+
+`campaign/scenarios.py::ScenarioSpec.to_planned(principals)` отдаёт
+`PlannedScenario`. `principals` — отображение «роль сценария → значение
+принципала»; собирает его CLI из профиля (`identities.principal.attribute`,
+иначе атрибут первой границы изоляции) — сам каталог о цели не знает.
 
 ### 3. RunnerDeps
 ```python
@@ -69,17 +89,36 @@ RunnerDeps(adapter, evidence, id_factory=None, now=None, telemetry=None)
 
 | Задача (dseredkin) | Нужен код oushtt |
 |---|---|
-| Wiring runner → реальный evidence | 3.6 bundle (по seam выше) + 3.2–3.7 провайдеры (S4) |
-| 5.2 CLI `run` | 1.2 profile registry (S2) + 2.4 http_chat (S3) |
-| 5.3 CLI `profile` | 3.7 calibrate (S4) |
-| 4.4 удаление старого · 5.1 rewrite scenario | big-bang — когда новый путь заменит старый |
+| Wiring runner → реальный evidence | **3.6 bundle** (по seam выше) + **3.3 log_regex** (вызовы инструментов — первичный источник) |
+| Исполнение `run --profile` (без `--dry-run`) | то же: без bundle собрать `RunnerDeps` нечем |
+| 5.3 CLI `profile check/verify` | 3.7 calibrate (S4) |
+| 4.4 удаление старого · перевод `scenario.py` | big-bang — когда новый путь заменит старый |
 
-## Следующие шаги (когда S3/S4/1.2 в `main`)
+Готово и разблокировано: 1.2 registry, 1.3 diff, 2.2–2.4 адаптер и личности,
+3.2 `db_query`. Адресация `--profile name@version` уже поверх реестра.
 
-`run_campaign` уже написан и работает на фейках — интеграция сводится к замене фейков реальными компонентами:
+## Следующие шаги
 
-1. **Свести bundle к seam** (§контракты 1) — bundle 3.6 экспонирует `mark`/`collect_facts`→`Facts`/`reset` (или тонкий шим).
-2. **Источник `PlannedScenario`**: composer (E4) или загрузчик встроенных сценариев на новом словаре → `id/attack_class/standard_refs/actor/payloads/goal/boundary`.
-3. **Собрать реальный `RunnerDeps`**: `adapter` (2.4 http_chat через registry 1.2) + `evidence` (bundle 3.6) → передать в `run_campaign`.
-4. **CLI** `run --profile` / `profile check` поверх этого (5.2/5.3).
-5. **Big-bang:** удалить `client.py`/`tracer.py`/`state.py`/`scorers.py`/`target_runtime.py`/`pipeline.py`, перенести ценные тест-кейсы.
+1. ~~Источник `PlannedScenario`~~ — готово: `campaign/scenarios.py` + каталог `scenarios/v2/`.
+2. ~~CLI-предпросмотр~~ — готово: `run --profile … --dry-run` (US-16).
+3. **Свести bundle к seam** (§контракты 1) — bundle 3.6 экспонирует
+   `mark`/`collect_facts`→`Facts`/`reset`. **Это единственный блокер исполнения.**
+   Вместе с ним нужен 3.3 `log_regex`: без источника вызовов инструментов
+   вердикт по инварианту не поднимается выше `indirect`/`UNOBSERVABLE`.
+4. **Собрать реальный `RunnerDeps`** в CLI: `HttpChatAdapter.from_profile(profile)`
+   + bundle → снять запрет на `run --profile` без `--dry-run`.
+5. **`profile check/verify`** (5.3) поверх 3.7 calibrate.
+6. **Big-bang:** удалить `client.py`/`tracer.py`/`state.py`/`scorers.py`/`target_runtime.py`/`pipeline.py`, перенести ценные тест-кейсы.
+
+## Расхождения со спеком (решить)
+
+- **ASR.** Спек §6: «доля `proven` по **сценариям**». Считается по **попыткам**
+  (`proven / (proven + not_proven)`), и `indirect` не попадает в знаменатель, хотя
+  инвариант выводит из него только `error`. Не менял: `ui/app.py` показывает
+  `asr_percent` вместе с `attempts_scored`. Заголовок в отчёте приведён к факту
+  («ASR по попыткам»).
+- **Усилители в `goal`.** Плана 5.1 требует помечать `memory_write` в
+  `poison-to-tool-chain` как необязательный усилитель, но ни в словаре предикатов,
+  ни в `verdict()` нет признака «необязательный». Сейчас предикат обязателен.
+- **`reset_policy: per_step`** каталогом не используется и в runner не реализован
+  (сброс идёт раз на попытку).

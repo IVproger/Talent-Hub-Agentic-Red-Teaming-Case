@@ -9,6 +9,8 @@
 
 | Файл | Что показывает | Тип |
 |---|---|---|
+| `0-overview.mmd` | Верхнеуровневый data-flow: вход → шаги → выход каждого шага → итоговые артефакты (акцент на данных) | flowchart TD |
+| `0-overview-sequence.mmd` | Тот же поток как взаимодействие Пользователь ↔ MOROK ↔ Цель, с циклом атак (акцент на взаимодействии) | sequenceDiagram |
 | `1-structure.mmd` | Общая структура: роли-источники, профиль, ядро, граница цели, отчёты | flowchart TB |
 | `2-onboarding.mmd` | Подключение произвольной цели: init → check → verify → гейт покрытия | flowchart TD |
 | `3-campaign.mmd` | Прогон кампании: composer → генерация → предпросмотр → runner → evidence → вердикт | sequenceDiagram |

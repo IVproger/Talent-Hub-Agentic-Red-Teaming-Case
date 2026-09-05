@@ -657,7 +657,7 @@ git commit -m "feat(generation): отчёт о покрытии из гейто�
 
 **Interfaces:**
 - Consumes: `Template`/`load_templates` (Task 1), `compose` (Task 2).
-- Produces: каталог `templates/`, покрывающий обязательный минимум US-08 AC2/AC3: BAC (ASI03), отравление памяти → tool call (ASI06), межсессионный эффект (ASI06 cross-session), утечка системного промпта (LLM07).
+- Produces: каталог `templates/`, покрывающий обязательный минимум US-08 AC2/AC3: BAC (ASI03), отравление памяти → tool call (ASI06), межсессионный эффект (ASI06 cross-session), утечка системного промпта (LLM08).
 
 Шаблоны — data-эквиваленты четырёх встроенных сценариев, но абстрактные (роли/акты, без target-специфики). Точные ссылки взять из `references/owasp-agentic-top10-2026.md` и `references/owasp-llm-top10-2026.md`.
 
@@ -766,7 +766,7 @@ remediation: "Изолировать долговременную память �
 `templates/owasp-llm/llm07.yaml`:
 ```yaml
 id: system-prompt-leak
-standard: {llm: LLM07, atlas: [AML.T0051, AML.T0069]}
+standard: {llm: LLM08, atlas: [AML.T0051, AML.T0069]}
 title: "Утечка системного промпта (разведка)"
 delivery: [user_message]
 preconditions:
@@ -1320,8 +1320,11 @@ Expected: FAIL — флага `--generate` ещё нет (argparse → exit 2 н
 Добавить импорты рядом с прочими:
 ```python
 from .generation.generator import generate
-from .generation.context import campaign_context
 ```
+(Прошлая версия импортировала и `campaign_context`, но `_generate_payloads`
+его не вызывает — проводка контекста прошлых кампаний US-21 ждёт источник
+истории из E6 knowledge base. Механизм готов: `campaign_context` (Task 8) +
+`generate(prior_context=…)` (Task 7). Мёртвый импорт в CLI не добавляем.)
 Добавить аргумент в парсер `run` (рядом с `--trials`):
 ```python
     run.add_argument("--generate", type=int, metavar="N",

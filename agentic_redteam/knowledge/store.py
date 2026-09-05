@@ -3,9 +3,20 @@ from __future__ import annotations
 
 import json
 import sqlite3
+from datetime import UTC, datetime
 from pathlib import Path
 
 from .ingest import attacks_from_run
+
+# US-36: судьба находки. Прогон даёт `confirmed` — находка доказана
+# состоянием; дальше её двигает человек, а `retested` — повтор из E8.
+STATUSES = ("open", "confirmed", "reported", "fixed", "retested", "closed", "reopened")
+DEFAULT_STATUS = "confirmed"
+
+
+class UnknownStatus(ValueError):
+    pass
+
 
 ATTACK_FIELDS = (
     "id", "campaign_run_id", "profile_name", "profile_version",
@@ -23,10 +34,15 @@ CREATE TABLE IF NOT EXISTS attacks (
   payload TEXT, payload_tokens TEXT,
   roles TEXT, mode TEXT,
   verdict TEXT, severity TEXT, compromise_point TEXT, chain_stage TEXT,
-  signal TEXT, evidence_refs TEXT, created_at TEXT
+  signal TEXT, evidence_refs TEXT, created_at TEXT,
+  status TEXT NOT NULL DEFAULT '{default}'
 );
 CREATE INDEX IF NOT EXISTS ix_profile ON attacks(profile_name, profile_version);
-"""
+CREATE TABLE IF NOT EXISTS status_history (
+  attack_id TEXT NOT NULL, status TEXT NOT NULL, note TEXT, at TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS ix_history ON status_history(attack_id);
+""".format(default=DEFAULT_STATUS)
 
 
 class KnowledgeStore:
@@ -35,18 +51,62 @@ class KnowledgeStore:
         self._conn = sqlite3.connect(self.path)
         self._conn.row_factory = sqlite3.Row
         self._conn.executescript(_SCHEMA)
+        self._migrate()
         self._conn.commit()
+
+    def _migrate(self) -> None:
+        """База, наполненная до US-36, получает статус, а не ломается."""
+        columns = {row["name"] for row in self._conn.execute("PRAGMA table_info(attacks)")}
+        if "status" not in columns:
+            self._conn.execute(
+                f"ALTER TABLE attacks ADD COLUMN status TEXT NOT NULL DEFAULT '{DEFAULT_STATUS}'")
 
     def record(self, attack: dict) -> None:
         row = {field: attack.get(field) for field in ATTACK_FIELDS}
         for field in _JSON_FIELDS:
             row[field] = json.dumps(row.get(field) or [], ensure_ascii=False)
         placeholders = ", ".join("?" for _ in ATTACK_FIELDS)
+        # Реиндексация runs/ идемпотентна и не должна стирать судьбу находки,
+        # поэтому статус переносится из уже сохранённой записи.
+        known = self._conn.execute(
+            "SELECT status FROM attacks WHERE id = ?", (row["id"],)).fetchone()
         self._conn.execute(
-            f"INSERT OR REPLACE INTO attacks ({', '.join(ATTACK_FIELDS)}) VALUES ({placeholders})",
-            [row[field] for field in ATTACK_FIELDS],
+            f"INSERT OR REPLACE INTO attacks ({', '.join(ATTACK_FIELDS)}, status) "
+            f"VALUES ({placeholders}, ?)",
+            [row[field] for field in ATTACK_FIELDS]
+            + [known["status"] if known else DEFAULT_STATUS],
         )
+        if known is None:
+            self._append_history(row["id"], DEFAULT_STATUS, "")
         self._conn.commit()
+
+    def _append_history(self, attack_id: str, status: str, note: str) -> None:
+        self._conn.execute(
+            "INSERT INTO status_history (attack_id, status, note, at) VALUES (?, ?, ?, ?)",
+            (attack_id, status, note, datetime.now(UTC).isoformat()),
+        )
+
+    def set_status(self, attack_id: str, status: str, note: str = "") -> dict:
+        if status not in STATUSES:
+            raise UnknownStatus(
+                f"Неизвестный статус: {status}. Допустимые: {', '.join(STATUSES)}.")
+        if self._conn.execute("SELECT 1 FROM attacks WHERE id = ?", (attack_id,)).fetchone() is None:
+            raise KeyError(f"В базе знаний нет находки {attack_id}.")
+        self._conn.execute("UPDATE attacks SET status = ? WHERE id = ?", (status, attack_id))
+        self._append_history(attack_id, status, note)
+        self._conn.commit()
+        return self.get(attack_id)
+
+    def get(self, attack_id: str) -> dict:
+        rows = self._rows("id = ?", (attack_id,))
+        if not rows:
+            raise KeyError(f"В базе знаний нет находки {attack_id}.")
+        return rows[0]
+
+    def status_history(self, attack_id: str) -> list[dict]:
+        return [dict(row) for row in self._conn.execute(
+            "SELECT status, note, at FROM status_history WHERE attack_id = ? ORDER BY rowid",
+            (attack_id,))]
 
     def _rows(self, where: str, params: tuple) -> list[dict]:
         cursor = self._conn.execute(f"SELECT * FROM attacks WHERE {where}", params)

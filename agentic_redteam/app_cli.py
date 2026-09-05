@@ -29,7 +29,7 @@ from .doctor import checks_ok, run_checks
 from .evidence.bundle import EvidenceBundle
 from .evidence.calibrate import check, verify
 from .generation.generator import generate
-from .knowledge.store import KnowledgeStore
+from .knowledge.store import STATUSES, KnowledgeStore, UnknownStatus
 from .knowledge.query import context_for
 from .observability import LangfuseTelemetry, langfuse_config_from_mapping
 from .llm import (
@@ -185,6 +185,14 @@ def build_parser() -> argparse.ArgumentParser:
     kb_search = kb_commands.add_parser("search", help="поиск по payload/классу")
     kb_search.add_argument("--contains", required=True)
     kb_search.add_argument("--json", action="store_true")
+    kb_status = kb_commands.add_parser("status", help="судьба находки: показать или сдвинуть статус")
+    kb_status.add_argument("attack_id", help="идентификатор находки (run:scenario:attempt)")
+    kb_status.add_argument("--set", dest="new_status", choices=STATUSES,
+                           help="новый статус находки")
+    kb_status.add_argument("--note", default="", help="комментарий к переходу")
+    kb_status.add_argument("--json", action="store_true",
+                           help="вывести один JSON-результат в stdout")
+
     kb_rebuild = kb_commands.add_parser("rebuild", help="переналить базу из runs/")
     kb_rebuild.add_argument("--runs", default=str(DEFAULT_RUNS_ROOT), help="корень runs/")
     kb_rebuild.add_argument("--json", action="store_true")
@@ -1058,6 +1066,8 @@ def _kb(args) -> int:
             else:
                 print(f"переиндексировано атак: {count}")
             return 0
+        if args.kb_command == "status":
+            return _kb_status(args, store)
         if args.kb_command == "list":
             attacks = store.all_for(args.profile)
         else:
@@ -1067,10 +1077,28 @@ def _kb(args) -> int:
         else:
             for a in attacks:
                 print(f"{a['created_at']} · {a['scenario_id']} · {a['attack_class']} · "
-                      f"{a['verdict']} · {a['payload']}")
+                      f"{a['verdict']} · {a.get('status', '—')} · {a['payload']}")
         return 0
     finally:
         store.close()
+
+
+def _kb_status(args, store) -> int:
+    """US-36: находка живёт дальше отчёта — у неё есть статус и его история."""
+    try:
+        attack = store.set_status(args.attack_id, args.new_status, args.note) \
+            if args.new_status else store.get(args.attack_id)
+    except (UnknownStatus, KeyError) as exc:
+        raise PipelineConfigurationError(str(exc).strip("'")) from exc
+    history = store.status_history(args.attack_id)
+    if args.json:
+        print(json.dumps({"ok": True, "attack": attack, "history": history},
+                         ensure_ascii=False))
+    else:
+        print(f"{attack['id']} · {attack['scenario_id']} · статус: {attack['status']}")
+        for row in history:
+            print(f"  {row['at']} → {row['status']}" + (f" ({row['note']})" if row["note"] else ""))
+    return 0
 
 
 def _error(message: str, json_mode: bool, code: int) -> None:

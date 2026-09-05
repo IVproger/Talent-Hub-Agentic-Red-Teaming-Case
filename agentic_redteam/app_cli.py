@@ -4,6 +4,7 @@ from __future__ import annotations
 import argparse
 import contextlib
 import json
+import re
 import secrets
 import subprocess
 import sys
@@ -149,8 +150,18 @@ def build_parser() -> argparse.ArgumentParser:
         ("coverage", "что проверяемо на этой цели (гейт покрытия)"),
         ("check", "read-only проверка подключения и привязок источников"),
         ("verify", "проба видимости памяти — МЕНЯЕТ состояние цели"),
+        ("init", "черновик профиля из OpenAPI (структура — да, семантика — гипотезы)"),
     ):
         sub = profile_commands.add_parser(name, help=help_text)
+        if name == "init":
+            sub.add_argument("--openapi", required=True, help="OpenAPI-документ (JSON или YAML)")
+            sub.add_argument("--base-url", required=True, dest="base_url",
+                             help="точка входа цели")
+            sub.add_argument("--name", help="имя профиля (по умолчанию из info.title)")
+            sub.add_argument("--version", default="0.1.0", help="версия профиля (SemVer)")
+            sub.add_argument("--offline", action="store_true",
+                             help="без LLM: привязки — эвристики по именам, помечены TODO")
+            sub.add_argument("-o", "--output", help="куда записать черновик (иначе stdout)")
         if name in ("show", "coverage", "check", "verify"):
             sub.add_argument("--profile", required=True, help="name@version или путь к YAML")
         if name == "coverage":
@@ -690,6 +701,8 @@ def _profile(args) -> int:
         else:
             print(_render_diff(difference))
         return 0
+    if args.profile_command == "init":
+        return _profile_init(args)
     if args.profile_command in ("check", "verify"):
         return _calibrate(args, check if args.profile_command == "check" else verify)
     profile = _load_profile(args.profile)
@@ -705,6 +718,121 @@ def _profile(args) -> int:
     else:
         print(_render_coverage(rows, available, profile))
     return 0
+
+
+# Имена аргументов, по которым принято адресовать субъекта. Это эвристика:
+# она порождает гипотезу для человека, а не факт для ядра.
+PRINCIPAL_HINTS = frozenset({
+    "cus", "user_id", "client_id", "customer_id", "account_id", "owner_id",
+    "tenant", "tenant_id", "sub", "principal", "subject",
+})
+_HTTP_METHODS = ("get", "post", "put", "patch", "delete")
+
+
+def _profile_init(args) -> int:
+    """US-01: из документа берётся структура, семантику подтверждает человек."""
+    if not args.offline:
+        raise PipelineConfigurationError(
+            "LLM-гипотезы привязок ещё не подключены (эпик ingest). "
+            "Запустите с --offline: структура возьмётся из документа, "
+            "семантика будет помечена TODO."
+        )
+    document = _read_openapi(args.openapi)
+    tools, hypotheses = _tools_from_openapi(document)
+    name = args.name or _slug(document.get("info", {}).get("title") or "target")
+    draft = {
+        "name": name,
+        "version": args.version,
+        "adapter": "http-chat",
+        "entrypoint": {"base_url": args.base_url},
+        "identities": {},
+        "isolation": [],
+        "surface": {"tools": tools, "memory": []},
+        "modes": {},
+        "evidence": [],
+        "attribution": "serialized",
+    }
+    text = _draft_header(name, hypotheses) + yaml.safe_dump(
+        draft, sort_keys=False, allow_unicode=True)
+    if not args.output:
+        print(text)
+        return 0
+    target = Path(args.output).expanduser()
+    target.write_text(text, encoding="utf-8")
+    if args.json:
+        print(json.dumps({"ok": True, "draft": str(target), "tools": len(tools),
+                          "hypotheses": hypotheses}, ensure_ascii=False))
+    else:
+        print(f"черновик: {target} · инструментов {len(tools)} · "
+              f"гипотез к подтверждению {len(hypotheses)}")
+    return 0
+
+
+def _read_openapi(path: str) -> dict:
+    try:
+        document = yaml.safe_load(Path(path).expanduser().read_text(encoding="utf-8"))
+    except (OSError, UnicodeError, yaml.YAMLError) as exc:
+        raise PipelineConfigurationError(f"Не удалось прочитать OpenAPI: {path}.") from exc
+    if not isinstance(document, dict) or not isinstance(document.get("paths"), dict):
+        raise PipelineConfigurationError("OpenAPI: ожидается документ с секцией paths.")
+    return document
+
+
+def _tools_from_openapi(document: dict) -> tuple[list[dict], list[str]]:
+    tools, hypotheses, seen = [], [], set()
+    for path, operations in document["paths"].items():
+        if not isinstance(operations, dict):
+            continue
+        for method, operation in operations.items():
+            if method.lower() not in _HTTP_METHODS or not isinstance(operation, dict):
+                continue
+            name = operation.get("operationId") or "_".join(
+                [method.lower(), *re.findall(r"[A-Za-z0-9]+", str(path))])
+            if not isinstance(name, str) or name in seen:
+                continue
+            seen.add(name)
+            arguments = [item["name"] for item in operation.get("parameters") or []
+                         if isinstance(item, dict) and isinstance(item.get("name"), str)]
+            candidate = next((a for a in arguments if a.lower() in PRINCIPAL_HINTS), None)
+            tools.append({
+                "name": name,
+                "args": list(dict.fromkeys(arguments)),
+                "sensitive": candidate is not None,
+                "principal_from": {"kind": "argument", "name": candidate} if candidate
+                                  else {"kind": "none"},
+            })
+            if candidate:
+                hypotheses.append(f"{name}: принципал — аргумент '{candidate}' (угадан по имени)")
+    return tools, hypotheses
+
+
+def _slug(text: str) -> str:
+    return re.sub(r"[^a-z0-9]+", "-", str(text).lower()).strip("-") or "target"
+
+
+def _draft_header(name: str, hypotheses: list[str]) -> str:
+    lines = [
+        f"# Черновик профиля {name}. Структура взята из OpenAPI, семантика — нет.",
+        "# Парсер извлекает только то, что документ утверждает: инструменты,",
+        "# аргументы и точку входа. Остальное — решение человека, не вывод.",
+        "#",
+        "# TODO подтвердить — гипотезы по именам аргументов:",
+    ]
+    lines += [f"#   - {item}" for item in hypotheses] or [
+        "#   - принципал не угадан ни у одного инструмента"]
+    lines += [
+        "#   - sensitive проставлен той же эвристикой, проверьте каждый инструмент",
+        "#",
+        "# TODO заполнить вручную — из документа не выводится:",
+        "#   - identities: провайдер личностей и роли (attacker/victim)",
+        "#   - isolation: границы изоляции и что именно они обещают",
+        "#   - surface.memory: хранилища памяти, их scope и привязка записей",
+        "#   - modes: уязвимый и защищённый режимы цели",
+        "#   - evidence: источники наблюдения; без источника вызовов",
+        "#     инструментов вердикт не поднимется выше indirect",
+        "",
+    ]
+    return "\n".join(lines)
 
 
 def _calibrate(args, calibrator) -> int:

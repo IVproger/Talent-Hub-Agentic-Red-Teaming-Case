@@ -24,6 +24,8 @@
   `added/removed` как словари, `changed` с `before/after`; пустой диф — `{}`.
 - **2.2:** `Credential`, `IdentityProvider`, `StaticIdentityProvider`; runtime-секрет
   через `identities.credential.secret_env`, шаблоны `{principal}/{role}/{secret}`.
+- **2.3:** `DockerExecMintProvider(identities, runner)` — перенос mint без
+  зависимости от `client.py`; compose/service из профиля, stdout с ключом не выводится в ошибках.
 
 Тесты: 161 (1 пре-существующий фейл `stand.observability`).
 

@@ -29,6 +29,10 @@ class DbQueryProvider:
     def mark(self):
         return self._marker
 
+    def read_visible(self, principal, session_id):
+        from .visibility import read_target_view
+        return read_target_view(self.config, principal, session_id, self.runner)
+
     def _query(self):
         config = self.config
         env = dict(self.environ)

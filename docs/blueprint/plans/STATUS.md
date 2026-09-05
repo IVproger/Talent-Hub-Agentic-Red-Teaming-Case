@@ -52,6 +52,9 @@
   `mark/collect_facts/reset` и алиасы `mark_all/collect_all`, нормализует наблюдения.
   Добавлены `StateResetProvider` с явной областью очистки и JSON-file память для DVAA.
   Отсутствие reset-провайдера требует `reset_policy=none`, а не молчаливого no-op.
+- **3.7:** `evidence.calibrate.check(bundle, adapter)` (read-only) и `verify`
+  (проба с очисткой): видимость проверяется через реальный метод памяти цели,
+  объявленный в `read.config.visibility`, а не ответ LLM или метку `scope`.
 
 Тесты: 236 (1 пре-существующий фейл `stand.observability`).
 
@@ -103,7 +106,7 @@ RunnerDeps(adapter, evidence, id_factory=None, now=None, telemetry=None)
 |---|---|
 | Wiring runner → реальный evidence | **Разблокировано:** `EvidenceBundle.from_profile(profile)` готов |
 | Исполнение `run --profile` (без `--dry-run`) | **Разблокировано:** адаптер и bundle готовы для `RunnerDeps` |
-| 5.3 CLI `profile check/verify` | 3.7 calibrate (S4) |
+| 5.3 CLI `profile check/verify` | **Разблокировано:** `evidence.calibrate.check/verify` готовы |
 | 4.4 удаление старого · перевод `scenario.py` | big-bang — когда новый путь заменит старый |
 
 Готово и разблокировано: 1.2 registry, 1.3 diff, 2.2–2.4 адаптер и личности,

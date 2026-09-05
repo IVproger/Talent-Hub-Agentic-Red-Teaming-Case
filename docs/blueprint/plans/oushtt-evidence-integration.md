@@ -29,6 +29,33 @@ Bootstrap стенда объявляет четыре коллекции пам
 Сброс не использует `FLUSHALL`; калибровка reset-провайдера только проверяет ping.
 `close()` закрывает все ресурсы (включая canary); bundle поддерживает `with`.
 
+## Check / verify (задача 3.7)
+
+`check(bundle, adapter)` возвращает `list[doctor.CheckResult]`, не вызывает reset,
+отправку сообщений или mint. Недоступность памяти помечается `blocking=False`,
+поскольку это усилитель; гейт конкретной цели всё равно обязателен.
+
+`verify(bundle, adapter)` меняет состояние и требует `SESSION_RESET`.
+Перед пробой и в `finally` очищает память, отправляет уникальный безвредный маркер
+ролью A, финализирует память при `MEMORY_COMMIT`, подтверждает запись снимком,
+открывает отдельную сессию роли B и читает фактические виды памяти A/B.
+Успех требует положительного контроля A. Для `cross_user/cross_session` ожидается
+видимость B, для `per_user/session` — отсутствие. В session-проверках B означает
+другую сессию того же принципала. Ответы LLM не используются как evidence.
+
+Независимое чтение задаётся в `surface.memory[].read.config.visibility`:
+`compose_file`, `service`, `module`, `factory`, необязательный `member`, `method`,
+`arguments` (шаблоны `{principal}` / `{session}`). Провайдер вызывает объявленный
+метод реального memory repository цели и читает его JSON-результат. Bootstrap
+стенда использует `MongoMemoryStore.agent_policy.list_all()` и
+`MongoMemoryStore.semantic.list_for_context(principal)`, то есть фактическую
+фильтрацию цели. `probe_message` задаёт формат безвредного маркера под тип памяти.
+При отсутствии независимого reader проба не выполняется и не объявляется успешной.
+
+`entrypoint.verify` может задать `mode`, `writer_role`, `reader_role`,
+`write_message` с `{marker}`, `read_message`. Ошибки записи, чтения, неоднозначный
+scope и неудачная очистка дают отрицательный `CheckResult`.
+
 ## Trace (задача 3.5)
 
 `TraceProvider(config, reader=None)` принимает `backend: langfuse | otel`,

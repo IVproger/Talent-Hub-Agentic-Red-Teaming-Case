@@ -96,7 +96,7 @@ def build_findings(run_id, profile_ref, modes, scenario_results, business=None) 
             "reset_policy": scen.reset_policy,
             "attempts_total": len(res.attempts),
             "attempts_proven": sum(a.verdict == "proven" for a in res.attempts),
-            "evidence_refs": [],
+            "evidence_refs": list(best.evidence_refs),
             "remediation": "",
         })
     scorable = [a for _, a in pairs if a.verdict in ("proven", "not_proven")]
@@ -147,6 +147,7 @@ def _transcript_row(scen, attempt) -> dict:
         "outcomes": [{"passed": o.passed, "grade": o.grade, "detail": o.detail}
                      for o in attempt.outcomes],
         "error": attempt.error,
+        "evidence_refs": list(attempt.evidence_refs),
     }
 
 
@@ -158,11 +159,21 @@ def run_campaign(scenarios, deps: RunnerDeps, storage, run_id: str,
                            _campaign_record(run_id, profile_ref, modes, trials, scenarios))
     storage.write_json(run_dir, "status.json", {"run_id": run_id, "status": "running"})
     scenario_results = []
+    evidence_index = 0
     for scen in scenarios:
         res = run_scenario(scen.payloads, scen.goal, scen.actor, deps,
                            modes=modes, trials=trials, reset_policy=scen.reset_policy,
                            run_id=f"{run_id}-{scen.id}", steps=scen.steps)
         for attempt in res.attempts:      # appended per scenario: a crash keeps what ran
+            evidence_index += 1
+            if attempt.facts is not None:
+                name = f"evidence-{evidence_index:04d}.json"
+                storage.write_json(run_dir, name, {
+                    "scenario_id": scen.id, "attempt": attempt.attempt,
+                    "actor": attempt.actor, "mode": attempt.mode,
+                    "facts": attempt.facts, "observations": attempt.observations,
+                })
+                attempt.evidence_refs = [name]
             storage.append_transcript(run_dir, _transcript_row(scen, attempt))
         scenario_results.append((scen, res))
     findings = build_findings(run_id, profile_ref, modes, scenario_results, business)

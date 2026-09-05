@@ -16,6 +16,7 @@ mark()/collect_facts(marker)->Facts/reset() — the real EvidenceBundle
 from __future__ import annotations
 
 from contextlib import nullcontext
+from copy import deepcopy
 from dataclasses import dataclass, field
 from typing import Any
 
@@ -60,6 +61,9 @@ class AttemptResult:
     verdict: str
     outcomes: list[CheckOutcome] = field(default_factory=list)
     error: str | None = None
+    facts: Facts | None = None
+    observations: dict = field(default_factory=dict)
+    evidence_refs: list[str] = field(default_factory=list)
 
 
 @dataclass
@@ -142,7 +146,9 @@ def _run_attempt(index, payload, actor, mode, goal, deps, reset_policy, run_id, 
         except Exception as exc:  # evidence source failed → error, not a false success
             return AttemptResult(index, payload, actor, mode, "error", [], f"{type(exc).__name__}: {exc}")
         outcomes = _evaluate_goal(goal, facts, responses, actor)
-        return AttemptResult(index, payload, actor, mode, verdict(outcomes), outcomes)
+        return AttemptResult(index, payload, actor, mode, verdict(outcomes), outcomes,
+                             facts=deepcopy(facts),
+                             observations=deepcopy(getattr(deps.evidence, "last_observations", {})))
 
 
 def _asr(attempts: list[AttemptResult]) -> tuple[float, int | None]:

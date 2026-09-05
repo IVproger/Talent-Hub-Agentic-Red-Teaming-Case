@@ -9,7 +9,7 @@ import secrets
 import subprocess
 import sys
 from collections.abc import Mapping
-from dataclasses import asdict
+from dataclasses import asdict, replace
 from datetime import UTC, datetime
 from pathlib import Path
 
@@ -28,6 +28,8 @@ from .stand_bootstrap import target_model_from_config
 from .doctor import checks_ok, run_checks
 from .evidence.bundle import EvidenceBundle
 from .evidence.calibrate import check, verify
+from .generation.generator import generate
+from .generation.context import campaign_context
 from .observability import LangfuseTelemetry, langfuse_config_from_mapping
 from .llm import (
     LLMConfigurationError,
@@ -111,6 +113,8 @@ def build_parser() -> argparse.ArgumentParser:
     )
     run.add_argument("-n", "--trials", type=int, default=1,
                      help="прогонов на payload (по умолчанию: 1)")
+    run.add_argument("--generate", type=int, metavar="N",
+                     help="сгенерировать N payload-вариантов на сценарий (LLM)")
     run.add_argument(
         "-o",
         "--output",
@@ -301,6 +305,8 @@ def _doctor(args) -> int:
 def _run_scenarios(args) -> int:
     if args.trials < 1:
         raise PipelineConfigurationError("--trials должен быть не меньше 1.")
+    if args.generate is not None and args.generate < 1:
+        raise PipelineConfigurationError("--generate должен быть не меньше 1.")
     if not args.profile and not args.from_run:
         raise PipelineConfigurationError(
             "Укажите --profile name@version|path.yaml (или --from runs/<id> для повтора)."
@@ -623,7 +629,28 @@ def _campaign_from_profile(args):
                         scenarios=[spec.id for spec in specs],
                         trials=args.trials, modes=modes)
     principals = profile_principals(profile)
-    return campaign, [spec.to_planned(principals) for spec in specs], modes_scope(profile, modes)
+    planned = [spec.to_planned(principals) for spec in specs]
+    if args.generate:
+        planned = _generate_payloads(planned, profile, args.generate, args.config)
+    return campaign, planned, modes_scope(profile, modes)
+
+
+def _generate_payloads(planned, profile, n, config_path):
+    """US-11: заменить статические payload'ы сгенерированным списком.
+
+    Только для сценариев с шагом payload; остальные не трогаем. Генератор —
+    единственная недетерминированная точка, его список фиксируется здесь и в
+    цикле прогона не пересоздаётся.
+    """
+    llm = make_llm_client(_role_configs_at(config_path)["attack_generator"])
+    surface = surface_of(profile)
+    updated = []
+    for scenario in planned:
+        if any(step.payload for step in scenario.steps):
+            payloads = generate(scenario, surface, n, llm)
+            scenario = replace(scenario, payloads=payloads)
+        updated.append(scenario)
+    return updated
 
 
 def _campaign_from_run(reference: str):

@@ -63,6 +63,24 @@ def _finding(f: dict) -> str:
     )
 
 
+def _diversity_section(diversity: dict) -> list[str]:
+    """US-13: покрытие и разнообразие идут в отчёте рядом с ASR, а не вместо него."""
+    if not diversity:
+        return []
+    def listed(key):
+        return ", ".join(diversity.get(key) or []) or "—"
+    return [
+        "## Покрытие и разнообразие",
+        f"Сценариев: {diversity.get('scenarios', 0)} · "
+        f"различных подходов (payload'ов): {diversity.get('payloads', 0)}.",
+        f"Пункты стандарта: {listed('standard_refs')}.",
+        f"Классы атак: {listed('attack_classes')}.",
+        f"Затронутая поверхность — инструменты: {listed('tools')}; "
+        f"хранилища: {listed('stores')}; границы: {listed('boundaries')}.",
+        "",
+    ]
+
+
 def build_skeleton(findings: dict) -> str:
     r = findings.get("reproduction", {})
     parts = [
@@ -84,6 +102,7 @@ def build_skeleton(findings: dict) -> str:
         f"ASR по попыткам: {findings.get('attempt_asr_percent', 0):.0f}%.",
         "\n".join(f"- {mode}: {row['asr_percent']:.0f}% ({row['scenarios_proven']}/{row['scenarios_scored']})" for mode, row in findings.get("asr_by_mode", {}).items()),
         "",
+        *_diversity_section(findings.get("diversity") or {}),
         "## Попытки",
         _table(findings.get("attempts", [])),
         "",

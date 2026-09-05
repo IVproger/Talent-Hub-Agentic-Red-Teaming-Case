@@ -80,6 +80,33 @@ def _limitations(pairs) -> list[str]:
     return notes
 
 
+def _diversity(scenario_results, pairs) -> dict:
+    """US-13: чем кампания прошлась, а не сколько раз пробила.
+
+    Показывается наравне с ASR: успешность легко накрутить повтором одной
+    удачной попытки, покрытие и разнообразие — нет. Ошибочная попытка ничего
+    не доказала, поэтому в затронутую поверхность не входит.
+    """
+    scored = [a for _, a in pairs if a.verdict != "error"]
+    tools, stores = set(), set()
+    for attempt in scored:
+        if attempt.facts is None:
+            continue
+        tools.update(call.tool for call in attempt.facts.tool_calls)
+        stores.update(write.store_id for write in attempt.facts.memory_writes)
+    return {
+        "scenarios": len(scenario_results),
+        "attack_classes": sorted({scen.attack_class for scen, _ in scenario_results
+                                  if scen.attack_class}),
+        "standard_refs": sorted({ref for scen, _ in scenario_results
+                                 for ref in scen.standard_refs}),
+        "payloads": len({a.payload for a in scored if a.payload}),
+        "boundaries": sorted({scen.boundary for scen, _ in scenario_results if scen.boundary}),
+        "tools": sorted(tools),
+        "stores": sorted(stores),
+    }
+
+
 def build_findings(run_id, profile_ref, modes, scenario_results, business=None) -> dict:
     pairs = [(scen, a) for scen, res in scenario_results for a in res.attempts]
     findings = []
@@ -135,6 +162,7 @@ def build_findings(run_id, profile_ref, modes, scenario_results, business=None) 
                   for scen, a in pairs if scen.expect == "pass"],
         "attempts_total": len(pairs), "attempts_scored": len(scorable),
         "attempts_to_first_proven": first,
+        "diversity": _diversity(scenario_results, pairs),
         "attempts": table, "findings": findings,
         "reproduction": {
             "profile": profile_ref,

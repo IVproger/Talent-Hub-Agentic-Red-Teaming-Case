@@ -93,22 +93,24 @@ RunnerDeps(adapter, evidence, id_factory=None, now=None, telemetry=None)
 
 | Задача (dseredkin) | Нужен код oushtt |
 |---|---|
-| Wiring runner → реальный evidence | **3.6 bundle** (по seam выше) + **3.3 log_regex** (вызовы инструментов — первичный источник) |
+| Wiring runner → реальный evidence | **3.6 bundle** (по seam выше) — последний недостающий кусок |
 | Исполнение `run --profile` (без `--dry-run`) | то же: без bundle собрать `RunnerDeps` нечем |
 | 5.3 CLI `profile check/verify` | 3.7 calibrate (S4) |
 | 4.4 удаление старого · перевод `scenario.py` | big-bang — когда новый путь заменит старый |
 
 Готово и разблокировано: 1.2 registry, 1.3 diff, 2.2–2.4 адаптер и личности,
-3.2 `db_query`. Адресация `--profile name@version` уже поверх реестра.
+3.2 `db_query`, 3.3 `log_regex` (вызовы инструментов — первичный источник),
+3.4 `http_canary`. Адресация `--profile name@version` уже поверх реестра.
 
 ## Следующие шаги
 
 1. ~~Источник `PlannedScenario`~~ — готово: `campaign/scenarios.py` + каталог `scenarios/v2/`.
 2. ~~CLI-предпросмотр~~ — готово: `run --profile … --dry-run` (US-16).
 3. **Свести bundle к seam** (§контракты 1) — bundle 3.6 экспонирует
-   `mark`/`collect_facts`→`Facts`/`reset`. **Это единственный блокер исполнения.**
-   Вместе с ним нужен 3.3 `log_regex`: без источника вызовов инструментов
-   вердикт по инварианту не поднимается выше `indirect`/`UNOBSERVABLE`.
+   `mark`/`collect_facts`→`Facts`/`reset`, внутри нормализует `Observation`
+   провайдеров (`log_regex` → `ObservedToolCall`, `db_query` → `memdiff` →
+   `ObservedMemoryWrite`, `http_canary` → `ObservedCallback`).
+   **Это единственный оставшийся блокер исполнения.**
 4. **Собрать реальный `RunnerDeps`** в CLI: `HttpChatAdapter.from_profile(profile)`
    + bundle → снять запрет на `run --profile` без `--dry-run`.
 5. **`profile check/verify`** (5.3) поверх 3.7 calibrate.

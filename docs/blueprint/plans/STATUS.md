@@ -250,8 +250,12 @@ RunnerDeps(adapter, evidence, id_factory=None, now=None, telemetry=None)
 9. ~~Вернуть генерацию payload'ов~~ — сделано: эпик E3/E4 закрыт (`generation/`
    templates→composer→coverage→baseline + dedup→generator→context), флаг
    `run --generate N` в CLI. В origin (`128470e..6d1d42a`).
-10. **Живой прогон многошаговых сценариев и UI** — на стенде не гонялись.
-    Блокер снят (привязка evidence к шагу), на фейках цепочка даёт `proven`.
+10. ~~Живой прогон многошаговых сценариев~~ — **сделано**, протокол:
+    [live-validation-dseredkin](live-validation-dseredkin-2026-09-05.md).
+    Цепочка `poison-to-tool-chain` отработала на цели с корректной атрибуцией
+    шагов; кампания в двух режимах дала A/B (`bac-tool-argument` — `proven`
+    в vulnerable, `not_proven` в protected). Прогнаны и все новые команды.
+    UI против живой цели по-прежнему не гонялся — только его тесты.
 11. **Сквозная трасса** — адаптер не пробрасывает W3C `traceparent`, поэтому
     в трассе видны попытки кампании, но не ReAct-цикл внутри цели.
 

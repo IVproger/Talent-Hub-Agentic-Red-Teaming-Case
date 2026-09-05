@@ -12,6 +12,7 @@ from pathlib import Path
 import yaml
 
 from . import __version__
+from .assertions.registry import required_kinds
 from .campaign.plan import Campaign, execution_order
 from .campaign.scenarios import resolve as resolve_specs
 from .doctor import checks_ok, run_checks
@@ -33,6 +34,7 @@ from .pipeline import (
     run_pipeline,
     sanitize_error,
 )
+from .profile.diff import diff as profile_diff
 from .profile.registry import ProfileRegistry
 from .profile.schema import TargetProfile
 from .scenario import Scenario, bundled_scenarios
@@ -121,6 +123,25 @@ def build_parser() -> argparse.ArgumentParser:
     )
     run.add_argument("--json", action="store_true", help="вывести один JSON-результат в stdout")
 
+    profile_cmd = commands.add_parser("profile", help="работа с профилями цели")
+    profile_commands = profile_cmd.add_subparsers(dest="profile_command", required=True)
+    for name, help_text in (
+        ("list", "перечислить профили реестра"),
+        ("show", "карта поверхности профиля"),
+        ("diff", "различия двух версий профиля"),
+        ("coverage", "что проверяемо на этой цели (гейт покрытия)"),
+    ):
+        sub = profile_commands.add_parser(name, help=help_text)
+        if name in ("show", "coverage"):
+            sub.add_argument("--profile", required=True, help="name@version или путь к YAML")
+        if name == "coverage":
+            sub.add_argument("--scenario", action="append", default=[],
+                             help="id сценария или путь; повторяйте, по умолчанию весь каталог")
+        if name == "diff":
+            sub.add_argument("left", help="name@version или путь к YAML")
+            sub.add_argument("right", help="name@version или путь к YAML")
+        sub.add_argument("--json", action="store_true", help="вывести один JSON-результат в stdout")
+
     report = commands.add_parser("report", help="пересобрать отчёт из сохранённого запуска")
     report.add_argument("--run", required=True, help="каталог сохранённого запуска")
     report.add_argument("--report-provider", choices=("ollama", "openrouter"))
@@ -182,6 +203,8 @@ def main(argv: list[str] | None = None) -> int:
             return _doctor(args)
         if args.command == "run":
             return _run_scenarios(args)
+        if args.command == "profile":
+            return _profile(args)
         if args.command == "report":
             return _report(args)
         if args.command == "stand" and args.stand_command == "sync":
@@ -487,6 +510,152 @@ def _render_preview(payload: dict) -> str:
 def _render_assertion(assertion: dict) -> str:
     rest = " ".join(f"{key}={value}" for key, value in assertion.items() if key != "type")
     return f"{assertion['type']} {rest}".strip()
+
+
+# Имя плагина-провайдера → источник, который он даёт. Переедет в реестр
+# провайдеров бандла (3.6); пока имена связывает CLI как composition root.
+PROVIDER_KINDS = {
+    "log-regex": "tool_calls",
+    "db-query": "memory_snapshot",
+    "http-canary": "external_callback",
+}
+
+
+def _profile(args) -> int:
+    if args.profile_command == "list":
+        rows = ProfileRegistry(PROFILES_ROOT).list()
+        if args.json:
+            print(json.dumps({"ok": True, "profiles": [list(row) for row in rows]},
+                             ensure_ascii=False))
+        else:
+            print("\n".join(f"{name}@{version}" for name, version in rows) or "профилей нет")
+        return 0
+    if args.profile_command == "diff":
+        difference = profile_diff(_load_profile(args.left), _load_profile(args.right))
+        if args.json:
+            print(json.dumps({"ok": True, "diff": difference}, ensure_ascii=False))
+        else:
+            print(_render_diff(difference))
+        return 0
+    profile = _load_profile(args.profile)
+    if args.profile_command == "show":
+        surface = _surface(profile)
+        print(json.dumps({"ok": True, "profile": surface}, ensure_ascii=False)
+              if args.json else _render_surface(surface))
+        return 0
+    rows, available = _coverage(profile, args.scenario)
+    if args.json:
+        print(json.dumps({"ok": True, "available_kinds": sorted(available), "coverage": rows},
+                         ensure_ascii=False))
+    else:
+        print(_render_coverage(rows, available, profile))
+    return 0
+
+
+def _surface(profile: TargetProfile) -> dict:
+    return {
+        "name": profile.name,
+        "version": profile.version,
+        "adapter": profile.adapter,
+        "base_url": profile.entrypoint.get("base_url"),
+        "attribution": profile.attribution,
+        "roles": profile.identities.get("roles", {}),
+        "isolation": [{"id": b.id, "principal": b.principal_attr, "claim": b.claim}
+                      for b in profile.isolation],
+        "tools": [{"name": t.name, "args": t.args, "sensitive": t.sensitive,
+                   "principal_from": t.principal_from} for t in profile.tools],
+        "memory": [{"id": m.id, "scope": m.scope or m.scope_from,
+                    "provider": m.read.get("provider")} for m in profile.memory],
+        "modes": {name: mode.get("scope") for name, mode in profile.modes.items()},
+        "evidence": [{"id": e.get("id"), "provider": e.get("provider"),
+                      "kind": PROVIDER_KINDS.get(e.get("provider"))} for e in profile.evidence],
+    }
+
+
+def _available_kinds(profile: TargetProfile) -> set[str]:
+    """Источники, которые профиль объявляет; память объявлена самой поверхностью."""
+    kinds = {PROVIDER_KINDS[item["provider"]] for item in profile.evidence
+             if item.get("provider") in PROVIDER_KINDS}
+    if profile.memory:
+        kinds.add("memory_snapshot")
+    return kinds
+
+
+def _coverage(profile: TargetProfile, refs: list[str]) -> tuple[list[dict], set[str]]:
+    """US-04: сценарий без своего источника не даст state-вердикт — сказать это заранее."""
+    available = _available_kinds(profile)
+    rows = []
+    for spec in resolve_specs(refs):
+        required = required_kinds(spec.goal)
+        missing = sorted(required - available)
+        rows.append({
+            "scenario_id": spec.id,
+            "attack_class": spec.attack_class,
+            "required_kinds": sorted(required),
+            "missing_kinds": missing,
+            "reachable": "unobservable" if missing else ("state" if required else "text"),
+        })
+    return rows, available
+
+
+def _render_surface(surface: dict) -> str:
+    lines = [
+        f"Профиль {surface['name']}@{surface['version']} · адаптер {surface['adapter']}"
+        f" · {surface['base_url']} · атрибуция {surface['attribution']}",
+        "Роли: " + (", ".join(f"{role} {values}" for role, values in surface["roles"].items()) or "—"),
+        "Границы изоляции:",
+    ]
+    lines += [f"  {b['id']} (по {b['principal']}): {b['claim']}" for b in surface["isolation"]] or ["  —"]
+    lines.append("Инструменты:")
+    lines += [
+        f"  {t['name']}({', '.join(t['args']) or ''})"
+        f"{' · чувствительный' if t['sensitive'] else ''}"
+        f" · принципал: {t['principal_from'].get('kind')}"
+        f"{' ' + t['principal_from']['name'] if t['principal_from'].get('name') else ''}"
+        for t in surface["tools"]
+    ] or ["  —"]
+    lines.append("Память:")
+    lines += [f"  {m['id']} · scope {m['scope']} · {m['provider']}" for m in surface["memory"]] or ["  —"]
+    lines.append("Режимы: " + (", ".join(f"{name} ({scope})" for name, scope
+                                         in surface["modes"].items()) or "—"))
+    lines.append("Evidence:")
+    lines += [f"  {e['id']} · {e['provider']} → {e['kind'] or 'источник неизвестен'}"
+              for e in surface["evidence"]] or ["  —"]
+    return "\n".join(lines)
+
+
+def _render_diff(difference: dict) -> str:
+    if not difference:
+        return "профили совпадают"
+    lines = []
+    for section, changes in difference.items():
+        lines.append(f"{section}:")
+        for label, title in (("added", "добавлено"), ("removed", "удалено")):
+            for key in changes.get(label, {}):
+                lines.append(f"  {title}: {key}")
+        for key, values in changes.get("changed", {}).items():
+            lines.append(f"  изменено: {key}: {values['before']} → {values['after']}")
+    return "\n".join(lines)
+
+
+def _render_coverage(rows: list[dict], available: set[str], profile: TargetProfile) -> str:
+    labels = {
+        "state": "state — может дать proven",
+        "text": "text — потолок indirect (предикаты на тексте)",
+        "unobservable": "нет источника",
+    }
+    lines = [
+        f"Профиль {profile.name}@{profile.version} · доступные источники: "
+        f"{', '.join(sorted(available)) or '—'}",
+        "",
+    ]
+    width = max((len(row["scenario_id"]) for row in rows), default=0)
+    for row in rows:
+        note = labels[row["reachable"]]
+        if row["missing_kinds"]:
+            note += ": не хватает " + ", ".join(row["missing_kinds"])
+        lines.append(f"  {row['scenario_id']:<{width}}  {note}")
+    return "\n".join(lines)
 
 
 def _resolve_scenario_ids(values: list[str]) -> list[str]:

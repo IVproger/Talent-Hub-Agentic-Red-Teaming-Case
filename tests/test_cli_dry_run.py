@@ -92,3 +92,20 @@ class ProfileDryRunTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class ProfileRegistryAddressingTests(unittest.TestCase):
+    def test_name_at_version_resolves_through_the_registry(self):
+        code, out = run_cli("run", "--profile", "genai-invest-stand@1.0.0",
+                            "--scenario", "bac-tool-argument", "--trials", "1",
+                            "--dry-run", "--json")
+        self.assertEqual(code, 0, out)
+        payload = json.loads(out)
+        self.assertEqual(payload["campaign"]["profile"], "genai-invest-stand@1.0.0")
+        self.assertEqual(payload["scenarios"][0]["actor"], "1001")
+
+    def test_unknown_version_is_a_usage_error(self):
+        code, out = run_cli("run", "--profile", "genai-invest-stand@9.9.9",
+                            "--scenario", "bac-tool-argument", "--dry-run", "--json")
+        self.assertEqual(code, 2)
+        self.assertIn("genai-invest-stand@9.9.9", json.loads(out)["error"])

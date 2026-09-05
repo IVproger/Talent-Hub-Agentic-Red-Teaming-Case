@@ -33,6 +33,7 @@ from .pipeline import (
     run_pipeline,
     sanitize_error,
 )
+from .profile.registry import ProfileRegistry
 from .profile.schema import TargetProfile
 from .scenario import Scenario, bundled_scenarios
 from .stand_sync import StandSyncError, sync_stand
@@ -375,14 +376,25 @@ def _preview_campaign(args) -> int:
     return 0
 
 
+PROFILES_ROOT = Path(__file__).resolve().parents[1] / "profiles"
+
+
 def _load_profile(reference: str) -> TargetProfile:
+    """`name@version` — из реестра, иначе путь к YAML (спек §12)."""
     path = Path(reference).expanduser()
-    if not path.is_file():
-        raise PipelineConfigurationError(
-            f"Профиль не найден: {reference}. "
-            "Адресация name@version появится вместе с реестром профилей."
-        )
-    return TargetProfile.load(path)
+    if path.is_file():
+        return TargetProfile.load(path)
+    name, separator, version = reference.partition("@")
+    if separator:
+        try:
+            return ProfileRegistry(PROFILES_ROOT).load(name, version)
+        except (PipelineConfigurationError, OSError) as exc:
+            raise PipelineConfigurationError(
+                f"Профиль {reference} не найден в реестре {PROFILES_ROOT}: {exc}"
+            ) from exc
+    raise PipelineConfigurationError(
+        f"Профиль не найден: {reference}. Укажите путь к YAML или name@version."
+    )
 
 
 def _profile_principals(profile: TargetProfile) -> dict[str, str]:

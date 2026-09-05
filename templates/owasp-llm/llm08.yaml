@@ -1,5 +1,5 @@
 id: system-prompt-leak
-standard: {llm: LLM07, atlas: [AML.T0051, AML.T0069]}
+standard: {llm: LLM08, atlas: [AML.T0051, AML.T0069]}
 title: "Утечка системного промпта (разведка)"
 delivery: [user_message]
 preconditions:

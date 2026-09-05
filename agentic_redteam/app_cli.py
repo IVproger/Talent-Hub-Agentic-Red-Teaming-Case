@@ -29,6 +29,8 @@ from .doctor import checks_ok, run_checks
 from .evidence.bundle import EvidenceBundle
 from .evidence.calibrate import check, verify
 from .generation.generator import generate
+from .knowledge.store import KnowledgeStore
+from .knowledge.query import context_for
 from .observability import LangfuseTelemetry, langfuse_config_from_mapping
 from .llm import (
     LLMConfigurationError,
@@ -46,6 +48,7 @@ from .target_runtime import TargetConfigurationError
 
 
 DEFAULT_RUNS_ROOT = Path(__file__).resolve().parents[1] / "runs"
+KB_PATH = Path(__file__).resolve().parents[1] / "knowledge.db"
 VERSION = __version__
 EXIT_USAGE = 2
 EXIT_PREFLIGHT = 3
@@ -174,6 +177,18 @@ def build_parser() -> argparse.ArgumentParser:
     )
     stand_sync.add_argument("--json", action="store_true", help="вывести один JSON-результат в stdout")
 
+    kb = commands.add_parser("kb", help="база знаний о проведённых атаках")
+    kb_commands = kb.add_subparsers(dest="kb_command", required=True)
+    kb_list = kb_commands.add_parser("list", help="атаки по профилю")
+    kb_list.add_argument("--profile", required=True, help="имя профиля (без версии)")
+    kb_list.add_argument("--json", action="store_true")
+    kb_search = kb_commands.add_parser("search", help="поиск по payload/классу")
+    kb_search.add_argument("--contains", required=True)
+    kb_search.add_argument("--json", action="store_true")
+    kb_rebuild = kb_commands.add_parser("rebuild", help="переналить базу из runs/")
+    kb_rebuild.add_argument("--runs", default=str(DEFAULT_RUNS_ROOT), help="корень runs/")
+    kb_rebuild.add_argument("--json", action="store_true")
+
     serve = commands.add_parser("serve", help="запустить локальный интерфейс Streamlit")
     serve.add_argument(
         "--address",
@@ -228,6 +243,8 @@ def main(argv: list[str] | None = None) -> int:
             return _report(args)
         if args.command == "stand" and args.stand_command == "sync":
             return _stand_sync(args)
+        if args.command == "kb":
+            return _kb(args)
         if args.command == "serve":
             return _serve(args)
         parser.error("неизвестная команда")
@@ -1149,6 +1166,31 @@ def _serve(args) -> int:
         "false",
     ]
     return subprocess.run(command, check=False).returncode
+
+
+def _kb(args) -> int:
+    store = KnowledgeStore(KB_PATH)
+    try:
+        if args.kb_command == "rebuild":
+            count = store.rebuild_from_runs(args.runs)
+            if args.json:
+                print(json.dumps({"ok": True, "recorded": count}, ensure_ascii=False))
+            else:
+                print(f"переиндексировано атак: {count}")
+            return 0
+        if args.kb_command == "list":
+            attacks = store.all_for(args.profile)
+        else:
+            attacks = store.search(args.contains)
+        if args.json:
+            print(json.dumps({"ok": True, "attacks": attacks}, ensure_ascii=False))
+        else:
+            for a in attacks:
+                print(f"{a['created_at']} · {a['scenario_id']} · {a['attack_class']} · "
+                      f"{a['verdict']} · {a['payload']}")
+        return 0
+    finally:
+        store.close()
 
 
 def _error(message: str, json_mode: bool, code: int) -> None:

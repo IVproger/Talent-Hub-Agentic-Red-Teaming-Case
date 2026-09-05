@@ -14,6 +14,9 @@ keys.local
 # Run outputs — reports, findings, traces, and any future generated artifacts.
 runs/
 
+# Knowledge base
+knowledge.db
+
 # Personal local task workflow
 .oushtt/
 

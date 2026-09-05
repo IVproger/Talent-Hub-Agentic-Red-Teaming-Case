@@ -88,6 +88,7 @@ docker compose -f stand/docker-compose.yml up -d --build
 # Что есть в реестре и что цель вообще позволяет проверить.
 python -m agentic_redteam profile list
 python -m agentic_redteam profile show --profile genai-invest-stand@1.0.0
+python -m agentic_redteam profile surface --profile genai-invest-stand@1.0.0 --check
 python -m agentic_redteam profile coverage --profile genai-invest-stand@1.0.0
 
 # Read-only проверка подключения и привязок источников.
@@ -151,6 +152,15 @@ python -m agentic_redteam serve
 помечается «нет источника» и **не запускается вовсе**. Прогнать его было бы
 хуже, чем пропустить: `not_proven` от нехватки evidence неотличим от «атака не
 сработала».
+
+`profile surface` строит единый per-agent threat model: точки входа, каналы
+доставки, sensitive-инструменты, память, внешние интеграции, evidence и связи
+между ними. Без `--check` заявленные компоненты остаются явно неподтверждёнными;
+с `--check` команда выполняет только read-only калибровку и добавляет статус с
+причиной. Тот же словарь сохраняется как `surface.json` запуска и отображается
+в Streamlit — отдельной UI-логики карты нет. Сводка покрытия показывает только
+доказуемые существующими state-предикатами пункты и не обещает полное покрытие
+стандарта.
 
 Сценарии лежат в `agentic_redteam/scenarios/`. Сценарий — это цепочка шагов
 (кто говорит и в каком порядке) плюс варианты payload'а, которые подставляются

@@ -41,6 +41,40 @@ class SurfaceMapTests(unittest.TestCase):
             {"tool_calls", "memory_snapshot"},
         )
 
+    def test_map_contains_channels_integrations_links_and_coverage(self):
+        surface = build_surface(PROFILE)
+        channels = {item["name"] for item in surface["input_channels"]}
+        self.assertEqual(channels, {"chat"})
+        integrations = {item["id"] for item in surface["integrations"]}
+        self.assertIn("integration:mongo", integrations)
+        self.assertIn(
+            {
+                "from": "entrypoint:chat",
+                "to": "tool:get_portfolio",
+                "kind": "may_call",
+            },
+            surface["relationships"],
+        )
+        self.assertEqual(surface["coverage"]["standard"], "owasp-agentic-2026")
+        self.assertEqual(surface["coverage"]["total"], 10)
+        self.assertGreaterEqual(surface["coverage"]["provable"], 1)
+
+        declared = build_surface(TargetProfile.load(
+            "profiles/genai-invest-stand/1.0.0.yaml"
+        ))
+        self.assertIn(
+            "tool-result",
+            {item["name"] for item in declared["input_channels"]},
+        )
+        self.assertIn(
+            "integration:openrouter",
+            {item["id"] for item in declared["integrations"]},
+        )
+
+    def test_sensitive_tools_are_prioritised_for_access_checks(self):
+        surface = build_surface(PROFILE)
+        self.assertEqual(surface["tools"][0]["priority"], "проверка доступа")
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -11,6 +11,7 @@ entrypoint:
     timeout: 600
   base_url: http://localhost:8600
   chat_path: /v1/chat/completions
+  input_channels: [chat, tool-result]
   preflight: {path: /healthz}
   request:
     body: {auth_mode: "{mode}", session_id: "{session}"}

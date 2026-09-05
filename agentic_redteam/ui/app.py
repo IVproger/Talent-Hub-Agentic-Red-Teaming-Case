@@ -232,6 +232,29 @@ def _render_surface(surface: dict) -> None:
                            "KIND": item["kind"] or "неизвестен",
                            "СТАТУС": item["status"]}
                           for item in surface["evidence"]], width="stretch", hide_index=True)
+        st.markdown("##### Каналы и интеграции")
+        st.caption("Каналы входа: " + (
+            ", ".join(f"{item['name']} ({item['status']})"
+                      for item in surface["input_channels"]) or "—"
+        ))
+        st.dataframe([{
+            "СИСТЕМА": item["name"],
+            "ТИП": item["kind"],
+            "КОМПОНЕНТЫ": ", ".join(item["components"]),
+            "СТАТУС": item["status"],
+        } for item in surface["integrations"]], width="stretch", hide_index=True)
+        st.markdown("##### Связи компонентов")
+        st.dataframe([{
+            "ОТКУДА": item["from"],
+            "СВЯЗЬ": item["kind"],
+            "КУДА": item["to"],
+        } for item in surface["relationships"]], width="stretch", hide_index=True)
+        standard = surface["coverage"]
+        st.caption(
+            f"Покрытие {standard['standard']}: "
+            f"{standard['provable']} из {standard['total']} пунктов доказуемо. "
+            f"{standard['note']}"
+        )
         st.caption("Режимы: " + (", ".join(f"{name} ({scope})" for name, scope
                                            in surface["modes"].items()) or "—"))
 

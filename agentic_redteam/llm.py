@@ -16,7 +16,7 @@ from dataclasses import asdict, dataclass
 from typing import Callable, Mapping, Protocol
 
 
-ROLE_NAMES = ("attack_generator", "report_writer", "analyst")
+ROLE_NAMES = ("attack_generator", "report_writer", "analyst", "judge")
 PROVIDERS = ("ollama", "openrouter")
 SECRET_TOKEN_PATTERN = re.compile(
     r"(?<![A-Za-z0-9_])sk-[A-Za-z0-9_-]{12,}(?![A-Za-z0-9_-])"

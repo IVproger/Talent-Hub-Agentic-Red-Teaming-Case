@@ -42,10 +42,22 @@ class LLMConfigurationTests(unittest.TestCase):
         roles = role_configs_from_mapping(
             {"analyst": {"provider": "openrouter", "model": "openai/test"}}
         )
-        self.assertEqual(set(roles), {"attack_generator", "report_writer", "analyst"})
+        self.assertEqual(set(roles), {"attack_generator", "report_writer", "analyst", "judge"})
         validate_role_configs(roles, environ={})
         with self.assertRaises(LLMConfigurationError):
             validate_role_configs(roles, environ={}, credential_roles=("analyst",))
+
+
+    def test_judge_is_an_independent_role_defaulting_local(self):
+        roles = role_configs_from_mapping(
+            {"judge": {"provider": "ollama", "model": "qwen3:8b"}}
+        )
+        self.assertIn("judge", roles)
+        self.assertEqual(roles["judge"].model, "qwen3:8b")
+        # overriding judge alone does not touch analyst
+        self.assertEqual(roles["analyst"].model, roles["attack_generator"].model)
+        # judge needs no credentials on the local default
+        validate_role_configs(roles, environ={})
 
     def test_target_is_not_an_engine_role(self):
         with self.assertRaises(LLMConfigurationError):

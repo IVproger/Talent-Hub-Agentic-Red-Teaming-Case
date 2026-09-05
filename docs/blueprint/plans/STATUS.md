@@ -7,11 +7,13 @@
 
 ## Что в `main`
 
-### dseredkin — готово (13 задач)
+### dseredkin — готово (14 задач + оркестрация)
 - **Фаза 0:** `tests/fakes.py`, `normalize/facts.py`, `assertions/verdict.py`
 - **S1 core-logic:** `normalize/memdiff.py`, `normalize/projection.py`, `assertions/predicates.py`, `assertions/registry.py`, `assertions/dispatch.py`, `tests/test_no_target_leak.py`
-- **S5:** `storage/runs.py` (4.1), `campaign/plan.py` (4.2), `campaign/runner.py` (4.3 — против фейков)
+- **S5:** `storage/runs.py` (4.1), `campaign/plan.py` (4.2), `campaign/runner.py` (4.3), `campaign/orchestrator.py` (`run_campaign` + `build_findings` + `PlannedScenario`)
 - **S7:** телеметрия в runner fail-open (6.2), `reporting/technical.py` (6.3)
+
+**Пайплайн работает end-to-end на фейках:** `run_campaign(scenarios, deps, storage)` → перебирает `PlannedScenario` → `run_scenario` → агрегирует → пишет `findings.json` + `report.md` + `status.json`. Осталось заменить фейки на реальные `adapter`/`evidence` и подать реальные `PlannedScenario` (из composer/registry).
 
 ### oushtt — готово (Фаза 0)
 - `adapters/base.py` (2.1), `evidence/base.py` (3.1), `profile/schema.py` (1.1), `errors.py`
@@ -60,7 +62,10 @@ RunnerDeps(adapter, evidence, id_factory=None, now=None, telemetry=None)
 
 ## Следующие шаги (когда S3/S4/1.2 в `main`)
 
-1. Свести bundle к seam (§контракты 1) — маленький шим/выравнивание имён.
-2. Собрать `run_campaign`: профиль → registry → adapter+bundle → `run_scenario` на реальном, `findings.json` + `report.md` (через `reporting/technical`).
-3. CLI `run --profile` / `profile check` поверх этого.
-4. Big-bang: удалить `client.py`/`tracer.py`/`state.py`/`scorers.py`/`target_runtime.py`/`pipeline.py`, перенести ценные тест-кейсы.
+`run_campaign` уже написан и работает на фейках — интеграция сводится к замене фейков реальными компонентами:
+
+1. **Свести bundle к seam** (§контракты 1) — bundle 3.6 экспонирует `mark`/`collect_facts`→`Facts`/`reset` (или тонкий шим).
+2. **Источник `PlannedScenario`**: composer (E4) или загрузчик встроенных сценариев на новом словаре → `id/attack_class/standard_refs/actor/payloads/goal/boundary`.
+3. **Собрать реальный `RunnerDeps`**: `adapter` (2.4 http_chat через registry 1.2) + `evidence` (bundle 3.6) → передать в `run_campaign`.
+4. **CLI** `run --profile` / `profile check` поверх этого (5.2/5.3).
+5. **Big-bang:** удалить `client.py`/`tracer.py`/`state.py`/`scorers.py`/`target_runtime.py`/`pipeline.py`, перенести ценные тест-кейсы.

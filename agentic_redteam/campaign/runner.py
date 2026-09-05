@@ -4,8 +4,8 @@ Two-stage model: payloads are a fixed list produced once upstream (stage 1);
 this runner (stage 2) executes them and never regenerates in the loop. Per
 attempt: reset → mark → run the scenario's step chain → collect facts →
 predicates → verdict. The chain is what makes a multi-step attack one attempt:
-an injection and the later activation by a different role share one reset and
-one evidence window. Transport failure or a failed evidence source yields
+an injection and the later activation by a different role share one reset,
+with a separate evidence window and actual principal for each step. Transport failure or a failed evidence source yields
 verdict `error`, excluded from ASR.
 
 Target-independent: operates on principals/facts, not a target's field names or
@@ -23,7 +23,7 @@ from typing import Any
 from ..adapters.base import TargetUnavailable
 from ..assertions import predicates as P
 from ..assertions.dispatch import evaluate
-from ..assertions.verdict import CheckOutcome, verdict
+from ..assertions.verdict import CheckOutcome, Grade, verdict
 from ..normalize.facts import Facts
 
 
@@ -53,6 +53,18 @@ class RunnerDeps:
 
 
 @dataclass
+class StepEvidence:
+    name: str
+    role: str
+    principal: str
+    session_id: str
+    facts: Facts | None = None
+    observations: dict = field(default_factory=dict)
+    response: str | None = None
+    error: str | None = None
+
+
+@dataclass
 class AttemptResult:
     attempt: int
     payload: str
@@ -64,6 +76,7 @@ class AttemptResult:
     facts: Facts | None = None
     observations: dict = field(default_factory=dict)
     evidence_refs: list[str] = field(default_factory=list)
+    steps: list[StepEvidence] = field(default_factory=list)
 
 
 @dataclass
@@ -104,51 +117,115 @@ def _obs(telemetry, name):
         return nullcontext()
 
 
-def _evaluate_goal(goal: list[dict], facts: Facts, responses: dict[str, str], actor: str) -> list[CheckOutcome]:
-    last = next(reversed(responses.values()), "") if responses else ""
-    outcomes = []
+def _aggregate(steps):
+    facts, observations = Facts(), {}
+    for step in steps:
+        if step.facts is None:
+            continue
+        for name in ("tool_calls", "memory_writes", "callbacks"):
+            getattr(facts, name).extend(getattr(step.facts, name))
+        for source, records in step.observations.items():
+            observations.setdefault(source, []).extend(records)
+    return facts, observations
+
+
+def _selected_step(assertion):
+    return assertion.get("at") or (
+        assertion.get("activate") if assertion["type"] == "cross_session_effect" else None)
+
+
+def validate_step_references(goal, steps):
+    names = [step.name for step in steps]
+    if len(set(names)) != len(names):
+        raise ValueError("Имена шагов должны быть уникальны.")
     for assertion in goal:
+        fields = ("at", "inject", "activate") if assertion["type"] == "cross_session_effect" else ("at",)
+        for field_name in fields:
+            if assertion.get(field_name) is not None and assertion[field_name] not in names:
+                raise ValueError(f"Неизвестный шаг в {field_name}: {assertion[field_name]}")
+        if assertion["type"] == "cross_session_effect":
+            if assertion.get("at") and assertion.get("activate") and assertion["at"] != assertion["activate"]:
+                raise ValueError("at и activate должны указывать на один шаг.")
+            if assertion.get("inject") and assertion.get("activate"):
+                if names.index(assertion["inject"]) >= names.index(assertion["activate"]):
+                    raise ValueError("inject должен предшествовать activate.")
+
+
+def _evaluate_goal(goal, facts, steps, actor, implicit=False):
+    by_name = {step.name: step for step in steps}
+    outcomes = []
+    identity_checks = {"tool_principal_mismatch", "isolation_violation", "cross_session_effect"}
+    for assertion in goal:
+        selector = _selected_step(assertion)
+        selected = by_name.get(selector) if selector else None
+        # Older direct run_scenario callers used arbitrary 'at' labels for the
+        # implicit single turn. Explicit chains always validate references.
+        if selector and selected is None and implicit:
+            selected = steps[0]
         if assertion["type"] == "response_contains":
-            # Bind to the step the assertion names; fall back to the chain's last reply.
-            outcomes.append(P.response_contains(responses.get(assertion.get("at"), last),
-                                                assertion["value"]))
+            reply = (selected.response if selected else
+                     next((step.response for step in reversed(steps) if step.response is not None), ""))
+            outcome = P.response_contains(reply or "", assertion["value"])
+        elif selected:
+            outcome = evaluate(assertion, selected.facts, selected.principal)
+        elif assertion["type"] in identity_checks:
+            per_step = [evaluate(assertion, step.facts, step.principal) for step in steps]
+            outcome = (next((o for o in per_step if o.passed), None)
+                       or next((o for o in per_step if o.grade == Grade.UNOBSERVABLE), None)
+                       or per_step[0])
         else:
-            outcomes.append(evaluate(assertion, facts, actor))
+            # Unscoped memory predicates see the writes from the whole chain,
+            # including finalization, even when activation wrote nothing.
+            outcome = evaluate(assertion, facts, actor)
+        if selected:
+            outcome = CheckOutcome(outcome.passed, outcome.grade,
+                f"{selected.name} ({selected.role}, principal={selected.principal}): {outcome.detail}")
+        outcomes.append(outcome)
     return outcomes
 
 
-def _run_chain(steps, payload, mode, deps, index, run_id) -> dict[str, str]:
-    """Run the chain in order; every actor keeps one session across its own steps."""
-    responses: dict[str, str] = {}
+def _run_chain(steps, payload, mode, deps, index, run_id, evidence):
+    """Every role keeps its session; each step owns its mark/collect window."""
     sessions: dict[str, Any] = {}
     for step in steps:
         if step.actor not in sessions:
             sessions[step.actor] = deps.adapter.open_session(
                 step.actor, f"{run_id}-{index}-{step.actor}", mode or "vulnerable")
         session = sessions[step.actor]
-        if step.commit_memory:
-            session.commit_memory()
-        else:
-            responses[step.name] = session.send(payload if step.payload else step.message)
-    return responses
+        current = StepEvidence(step.name, step.actor, session.principal.value, session.session_id)
+        evidence.append(current)
+        try:
+            marker = deps.evidence.mark()
+            if step.commit_memory:
+                session.commit_memory()
+            else:
+                current.response = session.send(payload if step.payload else step.message)
+            current.facts = deepcopy(deps.evidence.collect_facts(marker))
+            current.observations = deepcopy(getattr(deps.evidence, "last_observations", {}))
+        except Exception as exc:
+            current.error = f"{type(exc).__name__}: {exc}"
+            raise
 
 
 def _run_attempt(index, payload, actor, mode, goal, deps, reset_policy, run_id, steps=()) -> AttemptResult:
     with _obs(deps.telemetry, "campaign.attempt"):
+        evidence = []
         try:
+            if steps:
+                validate_step_references(goal, steps)
             if reset_policy != "none":
                 deps.evidence.reset()
-            marker = deps.evidence.mark()
-            responses = _run_chain(steps or DEFAULT_CHAIN, payload, mode, deps, index, run_id)
-            facts = deps.evidence.collect_facts(marker)
-        except TargetUnavailable as exc:
-            return AttemptResult(index, payload, actor, mode, "error", [], str(exc))
-        except Exception as exc:  # evidence source failed → error, not a false success
-            return AttemptResult(index, payload, actor, mode, "error", [], f"{type(exc).__name__}: {exc}")
-        outcomes = _evaluate_goal(goal, facts, responses, actor)
+            _run_chain(steps or DEFAULT_CHAIN, payload, mode, deps, index, run_id, evidence)
+            facts, observations = _aggregate(evidence)
+            outcomes = _evaluate_goal(goal, facts, evidence, actor, implicit=not steps)
+        except Exception as exc:  # incomplete execution/evidence is always error
+            facts, observations = _aggregate(evidence)
+            error = str(exc) if isinstance(exc, TargetUnavailable) else f"{type(exc).__name__}: {exc}"
+            return AttemptResult(index, payload, actor, mode, "error", [], error,
+                                 facts=facts if any(s.facts is not None for s in evidence) else None,
+                                 observations=observations, steps=evidence)
         return AttemptResult(index, payload, actor, mode, verdict(outcomes), outcomes,
-                             facts=deepcopy(facts),
-                             observations=deepcopy(getattr(deps.evidence, "last_observations", {})))
+                             facts=facts, observations=observations, steps=evidence)
 
 
 def _asr(attempts: list[AttemptResult]) -> tuple[float, int | None]:

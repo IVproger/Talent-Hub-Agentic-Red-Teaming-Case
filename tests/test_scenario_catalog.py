@@ -119,6 +119,19 @@ class ScenarioSpecValidationTests(unittest.TestCase):
         """)
         self.assertIn("reset_policy", message)
 
+    def test_cross_session_references_and_order_are_validated(self):
+        for goal in (
+            "{type: cross_session_effect, inject: typo, activate: activate}",
+            "{type: cross_session_effect, inject: inject, activate: typo}",
+            "{type: cross_session_effect, inject: activate, activate: inject}",
+            "{type: cross_session_effect, at: inject, activate: activate}",
+        ):
+            with self.subTest(goal=goal):
+                self._load("id: chain\nattack_class: test\nsteps:\n"
+                           "  - {name: inject, actor: attacker, message: hi}\n"
+                           "  - {name: activate, actor: victim, message: hi}\n"
+                           f"goal: [{goal}]\n")
+
     def test_payload_step_requires_payloads(self):
         message = self._load("""
             id: s

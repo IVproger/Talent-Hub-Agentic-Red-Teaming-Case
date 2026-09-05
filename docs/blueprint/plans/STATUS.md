@@ -27,12 +27,12 @@
   упрётся в `indirect` или в отсутствие источника.
 - **Цепочки шагов:** `ScenarioStep` в runner, `PlannedScenario.steps`.
   Многошаговая атака (внедрение → финализация → активация другой ролью) —
-  одна попытка с одним сбросом и одним окном evidence.
+  одна попытка с одним сбросом и отдельным окном evidence на каждый шаг.
 - **Отчёт:** этап цепочки выводится из сработавшего предиката, находка несёт
   роли/режим/выборку, условия воспроизведения покрывают все сценарии,
   ограничения собираются детерминированно.
 
-**Пайплайн работает end-to-end на фейках:** `run_campaign(scenarios, deps, storage)` → перебирает `PlannedScenario` → `run_scenario` → агрегирует → пишет `findings.json` + `report.md` + `status.json`. Осталось заменить фейки на реальные `adapter`/`evidence` и подать реальные `PlannedScenario` (из composer/registry).
+**Пайплайн собран:** `run_campaign(scenarios, deps, storage)` → перебирает `PlannedScenario` → `run_scenario` → агрегирует → пишет `findings.json` + `report.md` + `status.json`. CLI уже подключает реальные adapter/evidence и PlannedScenario; результаты живых проверок — ниже.
 
 ### oushtt — готово (16 из 16 задач)
 - `adapters/base.py` (2.1), `evidence/base.py` (3.1), `profile/schema.py` (1.1), `errors.py`
@@ -93,6 +93,13 @@ def reset(self) -> None: ...
 Bundle реализует `mark`/`collect_facts`/`reset`, а также `mark_all`/`collect_all`
 как алиасы. Оба варианта используют непрозрачный одноразовый `Marker`.
 `capabilities()`/`supports(goal)` доступны для preflight-гейта.
+
+**Обновление атрибуции:** runner вызывает `mark → действие → collect_facts`
+на **каждом шаге**, включая finalize. Новый `StepEvidence` содержит фактический
+`session.principal.value`, session_id, facts и raw observations. Протоколы Facts,
+TargetAdapter и EvidenceBundle не изменены. FakeEvidenceSource теперь должен
+давать по одному Facts на шаг, а не на всю попытку. Подробности и живой прогон:
+[step-attribution-2026-09-05](step-attribution-2026-09-05.md).
 
 ### 2. Runner ↔ adapter (уже совпадает)
 
@@ -166,7 +173,7 @@ RunnerDeps(adapter, evidence, id_factory=None, now=None, telemetry=None)
 
 ### Границы проверки oushtt
 
-Полный набор из 306 тестов зелёный. На живом стенде проверены HTTP-адаптер,
+Полный набор из 318 тестов зелёный. На живом стенде проверены HTTP-адаптер,
 mint, Mongo, log-regex, reset, `profile check/verify` и BAC-кампания в двух режимах.
 Модель цели — OpenRouter `qwen/qwen3-8b`; запросы к ней реально выполнялись.
 Canary ранее проверен локальным HTTP; Langfuse/OTLP проверены через fake readers.
@@ -186,7 +193,6 @@ transcript и находки ссылаются на соответствующ�
   ни в `verdict()` нет признака «необязательный». Сейчас предикат обязателен.
 - **`reset_policy: per_step`** каталогом не используется и в runner не реализован
   (сброс идёт раз на попытку).
-- **Атрибуция многошаговых цепочек:** runner пока собирает одно окно facts на
-  всю цепочку и сравнивает с актором сценария. Привязка `at` к отдельному шагу
-  и его принципалу не реализована; BAC с одним актором этим не затронут.
-  Перед подтверждением `poison-to-tool-chain` нужно устранить это расхождение.
+- **Атрибуция многошаговых цепочек — исправлено:** отдельное окно и principal
+  каждого шага; `at/activate` выбирает только нужное evidence. 318 тестов зелёные.
+  Живой прогон `poison-to-tool-chain` — следующий этап проверки.

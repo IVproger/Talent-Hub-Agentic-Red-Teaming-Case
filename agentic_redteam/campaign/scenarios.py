@@ -19,7 +19,7 @@ import yaml
 from ..assertions.dispatch import ASSERTION_TYPES
 from ..errors import PipelineConfigurationError
 from .orchestrator import PlannedScenario
-from .runner import ScenarioStep
+from .runner import ScenarioStep, validate_step_references
 
 CATALOG = Path(__file__).resolve().parents[1] / "scenarios" / "v2"
 RESET_POLICIES = ("per_scenario", "per_step", "none")
@@ -148,9 +148,10 @@ class ScenarioSpec:
             missing = [f for f in GOAL_REQUIRED.get(kind, ()) if f not in assertion]
             if missing:
                 _invalid(f"цель {index} ({kind}) — не хватает полей: {', '.join(missing)}")
-            at = assertion.get("at")
-            if at is not None and at not in names:
-                _invalid(f"цель {index} ссылается на неизвестный шаг '{at}'")
+        try:
+            validate_step_references(self.goal, self.steps)
+        except ValueError as exc:
+            _invalid(str(exc))
 
     def to_planned(self, principals: dict[str, str] | None = None) -> PlannedScenario:
         """Freeze the spec into the runner's plan.

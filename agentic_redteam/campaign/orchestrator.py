@@ -58,6 +58,10 @@ def _joined(values) -> str:
     return ", ".join(seen)
 
 
+def _attempt_roles(attempt) -> str:
+    return _joined(f"{step.role} ({step.principal})" for step in attempt.steps) or attempt.actor
+
+
 def _limitations(pairs) -> list[str]:
     """State what the run could not prove — deterministic, no opinion."""
     notes = []
@@ -91,7 +95,7 @@ def build_findings(run_id, profile_ref, modes, scenario_results, business=None) 
             "severity": severity_of(best.verdict, scen.boundary, business),
             "compromise_point": outcome.detail if outcome else "",
             "chain_stage": STAGE_BY_ASSERTION.get(assertion.get("type"), "действие"),
-            "roles": scen.actor,
+            "roles": _attempt_roles(best),
             "mode": best.mode,
             "reset_policy": scen.reset_policy,
             "attempts_total": len(res.attempts),
@@ -104,7 +108,7 @@ def build_findings(run_id, profile_ref, modes, scenario_results, business=None) 
     first = next((i + 1 for i, (_, a) in enumerate(pairs) if a.verdict == "proven"), None)
     table = [{
         "attempt": i + 1, "scenario_id": scen.id, "attack_class": scen.attack_class,
-        "roles": scen.actor, "mode": a.mode, "verdict": a.verdict, "signal": _signal(a.outcomes),
+        "roles": _attempt_roles(a), "mode": a.mode, "verdict": a.verdict, "signal": _signal(a.outcomes),
     } for i, (scen, a) in enumerate(pairs)]
     return {
         "run_id": run_id, "profile": profile_ref, "status": "completed",
@@ -115,7 +119,7 @@ def build_findings(run_id, profile_ref, modes, scenario_results, business=None) 
         "reproduction": {
             "profile": profile_ref,
             "scenario": _joined(scen.id for scen, _ in scenario_results),
-            "roles": _joined(scen.actor for scen, _ in scenario_results),
+            "roles": _joined(_attempt_roles(a) if a.steps else scen.actor for scen, a in pairs),
             "mode": _joined(modes or []) or None,
             "reset_policy": _joined(scen.reset_policy for scen, _ in scenario_results)
                             or "per_scenario",
@@ -148,6 +152,9 @@ def _transcript_row(scen, attempt) -> dict:
                      for o in attempt.outcomes],
         "error": attempt.error,
         "evidence_refs": list(attempt.evidence_refs),
+        "steps": [{"name": step.name, "role": step.role, "principal": step.principal,
+                   "session_id": step.session_id, "evidence_complete": step.facts is not None,
+                   "error": step.error} for step in attempt.steps],
     }
 
 
@@ -172,6 +179,7 @@ def run_campaign(scenarios, deps: RunnerDeps, storage, run_id: str,
                     "scenario_id": scen.id, "attempt": attempt.attempt,
                     "actor": attempt.actor, "mode": attempt.mode,
                     "facts": attempt.facts, "observations": attempt.observations,
+                    "steps": attempt.steps,
                 })
                 attempt.evidence_refs = [name]
             storage.append_transcript(run_dir, _transcript_row(scen, attempt))

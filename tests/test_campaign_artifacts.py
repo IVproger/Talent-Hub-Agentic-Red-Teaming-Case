@@ -31,8 +31,8 @@ class CampaignArtifactTests(unittest.TestCase):
         self.root = Path(tempfile.mkdtemp())
         adapter = FakeAdapter({"attacker": "1001", "victim": "1002"}, ["ok"] * 8)
         evidence = FakeEvidenceSource([
-            Facts(tool_calls=[ObservedToolCall("get_portfolio", "1002", {}, "r")]),
-            Facts(tool_calls=[ObservedToolCall("get_portfolio", "1001", {}, "r")]),
+            Facts(), Facts(tool_calls=[ObservedToolCall("get_portfolio", "1003", {}, "r")]),
+            Facts(), Facts(tool_calls=[ObservedToolCall("get_portfolio", "1002", {}, "r")]),
         ])
         self.findings = run_campaign([scenario()], RunnerDeps(adapter, evidence),
                                      storage=RunStorage(self.root), run_id="run1",
@@ -67,10 +67,14 @@ class CampaignArtifactTests(unittest.TestCase):
         self.assertNotEqual(first, second)
         evidence = json.loads(first.read_text())
         self.assertEqual(evidence["facts"]["tool_calls"][0]["raw"], "r")
-        self.assertEqual(evidence["facts"]["tool_calls"][0]["principal"], "1002")
+        self.assertEqual(evidence["facts"]["tool_calls"][0]["principal"], "1003")
         self.assertEqual(evidence["mode"], "vulnerable")
         self.assertEqual(evidence["attempt"], 1)
-        self.assertEqual(json.loads(second.read_text())["facts"]["tool_calls"][0]["principal"], "1001")
+        self.assertEqual([s["principal"] for s in evidence["steps"]], ["1001", "1002"])
+        self.assertEqual(evidence["steps"][0]["facts"]["tool_calls"], [])
+        self.assertEqual(evidence["steps"][1]["facts"]["tool_calls"][0]["principal"], "1003")
+        self.assertEqual(rows[0]["steps"][1]["role"], "victim")
+        self.assertEqual(json.loads(second.read_text())["facts"]["tool_calls"][0]["principal"], "1002")
         refs = self.findings["findings"][0]["evidence_refs"]
         self.assertEqual(refs, rows[0]["evidence_refs"])
         self.assertIn(refs[0], (self.run_dir / "report.md").read_text())
@@ -106,14 +110,14 @@ class CampaignArtifactTests(unittest.TestCase):
                 return facts
 
         with tempfile.TemporaryDirectory() as root:
-            source = Source([Facts(), Facts()])
+            source = Source([Facts(), Facts(), Facts(), Facts()])
             run_campaign([scenario()], RunnerDeps(FakeAdapter(
                 {"attacker": "1001", "victim": "1002"}, ["ok"] * 8), source),
                 RunStorage(root), "frozen")
             first = json.loads((Path(root) / "frozen/evidence-0001.json").read_text())
             second = json.loads((Path(root) / "frozen/evidence-0002.json").read_text())
             self.assertEqual(first["observations"]["calls"][0]["raw"], "raw-1")
-            self.assertEqual(second["observations"]["calls"][0]["raw"], "raw-2")
+            self.assertEqual(second["observations"]["calls"][0]["raw"], "raw-3")
 
 
 if __name__ == "__main__":

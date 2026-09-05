@@ -21,6 +21,7 @@ from .adapters.base import AdapterFeature
 from .adapters.http_chat import HttpChatAdapter
 from .campaign.orchestrator import PlannedScenario, run_campaign
 from .reporting.technical import add_narrative, build_skeleton
+from .reporting.regression import RUSSIAN as REGRESSION_RU, compare
 from .campaign.plan import Campaign, execution_order
 from .campaign.runner import RunnerDeps, ScenarioStep
 from .campaign.scenarios import resolve as resolve_specs
@@ -167,6 +168,26 @@ def build_parser() -> argparse.ArgumentParser:
     _add_config_path(report)
     report.add_argument("--json", action="store_true", help="вывести один JSON-результат в stdout")
 
+    regress = commands.add_parser("regress", help="регрессия: находки → тест, сравнение прогонов")
+    regress_commands = regress.add_subparsers(dest="regress_command", required=True)
+
+    regress_export = regress_commands.add_parser(
+        "export", help="собрать регрессионный набор из подтверждённых находок")
+    regress_export.add_argument("--from", dest="from_runs", action="append", required=True,
+                                metavar="RUN_DIR",
+                                help="каталог прогона; повторяйте для нескольких")
+    regress_export.add_argument("-o", "--output", required=True,
+                                help="каталог набора; прогоняется через run --from")
+    regress_export.add_argument("--json", action="store_true",
+                                help="вывести один JSON-результат в stdout")
+
+    regress_compare = regress_commands.add_parser(
+        "compare", help="сравнить два прогона: что закрылось, осталось, появилось")
+    regress_compare.add_argument("--before", required=True, help="каталог прогона до")
+    regress_compare.add_argument("--after", required=True, help="каталог прогона после")
+    regress_compare.add_argument("--json", action="store_true",
+                                 help="вывести один JSON-результат в stdout")
+
     stand = commands.add_parser("stand", help="управление настроенным целевым стендом")
     stand_commands = stand.add_subparsers(dest="stand_command", required=True)
     stand_sync = stand_commands.add_parser(
@@ -250,6 +271,8 @@ def main(argv: list[str] | None = None) -> int:
             return _profile(args)
         if args.command == "report":
             return _report(args)
+        if args.command == "regress":
+            return _regress(args)
         if args.command == "stand" and args.stand_command == "sync":
             return _stand_sync(args)
         if args.command == "kb":
@@ -1008,6 +1031,79 @@ def _report(args) -> int:
         print(json.dumps({"ok": True, "report": str(output)}, ensure_ascii=False))
     else:
         print(f"отчёт: {output}")
+    return 0
+
+
+def _load_run_json(run_dir: Path, name: str):
+    try:
+        return RunStorage(run_dir.parent).load_json(run_dir, name)
+    except (OSError, ValueError) as exc:
+        raise PipelineConfigurationError(
+            f"В сохранённом прогоне нет корректного {name}: {run_dir}"
+        ) from exc
+
+
+def _regress(args) -> int:
+    if args.regress_command == "export":
+        return _regress_export(args)
+    return _regress_compare(args)
+
+
+def _regress_export(args) -> int:
+    """US-28: подтверждённые находки нескольких прогонов → один воспроизводимый набор.
+
+    Набор пишется в форме `campaign.json`, поэтому исполняется тем же
+    `run --from`, что и повтор прогона — второго пути исполнения нет.
+    """
+    scenarios: dict[str, dict] = {}
+    sources: list[str] = []
+    profile_ref, modes, trials = "", [], 1
+    for reference in args.from_runs:
+        run_dir = Path(reference).expanduser().resolve()
+        campaign = _load_run_json(run_dir, "campaign.json")
+        findings = _load_run_json(run_dir, "findings.json")
+        confirmed = {item["scenario_id"] for item in findings.get("findings", [])}
+        for scenario in campaign.get("scenarios", []):
+            # Штатный сценарий едет вместе с атаками: без него повтор скажет
+            # «дыра закрыта», не заметив, что агент перестал работать (US-29 AC3).
+            if scenario["id"] in confirmed or scenario.get("expect") == "pass":
+                scenarios[scenario["id"]] = scenario
+        sources.append(run_dir.name)
+        profile_ref = profile_ref or campaign.get("profile", "")
+        modes = modes or list(campaign.get("modes", []))
+        trials = max(trials, int(campaign.get("trials", 1)))
+    if not any(s.get("expect", "attack_success") != "pass" for s in scenarios.values()):
+        raise PipelineConfigurationError(
+            "В указанных прогонах нет подтверждённых находок — регрессировать нечего."
+        )
+    output = Path(args.output).expanduser().resolve()
+    output.mkdir(parents=True, exist_ok=True)
+    RunStorage(output.parent).write_campaign(output, {
+        "run_id": output.name, "profile": profile_ref, "modes": modes, "trials": trials,
+        "scenarios": list(scenarios.values()), "source_runs": sources,
+    })
+    if args.json:
+        print(json.dumps({"ok": True, "set": str(output),
+                          "scenarios": sorted(scenarios), "source_runs": sources},
+                         ensure_ascii=False))
+    else:
+        print(f"набор: {output} · сценариев {len(scenarios)}")
+        print(f"прогнать: python -m agentic_redteam run --from {output}")
+    return 0
+
+
+def _regress_compare(args) -> int:
+    """US-29: одна операция для «до/после» и для A/B по режимам."""
+    before = _load_run_json(Path(args.before).expanduser().resolve(), "findings.json")
+    after = _load_run_json(Path(args.after).expanduser().resolve(), "findings.json")
+    diff = compare(before, after)
+    if args.json:
+        print(json.dumps({"ok": True, "regression": asdict(diff)}, ensure_ascii=False))
+        return 0
+    print(f"ASR {diff.asr_before:.0f}% → {diff.asr_after:.0f}%")
+    for scenario_id, state in sorted(diff.per_attack.items()):
+        print(f"  {scenario_id}: {REGRESSION_RU.get(state, state)}")
+    print(f"штатный сценарий: {'в порядке' if diff.smoke_ok else 'СЛОМАН'}")
     return 0
 
 

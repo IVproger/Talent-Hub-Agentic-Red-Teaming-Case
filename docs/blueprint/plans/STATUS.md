@@ -26,6 +26,9 @@
   через `identities.credential.secret_env`, шаблоны `{principal}/{role}/{secret}`.
 - **2.3:** `DockerExecMintProvider(identities, runner)` — перенос mint без
   зависимости от `client.py`; compose/service из профиля, stdout с ключом не выводится в ошибках.
+- **2.4:** `HttpChatAdapter(profile, identities, transport=None)` и
+  `HttpChatAdapter.from_profile(profile)`. `entrypoint.preflight.path` проверяется GET
+  без mint. `per_deployment` требует переданный `mode_switcher(mode, declaration)`.
 
 Тесты: 161 (1 пре-существующий фейл `stand.observability`).
 

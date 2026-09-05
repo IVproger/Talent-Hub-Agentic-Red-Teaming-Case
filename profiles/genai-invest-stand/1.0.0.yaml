@@ -4,6 +4,7 @@ adapter: http-chat
 entrypoint:
   base_url: http://localhost:8600
   chat_path: /v1/chat/completions
+  preflight: {path: /healthz}
   request:
     body: {auth_mode: "{mode}", session_id: "{session}"}
   response: {path: "choices[0].message.content"}

@@ -38,11 +38,18 @@ class LLMConfigurationTests(unittest.TestCase):
             )
         self.assertEqual(called, [])
 
-    def test_target_only_openrouter_does_not_require_host_key(self):
+    def test_engine_roles_include_analyst_without_target(self):
         roles = role_configs_from_mapping(
-            {"target_agent": {"provider": "openrouter", "model": "openai/test"}}
+            {"analyst": {"provider": "openrouter", "model": "openai/test"}}
         )
+        self.assertEqual(set(roles), {"attack_generator", "report_writer", "analyst"})
         validate_role_configs(roles, environ={})
+        with self.assertRaises(LLMConfigurationError):
+            validate_role_configs(roles, environ={}, credential_roles=("analyst",))
+
+    def test_target_is_not_an_engine_role(self):
+        with self.assertRaises(LLMConfigurationError):
+            role_configs_from_mapping({"target_agent": {"model": "target"}})
 
     def test_null_model_has_a_field_level_configuration_error(self):
         with self.assertRaisesRegex(LLMConfigurationError, "model must be a string"):

@@ -14,6 +14,7 @@ import yaml
 from . import __version__
 from .campaign.plan import Campaign, execution_order
 from .campaign.scenarios import resolve as resolve_specs
+from .stand_bootstrap import target_model_from_config
 from .doctor import checks_ok, run_checks
 from .llm import (
     LLMConfigurationError,
@@ -130,7 +131,7 @@ def build_parser() -> argparse.ArgumentParser:
     stand = commands.add_parser("stand", help="управление настроенным целевым стендом")
     stand_commands = stand.add_subparsers(dest="stand_command", required=True)
     stand_sync = stand_commands.add_parser(
-        "sync", help="применить llm.target_agent из YAML в stand/.env"
+        "sync", help="применить модель bootstrap-профиля в stand/.env"
     )
     _add_config_path(stand_sync)
     stand_sync.add_argument(
@@ -248,6 +249,7 @@ def _doctor(args) -> int:
         raise PipelineConfigurationError(f"Could not read configuration: {args.config}") from exc
     checks = run_checks(
         roles,
+        target_model=target_model_from_config(raw, args.config),
         target_api=str(target_api) if target_api else None,
         compose_file=str(compose_file) if compose_file else None,
         check_network=not args.offline,

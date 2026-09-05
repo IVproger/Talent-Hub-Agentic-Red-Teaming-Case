@@ -34,15 +34,17 @@ cp stand/.env.example stand/.env
 
 ## YAML — источник истины
 
-Меняйте модели только в `config/target.yaml`. Роли независимы:
+Модели движка задаются в `config/target.yaml`, в секции `llm`. Роли независимы:
 
 - `attack_generator` генерирует adaptive BAC payloads;
-- `target_agent` описывает фактически запущенные `RESEARCH_MODEL` и
-  `SUMMARIZATION_MODEL` стенда;
 - `report_writer` пишет технический отчёт по уже собранным evidence.
+- `analyst` предназначен для анализа и заполнения профиля цели.
 
-Для текущего стенда обе внутренние модели должны совпадать с
-`llm.target_agent.model`. Применить выбранную target-модель безопасно можно
+Модель цели задаётся отдельно: `entrypoint.target_model` в
+`profiles/genai-invest-stand/1.0.0.yaml`. Ссылка на этот файл — `target.profile`
+в `config/target.yaml`. Для стенда `RESEARCH_MODEL` и `SUMMARIZATION_MODEL`
+должны совпадать с этой декларацией; ключ остаётся внутри стенда.
+Применить выбранную модель можно
 явной командой:
 
 ```bash

@@ -88,14 +88,13 @@ class DoctorTests(unittest.TestCase):
 
     def test_target_provider_is_not_probed_from_host(self):
         calls = []
-        roles = role_configs_from_mapping(
-            {"target_agent": {"provider": "openrouter", "model": "openai/test"}}
-        )
+        roles = role_configs_from_mapping(None)
         with tempfile.TemporaryDirectory() as temporary:
             checks = run_checks(
                 roles,
                 compose_file=str(Path(temporary) / "missing.yml"),
                 check_network=False,
+                target_model=LLMRoleConfig(provider="openrouter", model="openai/test"),
                 provider_probe=lambda config: calls.append(config) or (True, "ok"),
             )
         self.assertEqual(calls, [])

@@ -18,6 +18,7 @@ REPO_ROOT = Path(__file__).resolve().parents[2]
 if str(REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(REPO_ROOT))
 
+from agentic_redteam.stand_bootstrap import target_model_from_config
 from agentic_redteam.doctor import run_checks  # noqa: E402
 from agentic_redteam.llm import LLMRequestError, LLMRoleConfig, role_configs_from_mapping  # noqa: E402
 from agentic_redteam.pipeline import (  # noqa: E402
@@ -36,7 +37,7 @@ from agentic_redteam.scenario import bundled_scenarios  # noqa: E402
 TARGET_CONFIG = REPO_ROOT / "config" / "target.yaml"
 ROLE_LABELS = {
     "attack_generator": "Генератор атак",
-    "target_agent": "Целевой ReAct-агент",
+    "analyst": "Аналитик профиля",
     "report_writer": "Автор отчёта",
 }
 
@@ -642,7 +643,7 @@ def _load_defaults() -> dict[str, LLMRoleConfig]:
     return role_configs_from_mapping(raw.get("llm"))
 
 
-def _target_runtime_config() -> dict[str, str]:
+def _target_runtime_config() -> dict:
     contents = TARGET_CONFIG.read_text(encoding="utf-8")
     raw = yaml.safe_load(contents) or {}
     if not isinstance(raw, dict):
@@ -667,11 +668,11 @@ def _target_runtime_config() -> dict[str, str]:
     compose = Path(compose_value).expanduser()
     if not compose.is_absolute():
         compose = REPO_ROOT / compose
-    return {"target_api": endpoint.rstrip("/"), "compose_file": str(compose.resolve()), "config_sha256": hashlib.sha256(contents.encode("utf-8")).hexdigest()}
+    return {"target_api": endpoint.rstrip("/"), "compose_file": str(compose.resolve()), "target_model": target_model_from_config(raw, TARGET_CONFIG).safe_dict(), "config_sha256": hashlib.sha256(contents.encode("utf-8")).hexdigest()}
 
 
-def _doctor_target_args(target_config: dict[str, str]) -> dict[str, str]:
-    return {"target_api": target_config["target_api"], "compose_file": target_config["compose_file"]}
+def _doctor_target_args(target_config: dict) -> dict:
+    return {"target_api": target_config["target_api"], "compose_file": target_config["compose_file"], "target_model": LLMRoleConfig(**target_config["target_model"])}
 
 
 def _config_fingerprint(

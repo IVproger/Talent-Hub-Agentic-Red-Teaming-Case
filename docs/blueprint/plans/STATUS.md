@@ -25,7 +25,7 @@
 
 **Пайплайн работает end-to-end на фейках:** `run_campaign(scenarios, deps, storage)` → перебирает `PlannedScenario` → `run_scenario` → агрегирует → пишет `findings.json` + `report.md` + `status.json`. Осталось заменить фейки на реальные `adapter`/`evidence` и подать реальные `PlannedScenario` (из composer/registry).
 
-### oushtt — готово (Фаза 0)
+### oushtt — готово (15 из 16 задач)
 - `adapters/base.py` (2.1), `evidence/base.py` (3.1), `profile/schema.py` (1.1), `errors.py`
 - фикстуры: `tests/data/profile_stand.yaml`, `profile_dvaa.yaml`
 - **1.2:** файловый `ProfileRegistry` (`list/load/save`), неизменяемые версии,
@@ -56,7 +56,14 @@
   (проба с очисткой): видимость проверяется через реальный метод памяти цели,
   объявленный в `read.config.visibility`, а не ответ LLM или метку `scope`.
 
-Тесты: 236 (1 пре-существующий фейл `stand.observability`).
+- **6.1:** LLM-роли `attack_generator/report_writer/analyst`; модель цели —
+  `entrypoint.target_model` bootstrap-профиля, ссылка `target.profile` в config.
+  Старые pipeline/doctor/UI адаптированы к отдельной модели цели; сохранённый
+  config прогона содержит отдельный `target_model`, только три роли в `llm`.
+  Для программного legacy RunConfig без ссылки на профиль оставлен прежний
+  default Ollama; `stand sync` всегда требует явный профиль.
+
+Тесты: 272, весь набор прошёл на Python 3.14 (2026-09-05).
 
 ## Контракты стыковки (ВАЖНО — согласовать)
 

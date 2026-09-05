@@ -31,6 +31,7 @@ class CheckResult:
 def run_checks(
     roles: Mapping[str, LLMRoleConfig],
     *,
+    target_model: LLMRoleConfig | None = None,
     target_api: str | None = None,
     compose_file: str | None = None,
     check_network: bool = True,
@@ -38,6 +39,7 @@ def run_checks(
     provider_probe: Callable[[LLMRoleConfig], tuple[bool, str]] | None = None,
     provider_roles: tuple[str, ...] = ("attack_generator", "report_writer"),
 ) -> list[CheckResult]:
+    selected_target = target_model or LLMRoleConfig()
     compose = Path(compose_file or runtime_config.COMPOSE_FILE)
     stand_dir = compose.parent
     stand_ready = compose.is_file() and (stand_dir / "app" / "api_server.py").is_file()
@@ -53,9 +55,10 @@ def run_checks(
     llm_valid = True
     try:
         validate_role_configs(roles, credential_roles=provider_roles)
-        if roles["target_agent"].normalized().temperature != 0:
+        selected_target.validate(require_credentials=False)
+        if selected_target.normalized().temperature != 0:
             raise ValueError(
-                "target_agent.temperature is not supported by the current stand; use 0."
+                "entrypoint.target_model.temperature is not supported by the current stand; use 0."
             )
         results.append(CheckResult("llm_config", True, "Все LLM-роли настроены."))
     except ValueError as exc:
@@ -165,7 +168,7 @@ def run_checks(
     if llm_valid:
         try:
             state = (target_runtime or TargetRuntime(str(compose))).assert_matches(
-                roles["target_agent"]
+                selected_target
             )
             results.append(
                 CheckResult(

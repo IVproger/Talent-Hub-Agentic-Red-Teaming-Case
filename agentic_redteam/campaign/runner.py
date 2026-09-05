@@ -12,6 +12,7 @@ mark()/collect_facts(marker)->Facts/reset() — the real EvidenceBundle
 """
 from __future__ import annotations
 
+from contextlib import nullcontext
 from dataclasses import dataclass, field
 from typing import Any
 
@@ -28,6 +29,7 @@ class RunnerDeps:
     evidence: Any            # EvidenceSource: mark()/collect_facts(marker)/reset()
     id_factory: Any = None
     now: Any = None
+    telemetry: Any = None       # optional run-observability; fail-open
 
 
 @dataclass
@@ -50,6 +52,35 @@ class RunResult:
     attempts_to_first_proven: int | None = None
 
 
+class _Guarded:
+    """Wraps a telemetry context manager so telemetry never breaks the run."""
+
+    def __init__(self, cm):
+        self._cm = cm
+
+    def __enter__(self):
+        try:
+            return self._cm.__enter__()
+        except Exception:
+            return None
+
+    def __exit__(self, *args):
+        try:
+            self._cm.__exit__(*args)
+        except Exception:
+            pass
+        return False
+
+
+def _obs(telemetry, name):
+    if telemetry is None:
+        return nullcontext()
+    try:
+        return _Guarded(telemetry.observation(name))
+    except Exception:
+        return nullcontext()
+
+
 def _evaluate_goal(goal: list[dict], facts: Facts, response: str, actor: str) -> list[CheckOutcome]:
     outcomes = []
     for assertion in goal:
@@ -61,19 +92,20 @@ def _evaluate_goal(goal: list[dict], facts: Facts, response: str, actor: str) ->
 
 
 def _run_attempt(index, payload, actor, mode, goal, deps, reset_policy, run_id) -> AttemptResult:
-    try:
-        if reset_policy != "none":
-            deps.evidence.reset()
-        marker = deps.evidence.mark()
-        session = deps.adapter.open_session("attacker", f"{run_id}-{index}", mode or "vulnerable")
-        response = session.send(payload)
-        facts = deps.evidence.collect_facts(marker)
-    except TargetUnavailable as exc:
-        return AttemptResult(index, payload, actor, mode, "error", [], str(exc))
-    except Exception as exc:  # evidence source failed → error, not a false success
-        return AttemptResult(index, payload, actor, mode, "error", [], f"{type(exc).__name__}: {exc}")
-    outcomes = _evaluate_goal(goal, facts, response, actor)
-    return AttemptResult(index, payload, actor, mode, verdict(outcomes), outcomes)
+    with _obs(deps.telemetry, "campaign.attempt"):
+        try:
+            if reset_policy != "none":
+                deps.evidence.reset()
+            marker = deps.evidence.mark()
+            session = deps.adapter.open_session("attacker", f"{run_id}-{index}", mode or "vulnerable")
+            response = session.send(payload)
+            facts = deps.evidence.collect_facts(marker)
+        except TargetUnavailable as exc:
+            return AttemptResult(index, payload, actor, mode, "error", [], str(exc))
+        except Exception as exc:  # evidence source failed → error, not a false success
+            return AttemptResult(index, payload, actor, mode, "error", [], f"{type(exc).__name__}: {exc}")
+        outcomes = _evaluate_goal(goal, facts, response, actor)
+        return AttemptResult(index, payload, actor, mode, verdict(outcomes), outcomes)
 
 
 def _asr(attempts: list[AttemptResult]) -> tuple[float, int | None]:

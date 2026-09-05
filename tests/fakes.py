@@ -102,3 +102,18 @@ class FakeEvidenceSource:
 
     def reset(self):
         self.resets += 1
+
+
+class FakeTelemetry:
+    """Records observation names; optionally raises to prove fail-open."""
+
+    def __init__(self, raises=False):
+        self.raises = raises
+        self.names: list[str] = []
+
+    def observation(self, name, **_kw):
+        if self.raises:
+            raise RuntimeError("telemetry down")
+        self.names.append(name)
+        from contextlib import nullcontext
+        return nullcontext()

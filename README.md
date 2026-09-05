@@ -12,7 +12,9 @@
 
 - `config/target.yaml` — единственный источник provider/model/base URL для трёх
   LLM-ролей и настроек запуска;
-- `agentic_redteam/scenarios/` — четыре фиксированных YAML-сценария;
+- `agentic_redteam/scenarios/` — четыре фиксированных YAML-сценария,
+  `scenarios/v2/` — они же в новом словаре предикатов;
+- `profiles/<name>/<version>.yaml` — реестр профилей целей;
 - `docs/target/` — архитектура и system card целевого стенда;
 - `runs/<run-id>/` — артефакты новых запусков;
 - `deploy/langfuse/` — опциональный локальный Langfuse v4;
@@ -102,6 +104,52 @@ preflight, прогресс, outcome, evidence trace, отчёт, файлы и 
 этот контекст подаётся генератору Adaptive BAC. Без изменений используются файлы
 из `docs/target/`, отредактированный контент применяется только к текущему запуску.
 
+## Профиль и кампания (новый путь)
+
+Всё знание о цели живёт в **профиле** — ядро о цели не знает. Профиль
+описывает точку входа, роли, границы изоляции, инструменты, память, режимы и
+источники evidence; секретов в нём нет, только имена переменных окружения.
+
+```bash
+# Что вообще есть в реестре.
+python -m agentic_redteam profile list
+
+# Карта поверхности: инструменты, память, границы, источники.
+python -m agentic_redteam profile show --profile genai-invest-stand@1.0.0
+
+# Что изменилось между версиями профиля.
+python -m agentic_redteam profile diff genai-invest-stand@1.0.0 path/to/other.yaml
+
+# Гейт покрытия: какие сценарии на этой цели вообще доказуемы состоянием.
+python -m agentic_redteam profile coverage --profile genai-invest-stand@1.0.0
+```
+
+`coverage` сверяет источники, которые объявляет профиль, с теми, что требуют
+предикаты сценария. Сценарий без своего источника честно помечается «нет
+источника» — вердикт по нему не поднимется выше `indirect`, и знать это лучше
+до прогона, а не после.
+
+Кампания собирается флагами и предварительно показывается целиком:
+
+```bash
+# План и payload'ы до отправки — цель не затрагивается.
+python -m agentic_redteam run --profile genai-invest-stand@1.0.0 \
+  --scenario all --mode vulnerable,protected --dry-run
+
+# Повтор сохранённой кампании из артефакта прогона.
+python -m agentic_redteam run --from runs/<run-id> --dry-run
+```
+
+Сценарии нового словаря лежат в `agentic_redteam/scenarios/v2/`. Сценарий —
+это цепочка шагов (кто говорит и в каком порядке) плюс варианты payload'а,
+которые подставляются в шаг с `payload: true`. Многошаговая атака —
+внедрение → фиксация памяти → активация другой ролью — исполняется как **одна
+попытка**: один сброс цели, одно окно evidence.
+
+> Исполнение по профилю (`run --profile` без `--dry-run`) ещё не включено:
+> ждёт evidence-бандл, который сведёт провайдеры к одному источнику фактов.
+> Рабочий путь исполнения — команды из раздела «Запуск» выше.
+
 ## Артефакты
 
 Каждый запуск создаёт изолированный `runs/<run-id>/`:
@@ -111,7 +159,11 @@ preflight, прогресс, outcome, evidence trace, отчёт, файлы и 
 - `findings.json` — детерминированные verdict и ASR;
 - `report.md` — LLM-отчёт, не участвующий в scoring;
 - `status.json` — crash-tolerant состояние запуска;
-- `observability.json` — trace ID/URL, observation IDs и warning экспорта.
+- `observability.json` — trace ID/URL, observation IDs и warning экспорта;
+- `campaign.json` — состав кампании (профиль, режимы, trials, сценарии с
+  шагами и payload'ами); из него и повторяется прогон;
+- `transcript.jsonl` — по строке на попытку: payload, режим, вердикт,
+  градации предикатов, ошибка.
 
 Ошибочные попытки не входят в знаменатель ASR. При падении запуска сохраняются
 частичные evidence и детерминированный incomplete report.

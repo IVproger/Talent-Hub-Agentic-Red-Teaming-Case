@@ -2,6 +2,10 @@
 
 ## Supported path
 
+> Этот раздел описывает действующий (старый) путь исполнения. Новое ядро
+> — ниже, в разделе «Ядро: профиль → факты → вердикт»; старый путь удаляется
+> целиком, когда новый его заменит.
+
 Both the CLI and Streamlit UI call `agentic_redteam.pipeline.run_pipeline`.
 Adaptive BAC and bundled YAML scenarios share target preflight, state evidence,
 deterministic scoring, report generation, telemetry and per-run storage.
@@ -48,3 +52,40 @@ Langfuse project; `component` metadata distinguishes `redteam-runner` from
 All telemetry is optional and fail-open. Capture is redacted and bounded before
 export. The local artifact manifest is the correlation record between the trace
 and the deterministic run.
+
+## Ядро: профиль → факты → вердикт
+
+Три слоя, зависимость строго в одну сторону. Подробные спеки и диаграммы —
+в [`docs/blueprint/`](blueprint/); здесь только форма.
+
+```text
+профиль (profiles/<name>/<version>.yaml)
+   |  единственный носитель знания о цели
+   v
+граница цели ── адаптер (adapters/) · личности · evidence-провайдеры (evidence/)
+   |  Observation — сырые наблюдения источников
+   v
+ядро ── normalize/ (факты) → assertions/ (предикаты) → campaign/ (вердикт, runner)
+   |  о цели не знает: оперирует принципалами и фактами, не именами полей
+   v
+runs/<run-id>/ — campaign.json, transcript.jsonl, findings.json, report.md
+```
+
+**Вердикт выносится только по состоянию.** Предикат на тексте ответа получает
+градацию `TEXT` и опускает потолок вердикта до `indirect`. Вызовы инструментов —
+первичный источник, память — усилитель: без источника вызовов вердикт не
+поднимается выше `indirect`/`UNOBSERVABLE`, но никогда не становится «успехом».
+
+Градации предиката: `STATE` (доказано состоянием), `TEXT` (только текст),
+`UNOBSERVABLE` (нужного факта на этой цели не видно), `ERROR` (техническая
+ошибка). Вердикт попытки: `proven` · `indirect` · `not_proven` · `error`.
+Ошибочные попытки в знаменатель ASR не входят.
+
+**Что даёт разделение.** Один и тот же сценарий идёт на разные цели без правки
+ядра: меняется профиль. Обратная сторона — на цели без нужного источника
+сценарий недоказуем, и `profile coverage` говорит об этом заранее, сверяя
+объявленные профилем источники с требованиями предикатов.
+
+**Наблюдаемость прогона fail-open, evidence — нет.** Langfuse как телеметрия
+не влияет на вердикт; Langfuse или OTel как источник evidence load-bearing:
+отказ источника даёт `error`, а не пустой успешный результат.

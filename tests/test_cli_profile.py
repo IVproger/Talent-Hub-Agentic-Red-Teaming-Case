@@ -89,6 +89,22 @@ class ProfileCoverageTests(unittest.TestCase):
         self.assertEqual(row["reachable"], "unobservable")
         self.assertIn("tool_calls", row["missing_kinds"])
 
+    def test_trace_provider_counts_as_a_tool_call_source(self):
+        import tempfile
+        from pathlib import Path
+        source = Path(DVAA).read_text(encoding="utf-8").replace(
+            "  - id: canary\n    provider: http-canary\n    config: {bind: \"127.0.0.1:0\"}",
+            "  - id: calls\n    provider: trace\n    config: {backend: otel, path: spans.jsonl}",
+        )
+        path = Path(tempfile.mkdtemp()) / "traced.yaml"
+        path.write_text(source, encoding="utf-8")
+        code, out = run_cli("profile", "coverage", "--profile", str(path),
+                            "--scenario", "poison-to-tool-chain", "--json")
+        self.assertEqual(code, 0, out)
+        payload = json.loads(out)
+        self.assertIn("tool_calls", payload["available_kinds"])
+        self.assertEqual(payload["coverage"][0]["reachable"], "state")
+
     def test_human_output_flags_what_is_missing(self):
         code, out = run_cli("profile", "coverage", "--profile", DVAA,
                             "--scenario", "poison-to-tool-chain")

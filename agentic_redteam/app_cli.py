@@ -568,6 +568,7 @@ def _render_assertion(assertion: dict) -> str:
 # провайдеров бандла (3.6); пока имена связывает CLI как composition root.
 PROVIDER_KINDS = {
     "log-regex": "tool_calls",
+    "trace": "tool_calls",
     "db-query": "memory_snapshot",
     "http-canary": "external_callback",
 }

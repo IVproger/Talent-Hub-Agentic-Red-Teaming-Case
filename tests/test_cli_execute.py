@@ -58,8 +58,10 @@ def hit(principal="1002"):
 def run_cli(argv, bundle, adapter=None):
     adapter = adapter or Adapter({"attacker": "1001", "victim": "1002"}, ["ok"] * 40)
     output = io.StringIO()
+    kb = Path(tempfile.mkdtemp()) / "kb.sqlite"   # не писать в рабочую knowledge.db
     with patch("agentic_redteam.app_cli.EvidenceBundle") as bundle_cls, \
          patch("agentic_redteam.app_cli.HttpChatAdapter") as adapter_cls, \
+         patch("agentic_redteam.app_cli.KB_PATH", kb), \
          patch("agentic_redteam.app_cli.reporter_from_config", return_value=None), \
          contextlib.redirect_stdout(output), contextlib.redirect_stderr(io.StringIO()):
         bundle_cls.from_profile.return_value = bundle

@@ -141,8 +141,30 @@ class KnowledgeStore:
         return len(attacks)
 
     def rebuild_from_runs(self, runs_root) -> int:
-        total = 0
+        """Переналить базу из runs/: она производна от прогонов, а не автономна.
+
+        Записи, чьего прогона в `runs/` больше нет, удаляются — иначе база
+        копит мусор (например, от прогонов во временных каталогах) и кормит им
+        дедуп и prior-контекст генератора. Статусы находок переживают
+        реиндексацию: их переносит `record` (US-36).
+        """
+        total, current = 0, set()
         for run_dir in sorted(Path(runs_root).iterdir()):
             if run_dir.is_dir() and (run_dir / "campaign.json").is_file():
-                total += self.record_run(run_dir)
+                attacks = attacks_from_run(run_dir)
+                for attack in attacks:
+                    self.record(attack)
+                    current.add(attack["id"])
+                total += len(attacks)
+        # Живой список складываем во временную таблицу: NOT IN по пустому
+        # множеству в SQL даёт NULL, а не истину, и длинный IN упирается в
+        # лимит параметров.
+        self._conn.execute("CREATE TEMP TABLE IF NOT EXISTS keep (id TEXT PRIMARY KEY)")
+        self._conn.execute("DELETE FROM keep")
+        self._conn.executemany("INSERT OR IGNORE INTO keep (id) VALUES (?)",
+                               [(item,) for item in current])
+        self._conn.execute(
+            "DELETE FROM status_history WHERE attack_id NOT IN (SELECT id FROM keep)")
+        self._conn.execute("DELETE FROM attacks WHERE id NOT IN (SELECT id FROM keep)")
+        self._conn.commit()
         return total

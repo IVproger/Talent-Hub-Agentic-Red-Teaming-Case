@@ -52,6 +52,10 @@ def attacks_from_run(run_dir: str | Path) -> list[dict]:
         row = json.loads(line)
         scenario_id = row.get("scenario_id")
         scen = scenarios.get(scenario_id, {})
+        # Штатный сценарий проверяет, что агент работает, и находкой не является:
+        # в базе знаний ему не место, иначе он попадёт в prior-контекст генератора.
+        if scen.get("expect", "attack_success") == "pass":
+            continue
         finding = next((f for f in findings.get(scenario_id, [])
                         if f.get("verdict") == row.get("verdict")), None)
         outcomes = row.get("outcomes") or []

@@ -72,3 +72,41 @@ class IngestTests(unittest.TestCase):
         (self.run / "observability.json").unlink()
         again = attacks_from_run(self.run)
         self.assertEqual(again[0]["evidence_refs"], ["evidence-0001.json"])
+
+
+class SmokeIsNotAnAttackTests(unittest.TestCase):
+    """Штатный сценарий — проверка работоспособности, а не находка (US-29 AC3)."""
+
+    def test_expect_pass_scenario_is_not_recorded(self):
+        import json, tempfile
+        from pathlib import Path
+        root = Path(tempfile.mkdtemp()) / "run"
+        root.mkdir()
+        (root / "campaign.json").write_text(json.dumps({
+            "run_id": "run", "profile": "p@1.0.0", "modes": ["vulnerable"], "trials": 1,
+            "scenarios": [
+                {"id": "atk", "attack_class": "bac", "expect": "attack_success",
+                 "standard_refs": [], "payloads": ["x"], "goal": [], "steps": []},
+                {"id": "normal", "attack_class": "normal_operation", "expect": "pass",
+                 "standard_refs": [], "payloads": [], "goal": [], "steps": []},
+            ]}, ensure_ascii=False), encoding="utf-8")
+        (root / "findings.json").write_text(json.dumps({
+            "run_id": "run", "profile": "p@1.0.0",
+            "findings": [{"scenario_id": "atk", "verdict": "proven", "attack_class": "bac",
+                          "standard_refs": [], "severity": "high", "compromise_point": "",
+                          "chain_stage": "", "roles": "", "mode": "vulnerable",
+                          "evidence_refs": []}],
+            "smoke": [{"scenario_id": "normal", "mode": "vulnerable", "ok": True,
+                       "verdict": "proven"}],
+            "attempts": [
+                {"attempt": 1, "scenario_id": "atk", "verdict": "proven", "mode": "vulnerable",
+                 "attack_class": "bac", "roles": "", "signal": ""},
+                {"attempt": 2, "scenario_id": "normal", "verdict": "proven",
+                 "mode": "vulnerable", "attack_class": "normal_operation",
+                 "roles": "", "signal": ""},
+            ]}, ensure_ascii=False), encoding="utf-8")
+        (root / "transcript.jsonl").write_text(
+            '{"scenario_id": "atk", "attempt": 1, "mode": "vulnerable", "actor": "1001", "payload": "x", "verdict": "proven", "outcomes": [], "error": null, "evidence_refs": [], "steps": []}\n{"scenario_id": "normal", "attempt": 1, "mode": "vulnerable", "actor": "1002", "payload": "", "verdict": "proven", "outcomes": [], "error": null, "evidence_refs": [], "steps": []}' + "\n", encoding="utf-8")
+        recorded = {a["scenario_id"] for a in attacks_from_run(root)}
+        self.assertIn("atk", recorded)
+        self.assertNotIn("normal", recorded, "штатный сценарий не находка")

@@ -60,7 +60,7 @@ def run_cli(argv, bundle, adapter=None):
     output = io.StringIO()
     with patch("agentic_redteam.app_cli.EvidenceBundle") as bundle_cls, \
          patch("agentic_redteam.app_cli.HttpChatAdapter") as adapter_cls, \
-         patch("agentic_redteam.app_cli._reporter", return_value=None), \
+         patch("agentic_redteam.app_cli.reporter_from_config", return_value=None), \
          contextlib.redirect_stdout(output), contextlib.redirect_stderr(io.StringIO()):
         bundle_cls.from_profile.return_value = bundle
         adapter_cls.from_profile.return_value = adapter

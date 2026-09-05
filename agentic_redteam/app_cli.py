@@ -209,7 +209,11 @@ def _add_config_path(parser: argparse.ArgumentParser) -> None:
 
 
 def _role_configs(args) -> dict:
-    config_path = Path(args.config)
+    return _role_configs_at(args.config)
+
+
+def _role_configs_at(config_path) -> dict:
+    config_path = Path(config_path)
     try:
         raw = yaml.safe_load(config_path.read_text(encoding="utf-8")) or {}
     except (OSError, yaml.YAMLError) as exc:
@@ -415,7 +419,7 @@ def _preview_campaign(args) -> int:
             {"mode": mode, "scenario": scenario}
             for mode, scenario in execution_order(campaign, scope)
         ],
-        "scenarios": [_preview_scenario(item) for item in planned],
+        "scenarios": [preview_scenario(item) for item in planned],
     }
     if args.json:
         print(json.dumps(payload, ensure_ascii=False))
@@ -434,45 +438,62 @@ def _reject_conflicting_sources(args) -> None:
         )
 
 
-def _execute_campaign(args) -> int:
-    """Собрать реальные адаптер и evidence по профилю и прогнать кампанию."""
-    _reject_conflicting_sources(args)
-    if args.from_run:
-        raise PipelineConfigurationError(
-            "--from пока только предпросмотр: добавьте --dry-run."
-        )
-    profile = _load_profile(args.profile)
-    campaign, planned, _ = _campaign_from_profile(args)
-    storage = RunStorage(args.output)
-    run_id = f"{datetime.now(UTC).strftime('%Y%m%d-%H%M%S')}-{secrets.token_hex(3)}"
+def new_run_id() -> str:
+    return f"{datetime.now(UTC).strftime('%Y%m%d-%H%M%S')}-{secrets.token_hex(3)}"
+
+
+def execute_campaign(profile, planned, modes, trials, output_root, run_id,
+                     reporter_llm=None, on_event=None) -> dict:
+    """Собрать реальные адаптер и evidence по профилю и прогнать кампанию.
+
+    Общее ядро запуска: CLI и UI зовут его, а не повторяют сборку зависимостей —
+    иначе демо и рабочий инструмент разошлись бы в поведении (US-07 AC3).
+    """
+    storage = RunStorage(output_root)
     with EvidenceBundle.from_profile(profile) as bundle:
         selected, skipped = _gate_scenarios(bundle, planned)
         _require_reset_source(bundle, selected)
         adapter = HttpChatAdapter.from_profile(profile)
         try:
-            if not args.json:
-                print(f"прогон {run_id}: {', '.join(s.id for s in selected)}", file=sys.stderr)
-
-            def progress(event) -> None:
-                if not args.json:
-                    print(f"[{event.stage}] {event.message}", file=sys.stderr)
-
             findings = run_campaign(
                 selected, RunnerDeps(adapter, bundle), storage, run_id,
-                modes=campaign.modes, profile_ref=campaign.profile,
-                reporter_llm=_reporter(args), business=profile.business,
-                trials=campaign.trials, on_event=progress,
+                modes=modes, profile_ref=f"{profile.name}@{profile.version}",
+                reporter_llm=reporter_llm, business=profile.business,
+                trials=trials, on_event=on_event,
             )
         finally:
             adapter.close()
-    summary = {
+    return {
         "run_id": run_id,
-        "run_dir": str(Path(args.output).expanduser().resolve() / run_id),
+        "run_dir": str(Path(output_root).expanduser().resolve() / run_id),
         "scenarios": [scenario.id for scenario in selected],
         "skipped": skipped,
         "asr_percent": findings["asr_percent"],
         "findings": len(findings["findings"]),
     }
+
+
+def _execute_campaign(args) -> int:
+    _reject_conflicting_sources(args)
+    if args.from_run:
+        raise PipelineConfigurationError(
+            "--from пока только предпросмотр: добавьте --dry-run."
+        )
+    profile = load_profile(args.profile)
+    campaign, planned, _ = _campaign_from_profile(args)
+    run_id = new_run_id()
+    if not args.json:
+        print(f"прогон {run_id}: {', '.join(s.id for s in planned)}", file=sys.stderr)
+
+    def progress(event) -> None:
+        if not args.json:
+            print(f"[{event.stage}] {event.message}", file=sys.stderr)
+
+    summary = execute_campaign(
+        profile, planned, campaign.modes, campaign.trials, args.output, run_id,
+        reporter_llm=reporter_from_config(args.config), on_event=progress,
+    )
+    skipped = summary["skipped"]
     if args.json:
         print(json.dumps({"ok": True, "run": summary}, ensure_ascii=False))
     else:
@@ -515,10 +536,10 @@ def _require_reset_source(bundle, selected) -> None:
         )
 
 
-def _reporter(args):
+def reporter_from_config(config_path):
     """Нарратив отчёта необязателен и fail-open — скелет остаётся детерминированным."""
     try:
-        roles = _role_configs(args)
+        roles = _role_configs_at(config_path)
         roles["report_writer"].validate()
         return make_llm_client(roles["report_writer"])
     except Exception:
@@ -526,14 +547,14 @@ def _reporter(args):
 
 
 def _campaign_from_profile(args):
-    profile = _load_profile(args.profile)
+    profile = load_profile(args.profile)
     specs = resolve_specs(args.scenario)
     modes = [mode.strip() for mode in (args.mode or "").split(",") if mode.strip()]
     campaign = Campaign(profile=f"{profile.name}@{profile.version}",
                         scenarios=[spec.id for spec in specs],
                         trials=args.trials, modes=modes)
-    principals = _profile_principals(profile)
-    return campaign, [spec.to_planned(principals) for spec in specs], _modes_scope(profile, modes)
+    principals = profile_principals(profile)
+    return campaign, [spec.to_planned(principals) for spec in specs], modes_scope(profile, modes)
 
 
 def _campaign_from_run(reference: str):
@@ -552,7 +573,7 @@ def _campaign_from_run(reference: str):
                         modes=list(saved.get("modes", [])))
     scope = "per_request"
     with contextlib.suppress(PipelineConfigurationError):
-        scope = _modes_scope(_load_profile(campaign.profile), campaign.modes)
+        scope = modes_scope(load_profile(campaign.profile), campaign.modes)
     return campaign, scenarios, scope
 
 
@@ -570,7 +591,7 @@ def _planned_from_saved(data: dict) -> PlannedScenario:
     )
 
 
-def _load_profile(reference: str) -> TargetProfile:
+def load_profile(reference: str) -> TargetProfile:
     """`name@version` — из реестра, иначе путь к YAML (спек §12)."""
     path = Path(reference).expanduser()
     if path.is_file():
@@ -588,7 +609,7 @@ def _load_profile(reference: str) -> TargetProfile:
     )
 
 
-def _profile_principals(profile: TargetProfile) -> dict[str, str]:
+def profile_principals(profile: TargetProfile) -> dict[str, str]:
     """Роль сценария → значение принципала, как его объявляет профиль.
 
     Атрибут принципала берётся из `identities.principal`; профиль вправе его не
@@ -605,7 +626,7 @@ def _profile_principals(profile: TargetProfile) -> dict[str, str]:
     }
 
 
-def _modes_scope(profile: TargetProfile, modes: list[str]) -> str:
+def modes_scope(profile: TargetProfile, modes: list[str]) -> str:
     """Переключение режима на передеплое меняет порядок исполнения (см. plan.py)."""
     for mode in modes:
         declared = profile.modes.get(mode)
@@ -614,7 +635,7 @@ def _modes_scope(profile: TargetProfile, modes: list[str]) -> str:
     return "per_request"
 
 
-def _preview_scenario(planned) -> dict:
+def preview_scenario(planned) -> dict:
     return {
         "id": planned.id,
         "attack_class": planned.attack_class,
@@ -700,7 +721,7 @@ def _profile(args) -> int:
             print("\n".join(f"{name}@{version}" for name, version in rows) or "профилей нет")
         return 0
     if args.profile_command == "diff":
-        difference = profile_diff(_load_profile(args.left), _load_profile(args.right))
+        difference = profile_diff(load_profile(args.left), load_profile(args.right))
         if args.json:
             print(json.dumps({"ok": True, "diff": difference}, ensure_ascii=False))
         else:
@@ -710,13 +731,13 @@ def _profile(args) -> int:
         return _profile_init(args)
     if args.profile_command in ("check", "verify"):
         return _calibrate(args, check if args.profile_command == "check" else verify)
-    profile = _load_profile(args.profile)
+    profile = load_profile(args.profile)
     if args.profile_command == "show":
-        surface = _surface(profile)
+        surface = surface_of(profile)
         print(json.dumps({"ok": True, "profile": surface}, ensure_ascii=False)
               if args.json else _render_surface(surface))
         return 0
-    rows, available = _coverage(profile, args.scenario)
+    rows, available = coverage_of(profile, args.scenario)
     if args.json:
         print(json.dumps({"ok": True, "available_kinds": sorted(available), "coverage": rows},
                          ensure_ascii=False))
@@ -842,7 +863,7 @@ def _draft_header(name: str, hypotheses: list[str]) -> str:
 
 def _calibrate(args, calibrator) -> int:
     """Обёртка над 3.7: `check` ничего не меняет, `verify` — намеренно меняет."""
-    profile = _load_profile(args.profile)
+    profile = load_profile(args.profile)
     changes_state = calibrator is verify
     if changes_state and not args.json:
         print("verify меняет состояние цели: очищает память и пишет пробные маркеры.")
@@ -863,7 +884,7 @@ def _calibrate(args, calibrator) -> int:
     return 0 if ok else EXIT_PREFLIGHT
 
 
-def _surface(profile: TargetProfile) -> dict:
+def surface_of(profile: TargetProfile) -> dict:
     return {
         "name": profile.name,
         "version": profile.version,
@@ -892,7 +913,7 @@ def _available_kinds(profile: TargetProfile) -> set[str]:
     return kinds
 
 
-def _coverage(profile: TargetProfile, refs: list[str]) -> tuple[list[dict], set[str]]:
+def coverage_of(profile: TargetProfile, refs: list[str]) -> tuple[list[dict], set[str]]:
     """US-04: сценарий без своего источника не даст state-вердикт — сказать это заранее."""
     available = _available_kinds(profile)
     rows = []

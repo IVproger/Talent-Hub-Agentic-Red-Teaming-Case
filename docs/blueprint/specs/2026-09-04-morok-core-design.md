@@ -624,6 +624,7 @@ payload'ы генерируются **один раз списком** (этап
 |---|---|---|
 | E2 карта поверхности → threat-model артефакт (`surface.json`) | surface-map | profile.surface + calibrate |
 | E3/E4 шаблоны + composer + генерация списка payload'ов | attack-generation | Scenario + assertions |
+| **E7 технический отчёт** | [technical-report](2026-09-05-e7-technical-report-design.md) ✅ описан | findings + transcript |
 | E6 база знаний | knowledge-base | runs/ + storage |
 | E8 регрессия | regression | profile.diff + сравнение прогонов |
 | E9 бизнес-отчёт | business-report | profile.business + findings |

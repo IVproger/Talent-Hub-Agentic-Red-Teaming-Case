@@ -20,6 +20,7 @@ import yaml
 
 from . import config as runtime_config
 from .client import AgentApiClient, mint_key
+from .errors import PipelineConfigurationError
 from .llm import (
     LLMClient,
     LLMRequestError,
@@ -45,10 +46,6 @@ from .tracer import StateTracer
 REPO_ROOT = Path(__file__).resolve().parents[1]
 DEFAULT_RUNS_ROOT = REPO_ROOT / "runs"
 GENERATED_BAC_SCENARIO_ID = "generated-bac"
-
-
-class PipelineConfigurationError(ValueError):
-    pass
 
 
 class PipelineRunError(RuntimeError):

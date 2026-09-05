@@ -34,7 +34,7 @@
 
 **Пайплайн работает end-to-end на фейках:** `run_campaign(scenarios, deps, storage)` → перебирает `PlannedScenario` → `run_scenario` → агрегирует → пишет `findings.json` + `report.md` + `status.json`. Осталось заменить фейки на реальные `adapter`/`evidence` и подать реальные `PlannedScenario` (из composer/registry).
 
-### oushtt — готово (Фаза 0)
+### oushtt — готово (16 из 16 задач)
 - `adapters/base.py` (2.1), `evidence/base.py` (3.1), `profile/schema.py` (1.1), `errors.py`
 - фикстуры: `tests/data/profile_stand.yaml`, `profile_dvaa.yaml`
 - **1.2:** файловый `ProfileRegistry` (`list/load/save`), неизменяемые версии,
@@ -65,7 +65,18 @@
   (проба с очисткой): видимость проверяется через реальный метод памяти цели,
   объявленный в `read.config.visibility`, а не ответ LLM или метку `scope`.
 
-Тесты: 299 (1 пре-существующий фейл `stand.observability`).
+- **6.1:** LLM-роли `attack_generator/report_writer/analyst`; модель цели —
+  `entrypoint.target_model` bootstrap-профиля, ссылка `target.profile` в config.
+  Старые pipeline/doctor/UI адаптированы к отдельной модели цели; сохранённый
+  config прогона содержит отдельный `target_model`, только три роли в `llm`.
+  Для программного legacy RunConfig без ссылки на профиль оставлен прежний
+  default Ollama; `stand sync` всегда требует явный профиль.
+- **6.4:** `stand sync` обозначен в модуле и README как отдельная настройка
+  нашего стенда. Bootstrap составлен вручную; OpenAPI необязателен.
+  При удалении старого `target_runtime.py` нужно сохранить используемые
+  `stand_sync` проверки модели в модуле bootstrap (задача 4.4).
+
+Тесты: 304 (1 пре-существующий фейл `stand.observability`).
 
 ## Контракты стыковки (ВАЖНО — согласовать)
 
@@ -109,7 +120,7 @@ RunnerDeps(adapter, evidence, id_factory=None, now=None, telemetry=None)
 `tool_principal_equals`, `memory_write`, `isolation_violation`, `cross_session_effect`,
 `external_callback`, `response_contains`. Их и должен генерить composer (E3/E4).
 
-## Блокировано — ждёт oushtt
+## Интеграция — зависимости oushtt готовы
 
 | Задача (dseredkin) | Нужен код oushtt |
 |---|---|
@@ -123,14 +134,16 @@ RunnerDeps(adapter, evidence, id_factory=None, now=None, telemetry=None)
 
 Готово и разблокировано: 1.2 registry, 1.3 diff, 2.2–2.4 адаптер и личности,
 3.2 `db_query`, 3.3 `log_regex` (вызовы инструментов — первичный источник),
-3.4 `http_canary`, 3.5 `trace`, 3.6 `bundle`, 3.7 `calibrate`. **S2/S3/S4 закрыты,
-пайплайн собран end-to-end на реальных компонентах.**
+3.4 `http_canary`, 3.5 `trace`, 3.6 `bundle`, 3.7 `calibrate`, 6.1 роли, 6.4 bootstrap.
+**S2/S3/S4 закрыты, пайплайн собран end-to-end на реальных компонентах.**
 
 ## Следующие шаги
 
 1. ~~Источник `PlannedScenario`~~ — готово: `campaign/scenarios.py` + каталог `scenarios/v2/`.
 2. ~~CLI-предпросмотр~~ — готово: `run --profile … --dry-run` (US-16).
-3. ~~Свести bundle к seam~~ — готово, имена совпали без шима.
+3. ~~Свести bundle к seam~~ — готово (§контракты 1): bundle экспонирует
+   `mark`/`collect_facts`→`Facts`/`reset` и сам нормализует `Observation`
+   провайдеров. Имена совпали, шим не понадобился.
 4. ~~Собрать реальный `RunnerDeps`~~ — готово, `run --profile` исполняется.
 5. ~~`profile check/verify`~~ — готово.
 6. **Прогнать по живому стенду** — единственное, что осталось проверить руками:
@@ -147,6 +160,16 @@ RunnerDeps(adapter, evidence, id_factory=None, now=None, telemetry=None)
   Нужен для `profile coverage`; переезжает в 3.6.
 - Каталог `agentic_redteam/scenarios/v2/` схлопывается в `scenarios/`, когда
   старый `scenario.py` уйдёт при big-bang.
+- При удалении `target_runtime.py` (4.4) сохранить проверки модели, которыми
+  пользуется `stand_sync` — перенести в модуль bootstrap.
+
+### Границы проверки oushtt
+
+Полный набор из 272 тестов зелёный. Canary проверен реальными HTTP-запросами
+к локальному серверу; Mongo, Docker, Langfuse, OTLP и целевой HTTP-адаптер —
+через управляемые fake transport/runner/readers. Live E2E на стенде и платные
+LLM-запросы не запускались; до заявления о подтверждённой уязвимости нужны
+калибровка источников и реальный прогон после CLI wiring.
 
 ## Расхождения со спеком (решить)
 

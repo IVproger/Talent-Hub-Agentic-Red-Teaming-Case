@@ -5,6 +5,8 @@ import stat
 import subprocess
 import tempfile
 import unittest
+
+import yaml
 from pathlib import Path
 
 from agentic_redteam.stand_sync import StandSyncError, _render_updated_env, sync_stand
@@ -35,12 +37,15 @@ class StandSyncTests(unittest.TestCase):
         )
         self.config = self.root / "target.yaml"
         self.config.write_text(
-            "target:\n  compose_file: stand/docker-compose.yml\n"
-            "llm:\n  target_agent:\n    provider: openrouter\n"
-            "    model: z-ai/glm-5.3-flash\n"
-            "    base_url: https://openrouter.ai/api/v1\n",
+            "target:\n  compose_file: stand/docker-compose.yml\n  profile: profile.yaml\n",
             encoding="utf-8",
         )
+        profile = yaml.safe_load(
+            (Path(__file__).resolve().parents[1] / "profiles/genai-invest-stand/1.0.0.yaml").read_text()
+        )
+        profile["entrypoint"]["target_model"]["model"] = "z-ai/glm-5.3-flash"
+        self.profile = self.root / "profile.yaml"
+        self.profile.write_text(yaml.safe_dump(profile), encoding="utf-8")
 
     def tearDown(self):
         self.temporary.cleanup()
@@ -56,6 +61,40 @@ class StandSyncTests(unittest.TestCase):
         self.assertEqual({item.key for item in result.changes}, {
             "OPENAI_BASE_URL", "RESEARCH_MODEL", "SUMMARIZATION_MODEL"
         })
+
+    def test_model_comes_from_profile_even_when_engine_uses_another_provider(self):
+        self.config.write_text(self.config.read_text() + "llm:\n  analyst: {provider: ollama, model: other}\n")
+        result = sync_stand(self.config, dry_run=True)
+        changes = {change.key: change.new for change in result.changes}
+        self.assertEqual(changes["RESEARCH_MODEL"], "openai:z-ai/glm-5.3-flash")
+
+    def test_missing_profile_reference_fails_before_writing(self):
+        before = self.env_file.read_bytes()
+        self.config.write_text("target:\n  compose_file: stand/docker-compose.yml\n")
+        with self.assertRaisesRegex(StandSyncError, "target.profile"):
+            sync_stand(self.config)
+        self.assertEqual(self.env_file.read_bytes(), before)
+
+    def test_missing_or_invalid_profile_fails_before_writing(self):
+        before = self.env_file.read_bytes()
+        for contents in (None, "[broken", "entrypoint: {}"):
+            with self.subTest(contents=contents):
+                if contents is None:
+                    self.profile.unlink()
+                else:
+                    self.profile.write_text(contents)
+                with self.assertRaises(StandSyncError):
+                    sync_stand(self.config)
+                self.assertEqual(self.env_file.read_bytes(), before)
+
+    def test_invalid_target_model_does_not_fall_back_to_defaults(self):
+        raw = yaml.safe_load(self.profile.read_text())
+        for model in ({}, {"model": "example", "secret": "forbidden"}, {"model": None}):
+            with self.subTest(model=model):
+                raw["entrypoint"]["target_model"] = model
+                self.profile.write_text(yaml.safe_dump(raw))
+                with self.assertRaises(StandSyncError):
+                    sync_stand(self.config, dry_run=True)
 
     def test_sync_preserves_secret_comments_permissions_and_is_idempotent(self):
         os.chmod(self.env_file, 0o640)

@@ -39,6 +39,7 @@ from .observability import (
 from .run_storage import RunStorage
 from .scenario import Scenario, ScenarioRunner, load_bundled_scenario
 from .state import MemorySnapshot, ScenarioTrace, StepTrace
+from .stand_bootstrap import target_model_from_config
 from .target_runtime import TargetRuntime
 from .tracer import StateTracer
 
@@ -65,6 +66,7 @@ class RunConfig:
     victim_cus: str | None = None
     auth_mode: str | None = None
     llm_roles: Mapping[str, LLMRoleConfig] | None = None
+    target_model: LLMRoleConfig | None = None
     verify_target_model: bool = True
     target_compose_file: Path | None = None
     scenario_id: str = GENERATED_BAC_SCENARIO_ID
@@ -228,9 +230,11 @@ def load_effective_config(config: RunConfig) -> dict:
         raise PipelineConfigurationError(
             "target.endpoint must not contain a query string or fragment."
         )
-    if llm_roles["target_agent"].normalized().temperature != 0:
+    target_model = config.target_model or target_model_from_config(raw, config.target_config)
+    target_model.validate(require_credentials=False)
+    if target_model.normalized().temperature != 0:
         raise PipelineConfigurationError(
-            "target_agent.temperature is not supported by the current stand; use 0."
+            "entrypoint.target_model.temperature is not supported by the current stand; use 0."
         )
     try:
         observability = langfuse_config_from_mapping(raw.get("observability"))
@@ -254,6 +258,7 @@ def load_effective_config(config: RunConfig) -> dict:
         "scenario": scenario,
         "scenario_id": config.scenario_id,
         "llm_roles": llm_roles,
+        "target_model": target_model,
         "target_endpoint": endpoint.rstrip("/"),
         "target_compose_file": str(compose_file),
         "observability": observability,
@@ -270,6 +275,7 @@ def load_effective_config(config: RunConfig) -> dict:
             "verify_target_model": config.verify_target_model,
             "target_endpoint": endpoint.rstrip("/"),
             "target_compose_file": str(compose_file),
+            "target_model": target_model.safe_dict(),
             "llm": {role: value.safe_dict() for role, value in llm_roles.items()},
             "observability": {"langfuse": observability.safe_dict()},
         },
@@ -288,7 +294,7 @@ def run_pipeline(
     # Validate and verify before creating run artifacts or making a paid generation call.
     runtime = deps.target_runtime or TargetRuntime(effective["target_compose_file"])
     if config.verify_target_model:
-        runtime.assert_matches(roles["target_agent"])
+        runtime.assert_matches(effective["target_model"])
     if effective["scenario"] is not None:
         return _run_bundled_scenario_pipeline(
             config,
@@ -381,7 +387,7 @@ def run_pipeline(
             ),
             effective["attacker_cus"],
             effective["target_endpoint"],
-            timeout=roles["target_agent"].normalized().timeout,
+            timeout=effective["target_model"].normalized().timeout,
             telemetry=telemetry,
         )
         total = len(payloads)
@@ -602,7 +608,7 @@ def _run_bundled_scenario_pipeline(
                 ),
                 cus,
                 effective["target_endpoint"],
-                timeout=roles["target_agent"].normalized().timeout,
+                timeout=effective["target_model"].normalized().timeout,
                 telemetry=telemetry,
             )
 

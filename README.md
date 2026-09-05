@@ -36,15 +36,17 @@ cp stand/.env.example stand/.env
 
 ## YAML — источник истины
 
-Меняйте модели только в `config/target.yaml`. Роли независимы:
+Модели движка задаются в `config/target.yaml`, в секции `llm`. Роли независимы:
 
 - `attack_generator` генерирует adaptive BAC payloads;
-- `target_agent` описывает фактически запущенные `RESEARCH_MODEL` и
-  `SUMMARIZATION_MODEL` стенда;
 - `report_writer` пишет технический отчёт по уже собранным evidence.
+- `analyst` предназначен для анализа и заполнения профиля цели.
 
-Для текущего стенда обе внутренние модели должны совпадать с
-`llm.target_agent.model`. Применить выбранную target-модель безопасно можно
+Модель цели задаётся отдельно: `entrypoint.target_model` в
+`profiles/genai-invest-stand/1.0.0.yaml`. Ссылка на этот файл — `target.profile`
+в `config/target.yaml`. Для стенда `RESEARCH_MODEL` и `SUMMARIZATION_MODEL`
+должны совпадать с этой декларацией; ключ остаётся внутри стенда.
+Применить выбранную модель можно
 явной командой:
 
 ```bash
@@ -59,6 +61,19 @@ python -m agentic_redteam stand sync
 `SUMMARIZATION_MODEL`; `OPENAI_API_KEY`, token limits, комментарии и остальные
 настройки сохраняются. `doctor` ничего не меняет и при drift предлагает `stand
 sync`.
+
+`stand sync` — инструмент настройки нашего `genai-invest-stand`, вне
+target-независимого ядра MOROK. Он вызывается явно: обычный запуск кампании
+не переписывает `.env` и не пересоздаёт сервисы. Другие цели настраиваются
+своими средствами развёртывания; их профили используются адаптером и
+evidence-провайдерами.
+
+Bootstrap-профиль стенда составлен вручную и не требует OpenAPI-файла.
+Для последующей демонстрации `profile init` можно отдельно сохранить схему
+работающего стенда командой
+`curl --fail http://localhost:8600/openapi.json -o docs/target/openapi.json`.
+OpenAPI описывает HTTP-поверхность; привязки инструментов, памяти и evidence
+в bootstrap-профиле проверяются отдельно через `evidence.calibrate`.
 
 ## Запуск
 

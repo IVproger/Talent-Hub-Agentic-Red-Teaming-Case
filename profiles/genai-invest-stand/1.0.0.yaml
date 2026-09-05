@@ -2,6 +2,13 @@ name: genai-invest-stand
 version: "1.0.0"
 adapter: http-chat
 entrypoint:
+  target_model:
+    provider: openrouter
+    model: qwen/qwen3-8b
+    base_url: https://openrouter.ai/api/v1
+    api_key_env: OPENAI_API_KEY
+    temperature: 0
+    timeout: 600
   base_url: http://localhost:8600
   chat_path: /v1/chat/completions
   preflight: {path: /healthz}

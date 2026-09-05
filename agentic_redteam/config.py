@@ -1,4 +1,9 @@
-"""Runtime configuration, all overridable via environment variables."""
+"""Legacy stand runtime defaults, overridable via environment variables.
+
+Engine LLM roles live in llm.py; the stand model is declared by the bootstrap
+profile's entrypoint.target_model. These defaults serve the legacy pipeline
+until its replacement and must not be imported into target-independent core.
+"""
 import os
 from pathlib import Path
 

@@ -16,7 +16,7 @@ from dataclasses import asdict, dataclass
 from typing import Callable, Mapping, Protocol
 
 
-ROLE_NAMES = ("attack_generator", "target_agent", "report_writer")
+ROLE_NAMES = ("attack_generator", "report_writer", "analyst")
 PROVIDERS = ("ollama", "openrouter")
 SECRET_TOKEN_PATTERN = re.compile(
     r"(?<![A-Za-z0-9_])sk-[A-Za-z0-9_-]{12,}(?![A-Za-z0-9_-])"
@@ -186,6 +186,9 @@ def validate_role_configs(
     *,
     credential_roles: tuple[str, ...] = ("attack_generator", "report_writer"),
 ) -> None:
+    unknown = set(configs) - set(ROLE_NAMES)
+    if unknown:
+        raise LLMConfigurationError(f"Unknown LLM roles: {', '.join(sorted(unknown))}.")
     missing = [role for role in ROLE_NAMES if role not in configs]
     if missing:
         raise LLMConfigurationError(f"Missing LLM roles: {', '.join(missing)}.")

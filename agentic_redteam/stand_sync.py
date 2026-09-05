@@ -1,4 +1,10 @@
-"""Synchronize the target stand model settings from the canonical target YAML."""
+"""Bootstrap tooling for the bundled stand, outside target-independent core.
+
+Synchronizes only this stand's managed model settings in stand/.env using
+target.profile → entrypoint.target_model. This is an explicit administration
+command; generic adapters, evidence providers and campaign execution do not
+invoke it. Other targets are configured through their own deployment tooling.
+"""
 from __future__ import annotations
 
 import os
@@ -12,7 +18,8 @@ from typing import Callable, Mapping
 
 import yaml
 
-from .llm import LLMConfigurationError, role_configs_from_mapping
+from .errors import PipelineConfigurationError
+from .stand_bootstrap import target_model_from_config
 from .target_runtime import TargetRuntime, expected_target_settings
 
 
@@ -62,7 +69,7 @@ def sync_stand(
     runner: Runner | None = None,
     target_runtime: TargetRuntime | None = None,
 ) -> StandSyncResult:
-    """Apply ``llm.target_agent`` to the stand's three managed env settings."""
+    """Apply the bootstrap profile model to the stand's three env settings."""
     config_path = Path(target_config).expanduser().resolve()
     raw = _load_yaml(config_path)
     target = raw.get("target")
@@ -83,12 +90,11 @@ def sync_stand(
         raise StandSyncError(f"Compose file does not exist: {compose_file}")
 
     try:
-        roles = role_configs_from_mapping(raw.get("llm"))
-        selected = roles["target_agent"]
+        selected = target_model_from_config(raw, config_path, require_profile=True)
         selected.validate(require_credentials=False)
         base_url, model = expected_target_settings(selected)
-    except (KeyError, LLMConfigurationError, ValueError) as exc:
-        raise StandSyncError(f"Invalid llm.target_agent configuration: {exc}") from exc
+    except (OSError, PipelineConfigurationError, ValueError) as exc:
+        raise StandSyncError(f"Invalid profile target model configuration: {exc}") from exc
     expected = {
         "OPENAI_BASE_URL": base_url,
         "RESEARCH_MODEL": model,

@@ -9,7 +9,7 @@ from unittest.mock import patch
 from datetime import UTC, datetime
 from pathlib import Path
 
-from agentic_redteam.llm import LLMRequestError, default_role_configs
+from agentic_redteam.llm import LLMRoleConfig, LLMRequestError, default_role_configs
 from agentic_redteam.pipeline import (
     PipelineConfigurationError,
     PipelineDependencies,
@@ -291,7 +291,7 @@ class PipelineTests(unittest.TestCase):
         roles["attack_generator"] = roles["attack_generator"].__class__(
             provider="openrouter", model="openai/attack"
         )
-        roles["target_agent"] = roles["target_agent"].__class__(
+        target_model = LLMRoleConfig(
             provider="ollama", model="target-model"
         )
         roles["report_writer"] = roles["report_writer"].__class__(
@@ -309,7 +309,7 @@ class PipelineTests(unittest.TestCase):
         with patch.dict("os.environ", {"OPENROUTER_API_KEY": "sentinel"}), patch(
             "agentic_redteam.pipeline.make_llm_client", side_effect=factory
         ):
-            run_pipeline(self.config(llm_roles=roles), dependencies=deps)
+            run_pipeline(self.config(llm_roles=roles, target_model=target_model), dependencies=deps)
         self.assertEqual(created, ["openai/attack", "openai/report"])
         self.assertEqual(deps.target_runtime.calls[0].model, "target-model")
 
@@ -381,9 +381,9 @@ attack:
 
     def test_target_temperature_is_rejected_instead_of_ignored(self):
         roles = default_role_configs()
-        roles["target_agent"] = roles["target_agent"].__class__(temperature=0.5)
+        target_model = LLMRoleConfig(temperature=0.5)
         with self.assertRaisesRegex(PipelineConfigurationError, "temperature"):
-            run_pipeline(self.config(llm_roles=roles), dependencies=self.dependencies())
+            run_pipeline(self.config(llm_roles=roles, target_model=target_model), dependencies=self.dependencies())
 
     def test_redactor_preserves_words_and_removes_authorization_values(self):
         text = (

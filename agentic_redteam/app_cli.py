@@ -27,6 +27,7 @@ from .stand_bootstrap import target_model_from_config
 from .doctor import checks_ok, run_checks
 from .evidence.bundle import EvidenceBundle
 from .evidence.calibrate import check, verify
+from .observability import LangfuseTelemetry, langfuse_config_from_mapping
 from .llm import (
     LLMConfigurationError,
     LLMRequestError,
@@ -313,7 +314,7 @@ def new_run_id() -> str:
 
 
 def execute_campaign(profile, planned, modes, trials, output_root, run_id,
-                     reporter_llm=None, on_event=None) -> dict:
+                     reporter_llm=None, on_event=None, telemetry=None) -> dict:
     """Собрать реальные адаптер и evidence по профилю и прогнать кампанию.
 
     Общее ядро запуска: CLI и UI зовут его, а не повторяют сборку зависимостей —
@@ -326,7 +327,7 @@ def execute_campaign(profile, planned, modes, trials, output_root, run_id,
         adapter = HttpChatAdapter.from_profile(profile)
         try:
             findings = run_campaign(
-                selected, RunnerDeps(adapter, bundle), storage, run_id,
+                selected, RunnerDeps(adapter, bundle, telemetry=telemetry), storage, run_id,
                 modes=modes, profile_ref=f"{profile.name}@{profile.version}",
                 reporter_llm=reporter_llm, business=profile.business,
                 trials=trials, on_event=on_event,
@@ -362,6 +363,7 @@ def _execute_campaign(args) -> int:
     summary = execute_campaign(
         profile, planned, campaign.modes, campaign.trials, args.output, run_id,
         reporter_llm=reporter_from_config(args.config), on_event=progress,
+        telemetry=telemetry_from_config(args.config),
     )
     skipped = summary["skipped"]
     if args.json:
@@ -404,6 +406,15 @@ def _require_reset_source(bundle, selected) -> None:
             + ", ".join(needing)
             + ". Добавьте reset-провайдер или возьмите сценарии с reset_policy: none."
         )
+
+
+def telemetry_from_config(config_path):
+    """Наблюдаемость прогона fail-open: не поднялась — идём без неё."""
+    try:
+        raw = yaml.safe_load(Path(config_path).read_text(encoding="utf-8")) or {}
+        return LangfuseTelemetry(langfuse_config_from_mapping(raw.get("observability")))
+    except Exception:
+        return None
 
 
 def reporter_from_config(config_path):
@@ -460,7 +471,7 @@ def new_run_id() -> str:
 
 
 def execute_campaign(profile, planned, modes, trials, output_root, run_id,
-                     reporter_llm=None, on_event=None) -> dict:
+                     reporter_llm=None, on_event=None, telemetry=None) -> dict:
     """Собрать реальные адаптер и evidence по профилю и прогнать кампанию.
 
     Общее ядро запуска: CLI и UI зовут его, а не повторяют сборку зависимостей —
@@ -473,7 +484,7 @@ def execute_campaign(profile, planned, modes, trials, output_root, run_id,
         adapter = HttpChatAdapter.from_profile(profile)
         try:
             findings = run_campaign(
-                selected, RunnerDeps(adapter, bundle), storage, run_id,
+                selected, RunnerDeps(adapter, bundle, telemetry=telemetry), storage, run_id,
                 modes=modes, profile_ref=f"{profile.name}@{profile.version}",
                 reporter_llm=reporter_llm, business=profile.business,
                 trials=trials, on_event=on_event,
@@ -509,6 +520,7 @@ def _execute_campaign(args) -> int:
     summary = execute_campaign(
         profile, planned, campaign.modes, campaign.trials, args.output, run_id,
         reporter_llm=reporter_from_config(args.config), on_event=progress,
+        telemetry=telemetry_from_config(args.config),
     )
     skipped = summary["skipped"]
     if args.json:
@@ -551,6 +563,15 @@ def _require_reset_source(bundle, selected) -> None:
             + ", ".join(needing)
             + ". Добавьте reset-провайдер или возьмите сценарии с reset_policy: none."
         )
+
+
+def telemetry_from_config(config_path):
+    """Наблюдаемость прогона fail-open: не поднялась — идём без неё."""
+    try:
+        raw = yaml.safe_load(Path(config_path).read_text(encoding="utf-8")) or {}
+        return LangfuseTelemetry(langfuse_config_from_mapping(raw.get("observability")))
+    except Exception:
+        return None
 
 
 def reporter_from_config(config_path):

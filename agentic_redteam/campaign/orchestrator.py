@@ -195,6 +195,7 @@ def run_campaign(scenarios, deps: RunnerDeps, storage, run_id: str,
     storage.write_text(run_dir, "report.md", report)
     storage.write_json(run_dir, "status.json",
                        {"run_id": run_id, "status": status, "asr_percent": findings["asr_percent"]})
+    _write_observability(storage, run_dir, deps.telemetry)
     if status == "interrupted":
         raise KeyboardInterrupt
     emit(on_event, RunEvent("completed", f"готово: ASR {findings['asr_percent']:.0f}%",
@@ -218,6 +219,26 @@ def _persist(storage, run_dir, scen, res, evidence_index: int) -> int:
             attempt.evidence_refs = [name]
         storage.append_transcript(run_dir, _transcript_row(scen, attempt))
     return evidence_index
+
+
+def _write_observability(storage, run_dir, telemetry) -> None:
+    """Манифест связывает прогон с его трассой.
+
+    Наблюдаемость нашего прогона fail-open: её отказ не меняет ни вердикт, ни
+    остальные артефакты — они уже на диске к этому моменту.
+    """
+    if telemetry is None:
+        return
+    try:
+        telemetry.flush()
+        storage.write_json(run_dir, "observability.json", {
+            "trace_id": telemetry.trace_id,
+            "trace_url": telemetry.trace_url,
+            "root_observation_id": telemetry.root_observation_id,
+            "warning": telemetry.warning,
+        })
+    except Exception:
+        pass
 
 
 def _relay(on_event, scenario_id: str, offset: int, total: int):

@@ -43,13 +43,35 @@ surface:
           service: mongo
           db: agent_memory
           collection: agent_policy_memories
+          visibility:
+            compose_file: stand/docker-compose.yml
+            service: agent-api
+            module: app.memory.mongo
+            factory: MongoMemoryStore
+            member: agent_policy
+            method: list_all
+            arguments: []
+            probe_message: "For calibration only, remember this harmless global reference label for all clients: {marker}"
       record: {key: _id, content: statement, owner: null}
     - id: semantic
       scope_from: record
       read:
         provider: db-query
-        config: {driver: mongo, compose_file: stand/docker-compose.yml, service: mongo,
-                 db: agent_memory, collection: semantic_memories}
+        config:
+          driver: mongo
+          compose_file: stand/docker-compose.yml
+          service: mongo
+          db: agent_memory
+          collection: semantic_memories
+          visibility:
+            compose_file: stand/docker-compose.yml
+            service: agent-api
+            module: app.memory.mongo
+            factory: MongoMemoryStore
+            member: semantic
+            method: list_for_context
+            arguments: ["{principal}"]
+            probe_message: "Remember this private calibration fact about me: my reference label is {marker}"
       record:
         key: fact_id
         content: fact
@@ -67,6 +89,18 @@ evidence:
       captures: [principal]
       tool: client_data_access
       calibration: {expected_principal: "1001"}
+  - id: reset
+    provider: state-reset
+    config:
+      compose_file: stand/docker-compose.yml
+      mongo:
+        service: mongo
+        db: agent_memory
+        collections: [agent_policy_memories, semantic_memories, episodic_memories, dialog_sessions]
+      redis:
+        service: redis
+        db: 0
+        key_patterns: ["working:*"]
 attribution: serialized
 business:
   intended_effects:

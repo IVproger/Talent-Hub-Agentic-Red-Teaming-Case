@@ -3,6 +3,8 @@ from __future__ import annotations
 
 import unittest
 
+from agentic_redteam.adapters.base import Principal
+
 from agentic_redteam.campaign.runner import RunnerDeps, ScenarioStep, run_scenario
 from agentic_redteam.normalize.facts import Facts, ObservedToolCall
 from tests.fakes import FakeEvidenceSource
@@ -11,6 +13,7 @@ from tests.fakes import FakeEvidenceSource
 class RecordingSession:
     def __init__(self, log, role, session_id, reply):
         self._log, self.role, self.session_id, self._reply = log, role, session_id, reply
+        self.principal = Principal("user", {"attacker": "1001", "victim": "1002"}[role])
 
     def send(self, message: str) -> str:
         self._log.append(("send", self.role, self.session_id, message))
@@ -45,7 +48,7 @@ def facts_with(principal):
 class ChainExecutionTests(unittest.TestCase):
     def _run(self, goal, adapter=None, facts=None, steps=CHAIN):
         adapter = adapter or RecordingAdapter()
-        evidence = FakeEvidenceSource([facts or facts_with("1003")])
+        evidence = FakeEvidenceSource([Facts() for _ in steps[:-1]] + [facts or facts_with("1003")])
         result = run_scenario(["ОТРАВА"], goal, actor="1002",
                               deps=RunnerDeps(adapter, evidence),
                               steps=steps, run_id="r1")

@@ -27,12 +27,12 @@
   упрётся в `indirect` или в отсутствие источника.
 - **Цепочки шагов:** `ScenarioStep` в runner, `PlannedScenario.steps`.
   Многошаговая атака (внедрение → финализация → активация другой ролью) —
-  одна попытка с одним сбросом и одним окном evidence.
+  одна попытка с одним сбросом и отдельным окном evidence на каждый шаг.
 - **Отчёт:** этап цепочки выводится из сработавшего предиката, находка несёт
   роли/режим/выборку, условия воспроизведения покрывают все сценарии,
   ограничения собираются детерминированно.
 
-**Пайплайн работает end-to-end на фейках:** `run_campaign(scenarios, deps, storage)` → перебирает `PlannedScenario` → `run_scenario` → агрегирует → пишет `findings.json` + `report.md` + `status.json`. Осталось заменить фейки на реальные `adapter`/`evidence` и подать реальные `PlannedScenario` (из composer/registry).
+**Пайплайн собран:** `run_campaign(scenarios, deps, storage)` → перебирает `PlannedScenario` → `run_scenario` → агрегирует → пишет `findings.json` + `report.md` + `status.json`. CLI уже подключает реальные adapter/evidence и PlannedScenario; результаты живых проверок — ниже.
 
 ### oushtt — готово (16 из 16 задач)
 - `adapters/base.py` (2.1), `evidence/base.py` (3.1), `profile/schema.py` (1.1), `errors.py`
@@ -94,6 +94,13 @@ Bundle реализует `mark`/`collect_facts`/`reset`, а также `mark_al
 как алиасы. Оба варианта используют непрозрачный одноразовый `Marker`.
 `capabilities()`/`supports(goal)` доступны для preflight-гейта.
 
+**Обновление атрибуции:** runner вызывает `mark → действие → collect_facts`
+на **каждом шаге**, включая finalize. Новый `StepEvidence` содержит фактический
+`session.principal.value`, session_id, facts и raw observations. Протоколы Facts,
+TargetAdapter и EvidenceBundle не изменены. FakeEvidenceSource теперь должен
+давать по одному Facts на шаг, а не на всю попытку. Подробности и живой прогон:
+[step-attribution-2026-09-05](step-attribution-2026-09-05.md).
+
 ### 2. Runner ↔ adapter (уже совпадает)
 
 Runner использует замороженный `TargetAdapter` (2.1):
@@ -146,8 +153,9 @@ RunnerDeps(adapter, evidence, id_factory=None, now=None, telemetry=None)
    провайдеров. Имена совпали, шим не понадобился.
 4. ~~Собрать реальный `RunnerDeps`~~ — готово, `run --profile` исполняется.
 5. ~~`profile check/verify`~~ — готово.
-6. **Прогнать по живому стенду** — единственное, что осталось проверить руками:
-   поднять стенд, `profile check`, затем `run --profile … --trials 3`.
+6. **Живой стенд:** `profile check/verify` и BAC в двух режимах прошли;
+   [протокол проверки](live-validation-2026-09-05.md).
+   Многошаговые сценарии и UI требуют отдельного живого прогона.
 7. **Big-bang** (4.4): удалить `client.py`/`tracer.py`/`state.py`/`scorers.py`/
    `target_runtime.py`/`pipeline.py`, схлопнуть `scenarios/v2/` в `scenarios/`,
    перенести ценные тест-кейсы.
@@ -165,11 +173,13 @@ RunnerDeps(adapter, evidence, id_factory=None, now=None, telemetry=None)
 
 ### Границы проверки oushtt
 
-Полный набор из 272 тестов зелёный. Canary проверен реальными HTTP-запросами
-к локальному серверу; Mongo, Docker, Langfuse, OTLP и целевой HTTP-адаптер —
-через управляемые fake transport/runner/readers. Live E2E на стенде и платные
-LLM-запросы не запускались; до заявления о подтверждённой уязвимости нужны
-калибровка источников и реальный прогон после CLI wiring.
+Полный набор из 318 тестов зелёный. На живом стенде проверены HTTP-адаптер,
+mint, Mongo, log-regex, reset, `profile check/verify` и BAC-кампания в двух режимах.
+Модель цели — OpenRouter `qwen/qwen3-8b`; запросы к ней реально выполнялись.
+Canary ранее проверен локальным HTTP; Langfuse/OTLP проверены через fake readers.
+Исправлен обнаруженный пробел: runner сохраняет независимую копию facts/raw
+observations каждой попытки, orchestration пишет `evidence-NNNN.json`,
+transcript и находки ссылаются на соответствующий файл.
 
 ## Расхождения со спеком (решить)
 
@@ -183,3 +193,6 @@ LLM-запросы не запускались; до заявления о по�
   ни в `verdict()` нет признака «необязательный». Сейчас предикат обязателен.
 - **`reset_policy: per_step`** каталогом не используется и в runner не реализован
   (сброс идёт раз на попытку).
+- **Атрибуция многошаговых цепочек — исправлено:** отдельное окно и principal
+  каждого шага; `at/activate` выбирает только нужное evidence. 318 тестов зелёные.
+  Живой прогон `poison-to-tool-chain` — следующий этап проверки.

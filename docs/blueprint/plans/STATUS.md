@@ -58,7 +58,7 @@
 - **3.5:** `TraceProvider`, `LangfuseReader` (Observations API v2/v1), `OtelJsonReader`;
   параметры и корреляция описаны в [evidence integration](oushtt-evidence-integration.md).
 
-Тесты: 261 (1 пре-существующий фейл `stand.observability`).
+Тесты: 267 (1 пре-существующий фейл `stand.observability`).
 
 ## Контракты стыковки (ВАЖНО — согласовать)
 
@@ -112,7 +112,8 @@ RunnerDeps(adapter, evidence, id_factory=None, now=None, telemetry=None)
 
 Готово и разблокировано: 1.2 registry, 1.3 diff, 2.2–2.4 адаптер и личности,
 3.2 `db_query`, 3.3 `log_regex` (вызовы инструментов — первичный источник),
-3.4 `http_canary`. Адресация `--profile name@version` уже поверх реестра.
+3.4 `http_canary`, 3.5 `trace` (Langfuse/OTLP). Адресация `--profile name@version`
+уже поверх реестра. **Все провайдеры S4 на месте — не хватает только бандла.**
 
 ## Следующие шаги
 

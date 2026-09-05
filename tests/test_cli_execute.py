@@ -125,6 +125,21 @@ class ExecuteCampaignTests(unittest.TestCase):
         self.assertEqual(payload["run"]["scenarios"], ["system-prompt-leak"])
         self.assertIn("bac-tool-argument", " ".join(payload["run"]["skipped"]))
 
+    def test_memory_commit_step_without_the_feature_is_refused_up_front(self):
+        """Иначе фича, которой нет, сделала бы error каждой попытки, а не отказ."""
+        bundle = Bundle([hit()] * 8)
+        code, out, _ = run_cli(
+            ["run", "--profile", PROFILE, "--scenario", "poison-to-tool-chain",
+             "--mode", "vulnerable", "--output", self.out, "--json"], bundle)
+        self.assertEqual(code, 2)
+        error = json.loads(out)["error"]
+        self.assertIn("poison-to-tool-chain", error)
+        self.assertIn("commit_memory", error)
+
+    def test_scenario_without_a_commit_step_runs_without_the_feature(self):
+        code, out, _, _ = self._run()
+        self.assertEqual(code, 0, out)
+
     def test_reset_without_a_source_is_refused_before_the_target_is_touched(self):
         bundle = Bundle([hit()] * 8, capabilities=("tool_calls", "memory_snapshot"))
         code, out, _, adapter = self._run(bundle=bundle)

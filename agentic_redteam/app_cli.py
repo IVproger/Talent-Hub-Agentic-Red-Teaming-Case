@@ -17,6 +17,7 @@ import yaml
 
 from . import __version__
 from .assertions.registry import required_kinds
+from .adapters.base import AdapterFeature
 from .adapters.http_chat import HttpChatAdapter
 from .campaign.orchestrator import PlannedScenario, run_campaign
 from .reporting.technical import add_narrative, build_skeleton
@@ -326,6 +327,7 @@ def execute_campaign(profile, planned, modes, trials, output_root, run_id,
         _require_reset_source(bundle, selected)
         adapter = HttpChatAdapter.from_profile(profile)
         try:
+            _require_adapter_features(adapter, selected)
             findings = run_campaign(
                 selected, RunnerDeps(adapter, bundle, telemetry=telemetry), storage, run_id,
                 modes=modes, profile_ref=f"{profile.name}@{profile.version}",
@@ -394,6 +396,20 @@ def _gate_scenarios(bundle, planned) -> tuple[list, list[str]]:
             "Ни один сценарий не покрыт источниками профиля — " + "; ".join(skipped)
         )
     return selected, skipped
+
+
+def _require_adapter_features(adapter, selected) -> None:
+    """Шаг фиксации памяти на цели без этой фичи сделал бы error каждой попытки."""
+    if AdapterFeature.MEMORY_COMMIT in getattr(adapter, "features", frozenset()):
+        return
+    needing = [scenario.id for scenario in selected
+               if any(step.commit_memory for step in scenario.steps)]
+    if needing:
+        raise PipelineConfigurationError(
+            "Цель не объявляет commit_memory, а сценарии требуют фиксации памяти: "
+            + ", ".join(needing)
+            + ". Возьмите сценарии без шага commit_memory или объявите entrypoint.commit_memory."
+        )
 
 
 def _require_reset_source(bundle, selected) -> None:
@@ -483,6 +499,7 @@ def execute_campaign(profile, planned, modes, trials, output_root, run_id,
         _require_reset_source(bundle, selected)
         adapter = HttpChatAdapter.from_profile(profile)
         try:
+            _require_adapter_features(adapter, selected)
             findings = run_campaign(
                 selected, RunnerDeps(adapter, bundle, telemetry=telemetry), storage, run_id,
                 modes=modes, profile_ref=f"{profile.name}@{profile.version}",
@@ -551,6 +568,20 @@ def _gate_scenarios(bundle, planned) -> tuple[list, list[str]]:
             "Ни один сценарий не покрыт источниками профиля — " + "; ".join(skipped)
         )
     return selected, skipped
+
+
+def _require_adapter_features(adapter, selected) -> None:
+    """Шаг фиксации памяти на цели без этой фичи сделал бы error каждой попытки."""
+    if AdapterFeature.MEMORY_COMMIT in getattr(adapter, "features", frozenset()):
+        return
+    needing = [scenario.id for scenario in selected
+               if any(step.commit_memory for step in scenario.steps)]
+    if needing:
+        raise PipelineConfigurationError(
+            "Цель не объявляет commit_memory, а сценарии требуют фиксации памяти: "
+            + ", ".join(needing)
+            + ". Возьмите сценарии без шага commit_memory или объявите entrypoint.commit_memory."
+        )
 
 
 def _require_reset_source(bundle, selected) -> None:

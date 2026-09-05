@@ -15,7 +15,16 @@
 - **S6 (частично):** `campaign/scenarios.py` — загрузчик каталога на новом
   словаре (5.1 в новом модуле, старый `scenario.py` не тронут);
   `agentic_redteam/scenarios/v2/` — четыре встроенных сценария как данные;
-  `run --profile … --dry-run` — предпросмотр кампании (5.2, US-16).
+  `run --profile … --dry-run` — предпросмотр кампании (5.2, US-16),
+  `run --from runs/<id>` — повтор сохранённой кампании (US-29),
+  `profile list/show/diff/coverage` (5.3 без `check`/`verify`),
+  документация README/architecture (5.5).
+- **Артефакты прогона:** `campaign.json` (пишется до исполнения) и
+  `transcript.jsonl` (строка на попытку) — спек §6; `run_campaign` принимает
+  `trials` и пишет их в кампанию, поэтому повтор точный.
+- **Гейт покрытия (US-04):** `profile coverage` сверяет источники профиля с
+  `assertions/registry.required_kinds` и до прогона говорит, где вердикт
+  упрётся в `indirect` или в отсутствие источника.
 - **Цепочки шагов:** `ScenarioStep` в runner, `PlannedScenario.steps`.
   Многошаговая атака (внедрение → финализация → активация другой ролью) —
   одна попытка с одним сбросом и одним окном evidence.
@@ -47,7 +56,7 @@
 - **3.4:** `HttpCanaryProvider(config)`, `bind_addr`, `url_for(token)`, `close()`;
   callbacks возвращаются как `Observation`, преобразование в `ObservedCallback` — в bundle.
 
-Тесты: 236 (1 пре-существующий фейл `stand.observability`).
+Тесты: 261 (1 пре-существующий фейл `stand.observability`).
 
 ## Контракты стыковки (ВАЖНО — согласовать)
 
@@ -95,7 +104,8 @@ RunnerDeps(adapter, evidence, id_factory=None, now=None, telemetry=None)
 |---|---|
 | Wiring runner → реальный evidence | **3.6 bundle** (по seam выше) — последний недостающий кусок |
 | Исполнение `run --profile` (без `--dry-run`) | то же: без bundle собрать `RunnerDeps` нечем |
-| 5.3 CLI `profile check/verify` | 3.7 calibrate (S4) |
+| 5.3 CLI `profile check/verify` · `doctor` → `check` | 3.7 calibrate (S4) |
+| 5.4 порт Streamlit-UI | исполнение (bundle 3.6); экраны выбора/предпросмотра — можно раньше |
 | 4.4 удаление старого · перевод `scenario.py` | big-bang — когда новый путь заменит старый |
 
 Готово и разблокировано: 1.2 registry, 1.3 diff, 2.2–2.4 адаптер и личности,
@@ -113,8 +123,16 @@ RunnerDeps(adapter, evidence, id_factory=None, now=None, telemetry=None)
    **Это единственный оставшийся блокер исполнения.**
 4. **Собрать реальный `RunnerDeps`** в CLI: `HttpChatAdapter.from_profile(profile)`
    + bundle → снять запрет на `run --profile` без `--dry-run`.
-5. **`profile check/verify`** (5.3) поверх 3.7 calibrate.
+5. **`profile check/verify`** (5.3) и `doctor` → `check` поверх 3.7 calibrate.
 6. **Big-bang:** удалить `client.py`/`tracer.py`/`state.py`/`scorers.py`/`target_runtime.py`/`pipeline.py`, перенести ценные тест-кейсы.
+
+## Временное, что переедет
+
+- `PROVIDER_KINDS` в `app_cli.py` (имя плагина → `EvidenceKind`) — CLI как
+  composition root связывает имена, пока нет реестра провайдеров бандла (3.6).
+  Нужен для `profile coverage`; переезжает в 3.6.
+- Каталог `agentic_redteam/scenarios/v2/` схлопывается в `scenarios/`, когда
+  старый `scenario.py` уйдёт при big-bang.
 
 ## Расхождения со спеком (решить)
 

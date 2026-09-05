@@ -22,6 +22,8 @@
   bootstrap `profiles/genai-invest-stand/1.0.0.yaml`.
 - **1.3:** `profile.diff.diff(a, b)` — `tools/roles/entrypoint/memory`,
   `added/removed` как словари, `changed` с `before/after`; пустой диф — `{}`.
+- **2.2:** `Credential`, `IdentityProvider`, `StaticIdentityProvider`; runtime-секрет
+  через `identities.credential.secret_env`, шаблоны `{principal}/{role}/{secret}`.
 
 Тесты: 161 (1 пре-существующий фейл `stand.observability`).
 

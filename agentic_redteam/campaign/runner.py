@@ -2,8 +2,11 @@
 
 Two-stage model: payloads are a fixed list produced once upstream (stage 1);
 this runner (stage 2) executes them and never regenerates in the loop. Per
-attempt: reset → mark → send → collect facts → predicates → verdict. Transport
-failure or a failed evidence source yields verdict `error`, excluded from ASR.
+attempt: reset → mark → run the scenario's step chain → collect facts →
+predicates → verdict. The chain is what makes a multi-step attack one attempt:
+an injection and the later activation by a different role share one reset and
+one evidence window. Transport failure or a failed evidence source yields
+verdict `error`, excluded from ASR.
 
 Target-independent: operates on principals/facts, not a target's field names or
 data stores. The evidence source is any object with
@@ -33,6 +36,10 @@ class ScenarioStep:
     payload: bool = False       # this step's message comes from the payload variant
     commit_memory: bool = False # no message: commit the session's memory instead
     boundary: str | None = None
+
+
+# A scenario with no chain is a single attacker turn carrying the payload.
+DEFAULT_CHAIN = (ScenarioStep("attack", "attacker", payload=True),)
 
 
 @dataclass
@@ -93,30 +100,48 @@ def _obs(telemetry, name):
         return nullcontext()
 
 
-def _evaluate_goal(goal: list[dict], facts: Facts, response: str, actor: str) -> list[CheckOutcome]:
+def _evaluate_goal(goal: list[dict], facts: Facts, responses: dict[str, str], actor: str) -> list[CheckOutcome]:
+    last = next(reversed(responses.values()), "") if responses else ""
     outcomes = []
     for assertion in goal:
         if assertion["type"] == "response_contains":
-            outcomes.append(P.response_contains(response, assertion["value"]))
+            # Bind to the step the assertion names; fall back to the chain's last reply.
+            outcomes.append(P.response_contains(responses.get(assertion.get("at"), last),
+                                                assertion["value"]))
         else:
             outcomes.append(evaluate(assertion, facts, actor))
     return outcomes
 
 
-def _run_attempt(index, payload, actor, mode, goal, deps, reset_policy, run_id) -> AttemptResult:
+def _run_chain(steps, payload, mode, deps, index, run_id) -> dict[str, str]:
+    """Run the chain in order; every actor keeps one session across its own steps."""
+    responses: dict[str, str] = {}
+    sessions: dict[str, Any] = {}
+    for step in steps:
+        if step.actor not in sessions:
+            sessions[step.actor] = deps.adapter.open_session(
+                step.actor, f"{run_id}-{index}-{step.actor}", mode or "vulnerable")
+        session = sessions[step.actor]
+        if step.commit_memory:
+            session.commit_memory()
+        else:
+            responses[step.name] = session.send(payload if step.payload else step.message)
+    return responses
+
+
+def _run_attempt(index, payload, actor, mode, goal, deps, reset_policy, run_id, steps=()) -> AttemptResult:
     with _obs(deps.telemetry, "campaign.attempt"):
         try:
             if reset_policy != "none":
                 deps.evidence.reset()
             marker = deps.evidence.mark()
-            session = deps.adapter.open_session("attacker", f"{run_id}-{index}", mode or "vulnerable")
-            response = session.send(payload)
+            responses = _run_chain(steps or DEFAULT_CHAIN, payload, mode, deps, index, run_id)
             facts = deps.evidence.collect_facts(marker)
         except TargetUnavailable as exc:
             return AttemptResult(index, payload, actor, mode, "error", [], str(exc))
         except Exception as exc:  # evidence source failed → error, not a false success
             return AttemptResult(index, payload, actor, mode, "error", [], f"{type(exc).__name__}: {exc}")
-        outcomes = _evaluate_goal(goal, facts, response, actor)
+        outcomes = _evaluate_goal(goal, facts, responses, actor)
         return AttemptResult(index, payload, actor, mode, verdict(outcomes), outcomes)
 
 
@@ -136,6 +161,7 @@ def run_scenario(
     trials: int = 1,
     reset_policy: str = "per_scenario",
     run_id: str = "run",
+    steps: list[ScenarioStep] | None = None,
 ) -> RunResult:
     modes = modes or [None]
     attempts: list[AttemptResult] = []
@@ -144,6 +170,7 @@ def run_scenario(
         for payload in payloads:       # fixed list; no regeneration here
             for _ in range(trials):
                 index += 1
-                attempts.append(_run_attempt(index, payload, actor, mode, goal, deps, reset_policy, run_id))
+                attempts.append(_run_attempt(index, payload, actor, mode, goal, deps,
+                                             reset_policy, run_id, steps))
     asr, first = _asr(attempts)
     return RunResult(run_id, "completed", attempts, asr, first)

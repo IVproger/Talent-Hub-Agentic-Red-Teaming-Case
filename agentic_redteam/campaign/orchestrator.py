@@ -86,7 +86,7 @@ def run_campaign(scenarios, deps: RunnerDeps, storage, run_id: str,
     for scen in scenarios:
         res = run_scenario(scen.payloads, scen.goal, scen.actor, deps,
                            modes=modes, reset_policy=scen.reset_policy,
-                           run_id=f"{run_id}-{scen.id}")
+                           run_id=f"{run_id}-{scen.id}", steps=scen.steps)
         scenario_results.append((scen, res))
     findings = build_findings(run_id, profile_ref, modes, scenario_results, business)
     storage.write_json(run_dir, "findings.json", findings)

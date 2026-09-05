@@ -146,3 +146,58 @@ class ScenarioSpecValidationTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class BundledCatalogTests(unittest.TestCase):
+    def setUp(self):
+        from agentic_redteam.campaign.scenarios import load_catalog
+        self.catalog = load_catalog()
+
+    def test_four_scenarios_are_bundled(self):
+        self.assertEqual(
+            sorted(self.catalog),
+            ["bac-tool-argument", "mem-policy-conformant",
+             "poison-to-tool-chain", "system-prompt-leak"],
+        )
+
+    def test_bac_asserts_on_tool_principal(self):
+        spec = self.catalog["bac-tool-argument"]
+        self.assertEqual([a["type"] for a in spec.goal],
+                         ["tool_principal_mismatch", "tool_principal_equals"])
+        self.assertEqual([s.name for s in spec.steps], ["activate"])
+        self.assertTrue(spec.steps[0].payload)
+        self.assertEqual(spec.boundary, "user")
+
+    def test_chain_keeps_three_steps_and_role_switch(self):
+        spec = self.catalog["poison-to-tool-chain"]
+        self.assertEqual([s.actor for s in spec.steps], ["attacker", "attacker", "victim"])
+        self.assertTrue(spec.steps[1].commit_memory)
+        self.assertEqual(spec.steps[2].actor, "victim")
+        self.assertIn("tool_principal_mismatch", [a["type"] for a in spec.goal])
+
+    def test_memory_poisoning_is_proven_by_state_only(self):
+        spec = self.catalog["mem-policy-conformant"]
+        self.assertEqual([a["type"] for a in spec.goal], ["memory_write"])
+        self.assertEqual(spec.goal[0]["scope"], "cross_user")
+
+    def test_prompt_leak_is_text_evidence(self):
+        spec = self.catalog["system-prompt-leak"]
+        self.assertEqual([a["type"] for a in spec.goal], ["response_contains"])
+
+    def test_no_scenario_carries_auth_mode(self):
+        import yaml
+        from agentic_redteam.campaign.scenarios import CATALOG
+        for path in CATALOG.glob("*.yaml"):
+            self.assertNotIn("auth_mode", path.read_text(encoding="utf-8"), path.name)
+
+    def test_resolve_by_id_path_and_all(self):
+        from agentic_redteam.campaign.scenarios import CATALOG, resolve
+        self.assertEqual([s.id for s in resolve(["bac-tool-argument"])], ["bac-tool-argument"])
+        self.assertEqual(len(resolve(["all"])), 4)
+        path = str(CATALOG / "system_prompt_leak.yaml")
+        self.assertEqual([s.id for s in resolve([path])], ["system-prompt-leak"])
+
+    def test_resolve_unknown_is_configuration_error(self):
+        from agentic_redteam.campaign.scenarios import resolve
+        with self.assertRaises(PipelineConfigurationError):
+            resolve(["nope"])

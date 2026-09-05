@@ -12,6 +12,8 @@ from pathlib import Path
 import yaml
 
 from . import __version__
+from .campaign.plan import Campaign, execution_order
+from .campaign.scenarios import resolve as resolve_specs
 from .doctor import checks_ok, run_checks
 from .llm import (
     LLMConfigurationError,
@@ -31,6 +33,7 @@ from .pipeline import (
     run_pipeline,
     sanitize_error,
 )
+from .profile.schema import TargetProfile
 from .scenario import Scenario, bundled_scenarios
 from .stand_sync import StandSyncError, sync_stand
 from .target_runtime import TargetConfigurationError
@@ -79,6 +82,14 @@ def build_parser() -> argparse.ArgumentParser:
 
     run = commands.add_parser("run", help="запустить генерируемые или встроенные сценарии безопасности")
     _add_config_path(run)
+    run.add_argument(
+        "--profile",
+        help="профиль цели: путь к YAML (адресация name@version — с реестром профилей)",
+    )
+    run.add_argument(
+        "--mode",
+        help="режимы кампании через запятую, например vulnerable,protected (только с --profile)",
+    )
     run.add_argument(
         "--scenario",
         action="append",
@@ -261,6 +272,8 @@ def _doctor(args) -> int:
 def _run_scenarios(args) -> int:
     if args.trials < 1:
         raise PipelineConfigurationError("--trials должен быть не меньше 1.")
+    if args.profile:
+        return _preview_campaign(args)
     scenario_ids = _resolve_scenario_ids(args.scenario)
     roles = _role_configs(args)
     context_overrides = {}
@@ -321,6 +334,147 @@ def _run_scenarios(args) -> int:
                 f"ASR {result.asr_percent:.0f}% · {result.run_dir}"
             )
     return 0
+
+
+def _preview_campaign(args) -> int:
+    """US-16: собрать кампанию из профиля и показать план с payload'ами.
+
+    Предпросмотр не трогает цель, поэтому адаптер здесь не нужен: профиль даёт
+    состав и принципалы ролей, каталог — цепочки шагов и payload'ы.
+    """
+    if not args.dry_run:
+        raise PipelineConfigurationError(
+            "Запуск по профилю пока доступен только с --dry-run: адаптер цели ещё не подключён."
+        )
+    profile = _load_profile(args.profile)
+    specs = resolve_specs(args.scenario)
+    modes = [mode.strip() for mode in (args.mode or "").split(",") if mode.strip()]
+    campaign = Campaign(
+        profile=f"{profile.name}@{profile.version}",
+        scenarios=[spec.id for spec in specs],
+        trials=args.trials,
+        modes=modes,
+    )
+    scope = _modes_scope(profile, modes)
+    principals = _profile_principals(profile)
+    payload = {
+        "ok": True,
+        "dry_run": True,
+        "campaign": asdict(campaign),
+        "modes_scope": scope,
+        "execution_order": [
+            {"mode": mode, "scenario": scenario}
+            for mode, scenario in execution_order(campaign, scope)
+        ],
+        "scenarios": [_preview_scenario(spec.to_planned(principals)) for spec in specs],
+    }
+    if args.json:
+        print(json.dumps(payload, ensure_ascii=False))
+    else:
+        print(_render_preview(payload))
+    return 0
+
+
+def _load_profile(reference: str) -> TargetProfile:
+    path = Path(reference).expanduser()
+    if not path.is_file():
+        raise PipelineConfigurationError(
+            f"Профиль не найден: {reference}. "
+            "Адресация name@version появится вместе с реестром профилей."
+        )
+    return TargetProfile.load(path)
+
+
+def _profile_principals(profile: TargetProfile) -> dict[str, str]:
+    """Роль сценария → значение принципала, как его объявляет профиль.
+
+    Атрибут принципала берётся из `identities.principal`; профиль вправе его не
+    дублировать, и тогда его называет первая граница изоляции.
+    """
+    attribute = (profile.identities.get("principal") or {}).get("attribute")
+    if not attribute and profile.isolation:
+        attribute = profile.isolation[0].principal_attr
+    roles = profile.identities.get("roles") or {}
+    return {
+        role: str(values[attribute])
+        for role, values in roles.items()
+        if isinstance(values, Mapping) and attribute in values
+    }
+
+
+def _modes_scope(profile: TargetProfile, modes: list[str]) -> str:
+    """Переключение режима на передеплое меняет порядок исполнения (см. plan.py)."""
+    for mode in modes:
+        declared = profile.modes.get(mode)
+        if isinstance(declared, Mapping) and declared.get("scope"):
+            return str(declared["scope"])
+    return "per_request"
+
+
+def _preview_scenario(planned) -> dict:
+    return {
+        "id": planned.id,
+        "attack_class": planned.attack_class,
+        "standard_refs": planned.standard_refs,
+        "actor": planned.actor,
+        "boundary": planned.boundary,
+        "reset_policy": planned.reset_policy,
+        "steps": [
+            {"name": step.name, "actor": step.actor,
+             "kind": _step_kind(step), "message": step.message}
+            for step in planned.steps
+        ],
+        "payloads": planned.payloads,
+        "goal": planned.goal,
+    }
+
+
+def _step_kind(step) -> str:
+    if step.payload:
+        return "payload"
+    if step.commit_memory:
+        return "commit_memory"
+    return "message"
+
+
+def _render_preview(payload: dict) -> str:
+    campaign = payload["campaign"]
+    lines = [
+        f"Кампания: профиль {campaign['profile']} · сценариев {len(campaign['scenarios'])}"
+        f" · прогонов на payload {campaign['trials']}"
+        f" · режимы {', '.join(campaign['modes']) or '—'}",
+        f"Порядок исполнения (scope={payload['modes_scope']}):",
+    ]
+    lines += [
+        f"  {index}. {item['mode'] or '—'} · {item['scenario']}"
+        for index, item in enumerate(payload["execution_order"], start=1)
+    ]
+    for scenario in payload["scenarios"]:
+        lines += [
+            "",
+            f"Сценарий {scenario['id']} · {scenario['attack_class']}"
+            f" · {', '.join(scenario['standard_refs']) or '—'}",
+            f"  актор {scenario['actor']} · граница {scenario['boundary'] or '—'}"
+            f" · reset {scenario['reset_policy']}",
+            "  Шаги:",
+        ]
+        for index, step in enumerate(scenario["steps"], start=1):
+            body = {"payload": "← payload", "commit_memory": "← фиксация памяти"}.get(
+                step["kind"], step["message"] or ""
+            )
+            lines.append(f"    {index}. {step['name']} [{step['actor']}] {body}")
+        lines.append("  Payload'ы:")
+        lines += [f"    [{index}] {text}" for index, text in
+                  enumerate(scenario["payloads"], start=1)]
+        lines.append("  Цель:")
+        lines += [f"    - {_render_assertion(item)}" for item in scenario["goal"]]
+    lines += ["", "dry-run: цель не затрагивалась; будет выполнено ровно показанное."]
+    return "\n".join(lines)
+
+
+def _render_assertion(assertion: dict) -> str:
+    rest = " ".join(f"{key}={value}" for key, value in assertion.items() if key != "type")
+    return f"{assertion['type']} {rest}".strip()
 
 
 def _resolve_scenario_ids(values: list[str]) -> list[str]:

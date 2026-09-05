@@ -1,4 +1,10 @@
-"""Synchronize the target stand model settings from the canonical target YAML."""
+"""Bootstrap tooling for the bundled stand, outside target-independent core.
+
+Synchronizes only this stand's managed model settings in stand/.env using
+target.profile → entrypoint.target_model. This is an explicit administration
+command; generic adapters, evidence providers and campaign execution do not
+invoke it. Other targets are configured through their own deployment tooling.
+"""
 from __future__ import annotations
 
 import os

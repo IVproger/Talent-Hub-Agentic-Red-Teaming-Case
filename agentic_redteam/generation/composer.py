@@ -9,6 +9,9 @@ from .template import Template
 
 # Имя evidence-провайдера → EvidenceKind, который он даёт. Пока провайдеры не
 # несут собственного реестра (переедет в bundle 3.6), связываем здесь.
+# Имя плагина-провайдера → вид evidence. Единственное определение: CLI как
+# composition root импортирует его отсюда. Переезжает в реестр провайдеров
+# бандла (3.6), когда тот появится.
 PROVIDER_KINDS = {
     "log-regex": "tool_calls",
     "trace": "tool_calls",

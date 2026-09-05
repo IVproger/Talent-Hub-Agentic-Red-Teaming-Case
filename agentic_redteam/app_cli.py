@@ -28,6 +28,7 @@ from .stand_bootstrap import target_model_from_config
 from .doctor import checks_ok, run_checks
 from .evidence.bundle import EvidenceBundle
 from .evidence.calibrate import check, verify
+from .generation.composer import PROVIDER_KINDS
 from .generation.generator import generate
 from .knowledge.store import STATUSES, KnowledgeStore, UnknownStatus
 from .knowledge.query import context_for
@@ -705,14 +706,6 @@ def _render_assertion(assertion: dict) -> str:
 
 # Имя плагина-провайдера → источник, который он даёт. Переедет в реестр
 # провайдеров бандла (3.6); пока имена связывает CLI как composition root.
-PROVIDER_KINDS = {
-    "log-regex": "tool_calls",
-    "trace": "tool_calls",
-    "db-query": "memory_snapshot",
-    "http-canary": "external_callback",
-}
-
-
 def _profile(args) -> int:
     if args.profile_command == "list":
         rows = ProfileRegistry(PROFILES_ROOT).list()

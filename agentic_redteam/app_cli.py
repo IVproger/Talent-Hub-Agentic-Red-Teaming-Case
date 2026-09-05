@@ -389,6 +389,14 @@ def _execute_campaign(args) -> int:
         reporter_llm=reporter_from_config(args.config), on_event=progress,
         telemetry=telemetry_from_config(args.config),
     )
+    try:
+        store = KnowledgeStore(KB_PATH)
+        try:
+            store.record_run(summary["run_dir"])
+        finally:
+            store.close()
+    except Exception:
+        pass
     skipped = summary["skipped"]
     if args.json:
         print(json.dumps({"ok": True, "run": summary}, ensure_ascii=False))
@@ -561,6 +569,14 @@ def _execute_campaign(args) -> int:
         reporter_llm=reporter_from_config(args.config), on_event=progress,
         telemetry=telemetry_from_config(args.config),
     )
+    try:
+        store = KnowledgeStore(KB_PATH)
+        try:
+            store.record_run(summary["run_dir"])
+        finally:
+            store.close()
+    except Exception:
+        pass
     skipped = summary["skipped"]
     if args.json:
         print(json.dumps({"ok": True, "run": summary}, ensure_ascii=False))
@@ -660,10 +676,15 @@ def _generate_payloads(planned, profile, n, config_path):
     """
     llm = make_llm_client(_role_configs_at(config_path)["attack_generator"])
     surface = surface_of(profile)
+    store = KnowledgeStore(KB_PATH)
+    try:
+        prior_context = context_for(store, profile.name)
+    finally:
+        store.close()
     updated = []
     for scenario in planned:
         if any(step.payload for step in scenario.steps):
-            payloads = generate(scenario, surface, n, llm)
+            payloads = generate(scenario, surface, n, llm, prior_context=prior_context)
             scenario = replace(scenario, payloads=payloads)
         updated.append(scenario)
     return updated

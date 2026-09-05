@@ -43,6 +43,28 @@ class ScenarioStep:
 DEFAULT_CHAIN = (ScenarioStep("attack", "attacker", payload=True),)
 
 
+@dataclass(frozen=True)
+class RunEvent:
+    """Progress signal. Field names match the legacy pipeline's so listeners port over."""
+
+    stage: str                  # "scenario" | "attempt" | "report" | "completed"
+    message: str
+    status: str = "running"
+    attempt: int | None = None
+    total: int | None = None
+    data: dict = field(default_factory=dict)
+
+
+def emit(on_event, event: RunEvent) -> None:
+    """Progress is observation, not evidence: a broken listener must not end a run."""
+    if on_event is None:
+        return
+    try:
+        on_event(event)
+    except Exception:
+        pass
+
+
 @dataclass
 class RunnerDeps:
     adapter: Any
@@ -245,15 +267,22 @@ def run_scenario(
     reset_policy: str = "per_scenario",
     run_id: str = "run",
     steps: list[ScenarioStep] | None = None,
+    on_event=None,
 ) -> RunResult:
     modes = modes or [None]
     attempts: list[AttemptResult] = []
+    total = len(modes) * len(payloads) * trials
     index = 0
     for mode in modes:                 # per_deployment-friendly: group by mode
         for payload in payloads:       # fixed list; no regeneration here
             for _ in range(trials):
                 index += 1
-                attempts.append(_run_attempt(index, payload, actor, mode, goal, deps,
-                                             reset_policy, run_id, steps))
+                attempt = _run_attempt(index, payload, actor, mode, goal, deps,
+                                       reset_policy, run_id, steps)
+                attempts.append(attempt)
+                emit(on_event, RunEvent(
+                    "attempt", f"попытка {index}/{total}: {attempt.verdict}",
+                    attempt=index, total=total,
+                    data={"verdict": attempt.verdict, "mode": mode, "error": attempt.error}))
     asr, first = _asr(attempts)
     return RunResult(run_id, "completed", attempts, asr, first)

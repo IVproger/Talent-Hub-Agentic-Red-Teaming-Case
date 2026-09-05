@@ -452,11 +452,16 @@ def _execute_campaign(args) -> int:
         try:
             if not args.json:
                 print(f"прогон {run_id}: {', '.join(s.id for s in selected)}", file=sys.stderr)
+
+            def progress(event) -> None:
+                if not args.json:
+                    print(f"[{event.stage}] {event.message}", file=sys.stderr)
+
             findings = run_campaign(
                 selected, RunnerDeps(adapter, bundle), storage, run_id,
                 modes=campaign.modes, profile_ref=campaign.profile,
                 reporter_llm=_reporter(args), business=profile.business,
-                trials=campaign.trials,
+                trials=campaign.trials, on_event=progress,
             )
         finally:
             adapter.close()

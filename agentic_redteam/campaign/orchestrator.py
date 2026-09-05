@@ -10,8 +10,9 @@ from dataclasses import dataclass, field
 from typing import Any
 
 from ..assertions.verdict import Grade
-from ..reporting.technical import add_narrative, build_skeleton, severity_of
-from .runner import RunnerDeps, ScenarioStep, run_scenario
+from ..reporting.technical import (add_narrative, build_skeleton,
+                                   incomplete_report, severity_of)
+from .runner import RunEvent, RunnerDeps, ScenarioStep, emit, run_scenario
 
 
 @dataclass
@@ -160,33 +161,72 @@ def _transcript_row(scen, attempt) -> dict:
 
 def run_campaign(scenarios, deps: RunnerDeps, storage, run_id: str,
                  modes=None, profile_ref: str = "", reporter_llm: Any = None,
-                 business: dict | None = None, trials: int = 1) -> dict:
+                 business: dict | None = None, trials: int = 1, on_event=None) -> dict:
     run_dir = storage.create(run_id)
     storage.write_campaign(run_dir,
                            _campaign_record(run_id, profile_ref, modes, trials, scenarios))
     storage.write_json(run_dir, "status.json", {"run_id": run_id, "status": "running"})
     scenario_results = []
     evidence_index = 0
-    for scen in scenarios:
-        res = run_scenario(scen.payloads, scen.goal, scen.actor, deps,
-                           modes=modes, trials=trials, reset_policy=scen.reset_policy,
-                           run_id=f"{run_id}-{scen.id}", steps=scen.steps)
-        for attempt in res.attempts:      # appended per scenario: a crash keeps what ran
-            evidence_index += 1
-            if attempt.facts is not None:
-                name = f"evidence-{evidence_index:04d}.json"
-                storage.write_json(run_dir, name, {
-                    "scenario_id": scen.id, "attempt": attempt.attempt,
-                    "actor": attempt.actor, "mode": attempt.mode,
-                    "facts": attempt.facts, "observations": attempt.observations,
-                    "steps": attempt.steps,
-                })
-                attempt.evidence_refs = [name]
-            storage.append_transcript(run_dir, _transcript_row(scen, attempt))
-        scenario_results.append((scen, res))
+    total = sum(len(scen.payloads) * len(modes or [None]) * trials for scen in scenarios)
+    done = 0
+    status = "completed"
+    try:
+        for scen in scenarios:
+            emit(on_event, RunEvent("scenario", f"сценарий {scen.id}",
+                                    attempt=done, total=total,
+                                    data={"scenario_id": scen.id}))
+            res = run_scenario(scen.payloads, scen.goal, scen.actor, deps,
+                               modes=modes, trials=trials, reset_policy=scen.reset_policy,
+                               run_id=f"{run_id}-{scen.id}", steps=scen.steps,
+                               on_event=_relay(on_event, scen.id, done, total))
+            done += len(res.attempts)
+            evidence_index = _persist(storage, run_dir, scen, res, evidence_index)
+            scenario_results.append((scen, res))
+    except KeyboardInterrupt:
+        # US-18: собранное до остановки — сохранить, вердикт по нему не достраивать.
+        status = "interrupted"
+    emit(on_event, RunEvent("report", "собираем отчёт", attempt=done, total=total))
     findings = build_findings(run_id, profile_ref, modes, scenario_results, business)
+    findings["status"] = status
     storage.write_json(run_dir, "findings.json", findings)
-    storage.write_text(run_dir, "report.md", add_narrative(build_skeleton(findings), reporter_llm))
+    report = (incomplete_report(findings) if status == "interrupted"
+              else add_narrative(build_skeleton(findings), reporter_llm))
+    storage.write_text(run_dir, "report.md", report)
     storage.write_json(run_dir, "status.json",
-                       {"run_id": run_id, "status": "completed", "asr_percent": findings["asr_percent"]})
+                       {"run_id": run_id, "status": status, "asr_percent": findings["asr_percent"]})
+    if status == "interrupted":
+        raise KeyboardInterrupt
+    emit(on_event, RunEvent("completed", f"готово: ASR {findings['asr_percent']:.0f}%",
+                            status="completed", attempt=total, total=total,
+                            data={"asr_percent": findings["asr_percent"]}))
     return findings
+
+
+def _persist(storage, run_dir, scen, res, evidence_index: int) -> int:
+    """Артефакты пишутся посценарно: остановка оставляет то, что уже прошло."""
+    for attempt in res.attempts:
+        evidence_index += 1
+        if attempt.facts is not None:
+            name = f"evidence-{evidence_index:04d}.json"
+            storage.write_json(run_dir, name, {
+                "scenario_id": scen.id, "attempt": attempt.attempt,
+                "actor": attempt.actor, "mode": attempt.mode,
+                "facts": attempt.facts, "observations": attempt.observations,
+                "steps": attempt.steps,
+            })
+            attempt.evidence_refs = [name]
+        storage.append_transcript(run_dir, _transcript_row(scen, attempt))
+    return evidence_index
+
+
+def _relay(on_event, scenario_id: str, offset: int, total: int):
+    """Пересчитать номер попытки сценария в сквозной номер кампании."""
+    if on_event is None:
+        return None
+
+    def relay(event: RunEvent) -> None:
+        emit(on_event, RunEvent(event.stage, event.message, event.status,
+                                offset + (event.attempt or 0), total,
+                                {**event.data, "scenario_id": scenario_id}))
+    return relay

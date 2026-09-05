@@ -55,6 +55,8 @@
   проверкой целостности префикса; read-only calibration по `calibration.expected_principal`.
 - **3.4:** `HttpCanaryProvider(config)`, `bind_addr`, `url_for(token)`, `close()`;
   callbacks возвращаются как `Observation`, преобразование в `ObservedCallback` — в bundle.
+- **3.5:** `TraceProvider`, `LangfuseReader` (Observations API v2/v1), `OtelJsonReader`;
+  параметры и корреляция описаны в [evidence integration](oushtt-evidence-integration.md).
 
 Тесты: 261 (1 пре-существующий фейл `stand.observability`).
 

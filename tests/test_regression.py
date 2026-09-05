@@ -48,7 +48,7 @@ class CompareTests(unittest.TestCase):
 
     def test_smoke_passing_is_ok(self):
         after = findings(smoke=[("normal-portfolio", True)])
-        self.assertTrue(compare(findings(), after).smoke_ok)
+        self.assertTrue(compare(findings(), after).smoke_ok)  # штатный прошёл
 
     def test_mixed_verdicts_are_reported_per_attack(self):
         before = findings(asr=100.0, confirmed=[("bac", "proven"), ("poison", "proven")])
@@ -62,8 +62,28 @@ class CompareTests(unittest.TestCase):
         diff = compare(findings(), findings())
         self.assertIsInstance(diff, RegressionDiff)
         self.assertEqual(diff.per_attack, {})
-        self.assertTrue(diff.smoke_ok)
+        self.assertIsNone(diff.smoke_ok, "без штатных сценариев ответа нет")
 
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class SmokeHonestyTests(unittest.TestCase):
+    """Пустой штатный набор — это «не проверяли», а не «всё в порядке»."""
+
+    def test_no_smoke_is_not_reported_as_healthy(self):
+        diff = compare(findings(), findings(smoke=[]))
+        self.assertEqual(diff.smoke_checked, 0)
+        self.assertIsNone(diff.smoke_ok)
+
+    def test_smoke_that_ran_is_counted(self):
+        after = findings(smoke=[("normal", True), ("other", True)])
+        diff = compare(findings(), after)
+        self.assertEqual(diff.smoke_checked, 2)
+        self.assertTrue(diff.smoke_ok)
+
+    def test_failing_smoke_still_reads_false(self):
+        diff = compare(findings(), findings(smoke=[("normal", False)]))
+        self.assertFalse(diff.smoke_ok)
+        self.assertEqual(diff.smoke_checked, 1)

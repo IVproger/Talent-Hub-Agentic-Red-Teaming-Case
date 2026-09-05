@@ -1184,7 +1184,12 @@ def _regress_compare(args) -> int:
     print(f"ASR {diff.asr_before:.0f}% → {diff.asr_after:.0f}%")
     for scenario_id, state in sorted(diff.per_attack.items()):
         print(f"  {scenario_id}: {REGRESSION_RU.get(state, state)}")
-    print(f"штатный сценарий: {'в порядке' if diff.smoke_ok else 'СЛОМАН'}")
+    if diff.smoke_checked == 0:
+        print("штатный сценарий: НЕ ПРОВЕРЯЛСЯ — закрытие дыры не подтверждает, "
+              "что агент остался рабочим")
+    else:
+        print(f"штатный сценарий ({diff.smoke_checked}): "
+              f"{'в порядке' if diff.smoke_ok else 'СЛОМАН'}")
     return 0
 
 

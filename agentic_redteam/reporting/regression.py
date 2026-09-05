@@ -19,7 +19,9 @@ class RegressionDiff:
     per_attack: dict[str, str] = field(default_factory=dict)
     asr_before: float = 0.0
     asr_after: float = 0.0
-    smoke_ok: bool = True
+    # None — штатных сценариев не было: «не проверяли», а не «всё цело».
+    smoke_ok: bool | None = None
+    smoke_checked: int = 0
 
 
 def _confirmed(run: dict) -> set[str]:
@@ -33,11 +35,13 @@ def _confirmed(run: dict) -> set[str]:
 
 def compare(before: dict, after: dict) -> RegressionDiff:
     was, now = _confirmed(before), _confirmed(after)
+    smoke = after.get("smoke", [])
     per_attack = {sid: (REMAINED if sid in now else CLOSED) for sid in was}
     per_attack.update({sid: APPEARED for sid in now - was})
     return RegressionDiff(
         per_attack=per_attack,
         asr_before=float(before.get("asr_percent", 0.0)),
         asr_after=float(after.get("asr_percent", 0.0)),
-        smoke_ok=all(item.get("ok") for item in after.get("smoke", [])),
+        smoke_ok=(all(item.get("ok") for item in smoke) if smoke else None),
+        smoke_checked=len(smoke),
     )

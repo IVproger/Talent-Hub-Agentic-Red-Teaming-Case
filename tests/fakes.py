@@ -117,3 +117,25 @@ class FakeTelemetry:
         self.names.append(name)
         from contextlib import nullcontext
         return nullcontext()
+
+
+class FakeEvidenceProvider:
+    """Raw provider contract; independent of the runner-facing evidence source."""
+
+    def __init__(self, kind, observations=(), calibration=None):
+        from agentic_redteam.evidence.base import CalibrationResult
+        self.kind = kind
+        self.observations = list(observations)
+        self.calibration = calibration if calibration is not None else CalibrationResult(True)
+        self._marks = 0
+
+    def calibrate(self):
+        return self.calibration
+
+    def mark(self):
+        from agentic_redteam.evidence.base import Marker
+        self._marks += 1
+        return Marker(str(self._marks))
+
+    def collect(self, since):
+        return list(self.observations)

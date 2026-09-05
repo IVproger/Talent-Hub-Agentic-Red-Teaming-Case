@@ -679,7 +679,23 @@ def run_campaign(campaign, deps: RunnerDeps, on_event=None) -> RunResult: ...
 - [ ] **Step 4: Run → PASS.**
 - [ ] **Step 5: Commit** `feat(cli): подкоманды profile (check/verify/list/show/diff/init)`.
 
-### Task 5.4: Документация
+### Task 5.4: Порт Streamlit-UI на профиль/кампанию (`ui/app.py`)
+
+**Files:**
+- Modify: `agentic_redteam/ui/app.py`, `agentic_redteam/app_cli.py` (`serve`)
+- Test: `tests/test_ui.py` (переписать под новый поток)
+- Reference: E5-спек [`campaign-ui`](../specs/2026-09-05-e5-campaign-ui-design.md); §12 CLI.
+
+**Interfaces:**
+- Streamlit-демо поверх `run_campaign` (не `run_pipeline`): экран выбора (профиль@версия, сценарии по coverage, trials, режимы), предпросмотр (payload'ы как `--dry-run`), ход (`on_event`), результаты (outcome, evidence trace, отчёт, история `runs/`), рендер `surface.json` (US-07). Без своей логики; provider/model read-only из YAML.
+
+- [ ] **Step 1: Failing test** — `tests/test_ui.py`: UI собирает кампанию из выбранного профиля (не `cus`/`auth_mode`), зовёт `run_campaign` (замоканный), рендерит `surface.json`, показывает историю из `runs/`.
+- [ ] **Step 2: Run → FAIL.**
+- [ ] **Step 3: Implement** — убрать поля `cus`/`auth_mode` → профиль@версия + роли + режимы; экраны выбора/предпросмотра/хода/результата на новом runner; экран карты поверхности из `surface.json`; `serve` поднимает это.
+- [ ] **Step 4: Run → PASS.**
+- [ ] **Step 5: Commit** `feat(ui): Streamlit на профиль/кампанию/runner`.
+
+### Task 5.5: Документация
 
 **Files:**
 - Modify: `README.md`, `docs/architecture.md` (отразить профиль/кампанию/тиры/Langfuse-first)
@@ -691,9 +707,71 @@ def run_campaign(campaign, deps: RunnerDeps, on_event=None) -> RunResult: ...
 
 ---
 
+## Block 6 — Перенос модулей и отчёт (закрытие пробелов)
+
+Не привязанные к цели модули переносятся как есть; роли и отчёт приводятся к новому дизайну. Runner (4.3) инъектирует `telemetry`/`llm` (в тестах — фейки), поэтому эти задачи идут после него.
+
+### Task 6.1: Перенос `llm.py` и reshape ролей
+
+**Files:**
+- Modify: `agentic_redteam/llm.py` (перенос как есть — `LLMRoleConfig`/`HTTPChatClient` не target-specific), `agentic_redteam/config.py`, `config/target.yaml`
+- Test: `tests/test_llm.py` (адаптировать)
+
+**Interfaces:**
+- роли `attack_generator`, `report_writer`, `analyst`; `target_agent` **удалён** из `llm.*` (модели цели — в профиле/верификации).
+
+- [ ] **Step 1: Failing test** — `role_configs_from_mapping` принимает `attack_generator/report_writer/analyst`; не требует `target_agent`.
+- [ ] **Step 2: Run → FAIL.**
+- [ ] **Step 3: Implement** — перенос `llm.py`; правка набора ролей в `config`/`target.yaml`.
+- [ ] **Step 4: Run → PASS.**
+- [ ] **Step 5: Commit** `refactor(llm): роли attack/report/analyst, target_agent убран`.
+
+### Task 6.2: Перенос `observability.py` (Langfuse нашего прогона)
+
+**Files:**
+- Modify: `agentic_redteam/observability.py` (перенос как есть — run-telemetry, fail-open), wire в `campaign/runner.py`
+- Test: `tests/test_observability.py` (адаптировать)
+
+**Interfaces:**
+- `LangfuseTelemetry` инъектируется в runner (`deps.telemetry`); недоступность → warning в `observability.json`, вердикт не трогает. **Отдельно** от `TraceProvider` (Task 3.5, evidence-роль).
+
+- [ ] **Step 1: Failing test** — runner с `telemetry=None` работает; с фейком-сбоем → `observability.json` содержит warning, вердикт неизменен.
+- [ ] **Step 2: Run → FAIL.**
+- [ ] **Step 3: Implement** перенос + wire в runner.
+- [ ] **Step 4: Run → PASS.**
+- [ ] **Step 5: Commit** `refactor(observability): перенос run-telemetry, wire в runner`.
+
+### Task 6.3: `reporting/technical.py` — генерация отчёта
+
+**Files:**
+- Create: `agentic_redteam/reporting/technical.py`; wire в runner (после scoring) и в `morok report`
+- Test: `tests/test_reporting.py`
+- Reference: E7-спек [`technical-report`](../specs/2026-09-05-e7-technical-report-design.md) §3/§5/§6/§11.
+
+**Interfaces:**
+- `build_findings(result)`, `build_skeleton(findings, transcript, campaign)` (детерминированный `report.md`), `add_narrative(skeleton, llm)` (опц., fail-open), `incomplete_report(result)`, `severity_of(verdict, boundary, business)`.
+
+- [ ] **Step 1: Failing test** — `build_skeleton` даёт `report.md` со сводкой/метрикой/таблицей/находками/точкой компрометации/условиями воспроизведения; `severity_of("proven","user",business)` → `critical`; `incomplete_report` без LLM; `not_proven`/`error` не попадают в находки.
+- [ ] **Step 2: Run → FAIL.**
+- [ ] **Step 3: Implement** по E7 §3/§5/§6 (детерминированный скелет + опц. нарратив); wire в runner/`report`.
+- [ ] **Step 4: Run → PASS.**
+- [ ] **Step 5: Commit** `feat(reporting): детерминированный отчёт, severity, incomplete`.
+
+### Task 6.4: `stand sync` и bootstrap-профиль стенда
+
+**Files:**
+- Modify: `agentic_redteam/stand_sync.py` — пометить как **stand-bootstrap tooling вне target-agnostic ядра** (управляет `stand/.env` нашего стенда, не общий флоу)
+- Note: профиль `profiles/genai-invest-stand/1.0.0.yaml` создаётся вручную в Task 1.2 (bootstrap, `openapi.json` для него не обязателен); `openapi.json` стенда при желании сохраняется из FastAPI `/openapi.json` для демо `profile init`.
+
+- [ ] **Step 1** Зафиксировать решение: `stand sync` остаётся инструментом настройки **нашего стенда** (не ядро); в README помечено явно.
+- [ ] **Step 2** (опц.) сохранить `docs/target/openapi.json` стенда (`curl localhost:8600/openapi.json`) для демонстрации `profile init`.
+- [ ] **Step 3: Commit** `docs(stand): роль stand sync и openapi для profile init`.
+
+---
+
 ## Self-Review
 
-- **Покрытие спека:** §1 профиль → Block 1 + 5.1; §3 адаптер → Block 2; §4 evidence/тиры → Block 3; §5 нормализация/предикаты/вердикт → Block 0; §6 runner → Block 4; §12 CLI → Block 5.2 (run/doctor) + 5.3 (profile-подкоманды); §9 миграция/удаления → Block 4.4 + 5; Global Constraints → Task 0.7 (страж), 0.2 (вердикт), 4.3 Steps 6–10 (тиры, error вне ASR). Не покрыто намеренно: эпики E2/E3/E4/E6/E8/E9 — отдельные спеки (§10).
+- **Покрытие спека:** §1 профиль → Block 1 + 5.1; §3 адаптер → Block 2; §4 evidence/тиры → Block 3; §5 нормализация/предикаты/вердикт → Block 0; §6 runner → Block 4; §12 CLI → Block 5.2 (run/doctor) + 5.3 (profile-подкоманды); E5/UI (US-07/15/16/18) → Block 5.4 (Streamlit-порт); перенос llm/observability/reporting + stand sync → Block 6; §9 миграция/удаления → Block 4.4 + 5; Global Constraints → Task 0.7 (страж), 0.2 (вердикт), 4.3 Steps 6–10 (тиры, error вне ASR). Не покрыто намеренно: эпики E2/E3/E4/E6/E8/E9 — отдельные спеки (§10).
 - **Плейсхолдеры:** для механических портов даны точные ссылки на исходные строки (`client.py:29-50`, `tracer.py:36-93`, `run_storage.py`) + целевые сигнатуры + тест-кейсы; это перенос конкретного кода, не «TODO».
 - **Согласованность типов:** `Facts`/`CheckOutcome`/`Grade`/`Observation`/`Credential`/`Marker` определены один раз (0.1/0.2/3.1/2.2/3.1) и потребляются по именам ниже; `dotted`/`principal_of` переиспользуются адаптером (2.4) и bundle (3.6).
 - **Согласованность с решениями сессии:** фиксированный список payload'ов без регенерации (4.3 Step 3); память-усилитель (4.3 Step 6–8, 5.1); Langfuse основной/OTLP дополнение (3.5); профиль из артефактов, адаптер в поставке (Block 1/2 — пользователь пишет только фикстуру профиля).

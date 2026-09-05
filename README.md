@@ -122,6 +122,12 @@ python -m agentic_redteam profile diff genai-invest-stand@1.0.0 path/to/other.ya
 
 # Гейт покрытия: какие сценарии на этой цели вообще доказуемы состоянием.
 python -m agentic_redteam profile coverage --profile genai-invest-stand@1.0.0
+
+# Read-only проверка подключения и привязок источников evidence.
+python -m agentic_redteam profile check --profile genai-invest-stand@1.0.0
+
+# Проба видимости памяти. МЕНЯЕТ состояние цели: чистит память и пишет маркеры.
+python -m agentic_redteam profile verify --profile genai-invest-stand@1.0.0
 ```
 
 `coverage` сверяет источники, которые объявляет профиль, с теми, что требуют
@@ -136,9 +142,18 @@ python -m agentic_redteam profile coverage --profile genai-invest-stand@1.0.0
 python -m agentic_redteam run --profile genai-invest-stand@1.0.0 \
   --scenario all --mode vulnerable,protected --dry-run
 
+# Прогон: адаптер и evidence собираются из профиля.
+python -m agentic_redteam run --profile genai-invest-stand@1.0.0 \
+  --scenario poison-to-tool-chain --mode vulnerable,protected --trials 3
+
 # Повтор сохранённой кампании из артефакта прогона.
 python -m agentic_redteam run --from runs/<run-id> --dry-run
 ```
+
+Перед прогоном срабатывает гейт покрытия: сценарий, для которого профиль не
+объявляет нужного источника, **не запускается вовсе** и попадает в список
+пропущенных. Прогнать его было бы хуже, чем пропустить — `not_proven` от
+нехватки evidence неотличим от «атака не сработала».
 
 Сценарии нового словаря лежат в `agentic_redteam/scenarios/v2/`. Сценарий —
 это цепочка шагов (кто говорит и в каком порядке) плюс варианты payload'а,
@@ -146,9 +161,8 @@ python -m agentic_redteam run --from runs/<run-id> --dry-run
 внедрение → фиксация памяти → активация другой ролью — исполняется как **одна
 попытка**: один сброс цели, одно окно evidence.
 
-> Исполнение по профилю (`run --profile` без `--dry-run`) ещё не включено:
-> ждёт evidence-бандл, который сведёт провайдеры к одному источнику фактов.
-> Рабочий путь исполнения — команды из раздела «Запуск» выше.
+> `run --from` пока только предпросмотр (`--dry-run`). Старый путь запуска из
+> раздела «Запуск» выше остаётся рабочим и уйдёт, когда новый заменит его целиком.
 
 ## Артефакты
 

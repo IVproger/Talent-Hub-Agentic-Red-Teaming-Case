@@ -65,7 +65,7 @@
   (проба с очисткой): видимость проверяется через реальный метод памяти цели,
   объявленный в `read.config.visibility`, а не ответ LLM или метку `scope`.
 
-Тесты: 267 (1 пре-существующий фейл `stand.observability`).
+Тесты: 299 (1 пре-существующий фейл `stand.observability`).
 
 ## Контракты стыковки (ВАЖНО — согласовать)
 
@@ -113,30 +113,32 @@ RunnerDeps(adapter, evidence, id_factory=None, now=None, telemetry=None)
 
 | Задача (dseredkin) | Нужен код oushtt |
 |---|---|
-| Wiring runner → реальный evidence | **Разблокировано:** `EvidenceBundle.from_profile(profile)` готов |
-| Исполнение `run --profile` (без `--dry-run`) | **Разблокировано:** адаптер и bundle готовы для `RunnerDeps` |
-| 5.3 CLI `profile check/verify` · `doctor` → `check` | **Разблокировано:** `evidence.calibrate.check/verify` готовы |
-| 5.4 порт Streamlit-UI | ждёт исполнения по профилю (следующий шаг) |
+| Wiring runner → реальный evidence | ✅ сделано |
+| Исполнение `run --profile` | ✅ сделано: `HttpChatAdapter.from_profile` + `EvidenceBundle.from_profile` → `RunnerDeps` |
+| 5.3 CLI `profile check/verify` · `doctor --profile` | ✅ сделано поверх `evidence.calibrate` |
+| 5.4 порт Streamlit-UI | не начат (в `ui/app.py` незакоммиченная работа) |
+| 4.4 big-bang: удаление старого pipeline | не начат — новый путь заменил старый, можно приступать |
+| `run --from` с исполнением (реплей) | пока только предпросмотр |
 | 4.4 удаление старого · перевод `scenario.py` | big-bang — когда новый путь заменит старый |
 
 Готово и разблокировано: 1.2 registry, 1.3 diff, 2.2–2.4 адаптер и личности,
 3.2 `db_query`, 3.3 `log_regex` (вызовы инструментов — первичный источник),
-3.4 `http_canary`, 3.5 `trace` (Langfuse/OTLP). Адресация `--profile name@version`
-уже поверх реестра. **Все провайдеры S4 на месте — не хватает только бандла.**
+3.4 `http_canary`, 3.5 `trace`, 3.6 `bundle`, 3.7 `calibrate`. **S2/S3/S4 закрыты,
+пайплайн собран end-to-end на реальных компонентах.**
 
 ## Следующие шаги
 
 1. ~~Источник `PlannedScenario`~~ — готово: `campaign/scenarios.py` + каталог `scenarios/v2/`.
 2. ~~CLI-предпросмотр~~ — готово: `run --profile … --dry-run` (US-16).
-3. **Свести bundle к seam** (§контракты 1) — bundle 3.6 экспонирует
-   `mark`/`collect_facts`→`Facts`/`reset`, внутри нормализует `Observation`
-   провайдеров (`log_regex` → `ObservedToolCall`, `db_query` → `memdiff` →
-   `ObservedMemoryWrite`, `http_canary` → `ObservedCallback`).
-   **Это единственный оставшийся блокер исполнения.**
-4. **Собрать реальный `RunnerDeps`** в CLI: `HttpChatAdapter.from_profile(profile)`
-   + bundle → снять запрет на `run --profile` без `--dry-run`.
-5. **`profile check/verify`** (5.3) и `doctor` → `check` поверх 3.7 calibrate.
-6. **Big-bang:** удалить `client.py`/`tracer.py`/`state.py`/`scorers.py`/`target_runtime.py`/`pipeline.py`, перенести ценные тест-кейсы.
+3. ~~Свести bundle к seam~~ — готово, имена совпали без шима.
+4. ~~Собрать реальный `RunnerDeps`~~ — готово, `run --profile` исполняется.
+5. ~~`profile check/verify`~~ — готово.
+6. **Прогнать по живому стенду** — единственное, что осталось проверить руками:
+   поднять стенд, `profile check`, затем `run --profile … --trials 3`.
+7. **Big-bang** (4.4): удалить `client.py`/`tracer.py`/`state.py`/`scorers.py`/
+   `target_runtime.py`/`pipeline.py`, схлопнуть `scenarios/v2/` в `scenarios/`,
+   перенести ценные тест-кейсы.
+8. **Порт UI** (5.4) на `run_campaign`.
 
 ## Временное, что переедет
 

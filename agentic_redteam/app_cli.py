@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import argparse
+import copy
 import contextlib
 import json
 import re
@@ -30,6 +31,7 @@ from .evidence.bundle import EvidenceBundle
 from .evidence.calibrate import check, verify
 from .generation.composer import PROVIDER_KINDS, Unsupported, compose
 from .generation.coverage import coverage
+from .generation.dedup import is_duplicate
 from .generation.generator import generate
 from .generation.template import load_templates
 from .knowledge.lifecycle import advance_retests
@@ -455,6 +457,7 @@ def _preview_campaign(args) -> int:
         ],
         "scenarios": [preview_scenario(item) for item in planned],
         "coverage": prepared["metadata"].get("coverage", {}),
+        "generation": prepared["metadata"].get("generation", {}),
         "surface": build_surface(prepared["profile"]),
         "saved_plan": args.save_plan,
     }
@@ -765,9 +768,11 @@ def prepare_campaign(args):
         )
         metadata = {
             key: saved[key]
-            for key in ("coverage", "context", "limitations")
+            for key in ("coverage", "context", "generation", "limitations")
             if key in saved
         }
+        if metadata.get("generation"):
+            metadata["generation"] = _generation_for_replay(metadata["generation"])
         metadata["source_run"] = str(Path(args.from_run).resolve())
         metadata["replay_of"] = (
             Path(args.from_run).resolve().parent.name
@@ -786,6 +791,7 @@ def prepare_campaign(args):
         metadata = {
             "coverage": getattr(args, "coverage", {}),
             "context": getattr(args, "context", []),
+            "generation": getattr(args, "generation", {}),
         }
     metadata.update(profile_snapshot=to_mapping(profile), mode_scope=scope)
     _validate_plan(profile, planned, campaign)
@@ -796,6 +802,28 @@ def prepare_campaign(args):
         "scope": scope,
         "metadata": metadata,
     }
+
+
+def _generation_for_replay(generation):
+    """Mark a frozen generated set as an intentional repeat on replay."""
+    replayed = copy.deepcopy(generation)
+    total = 0
+    for scenario in replayed.get("scenarios", []):
+        variants = scenario.get("variants", [])
+        for variant in variants:
+            variant.setdefault(
+                "origin_classification", variant.get("classification", "new")
+            )
+            variant["classification"] = "repeat"
+        scenario["new"] = 0
+        scenario["repeat"] = len(variants)
+        total += len(variants)
+    replayed["source_totals"] = copy.deepcopy(
+        generation.get("source_totals", generation.get("totals", {}))
+    )
+    replayed["totals"] = {"new": 0, "repeat": total}
+    replayed["replayed"] = True
+    return replayed
 
 
 def _validate_plan(profile, planned, campaign):
@@ -916,8 +944,9 @@ def _campaign_from_profile(args):
     args.context = [
         read_document(path) for path in (args.arch, args.system_card) if path
     ]
+    args.generation = {}
     if args.generate:
-        planned = _generate_payloads(
+        planned, args.generation = _generate_payloads(
             planned, profile, args.generate, args.config, documents=args.context
         )
     if args.smoke:
@@ -947,12 +976,37 @@ def _generate_payloads(planned, profile, n, config_path, documents=None):
     finally:
         store.close()
     updated = []
+    scenario_rows = []
+    totals = {"new": 0, "repeat": 0}
+    prior_payloads = list(prior_context.get("prior_payloads", []))
     for scenario in planned:
         if any(step.payload for step in scenario.steps):
             payloads = generate(scenario, surface, n, llm, prior_context=prior_context)
             scenario = replace(scenario, payloads=payloads)
+            variants = []
+            for payload in payloads:
+                classification = (
+                    "repeat" if is_duplicate(payload, prior_payloads) else "new"
+                )
+                totals[classification] += 1
+                variants.append({
+                    "payload": payload,
+                    "classification": classification,
+                })
+            scenario_rows.append({
+                "scenario_id": scenario.id,
+                "variants": variants,
+                "new": sum(item["classification"] == "new" for item in variants),
+                "repeat": sum(item["classification"] == "repeat" for item in variants),
+            })
         updated.append(scenario)
-    return updated
+    generation = {
+        "requested_per_scenario": n,
+        "history_context": prior_context,
+        "scenarios": scenario_rows,
+        "totals": totals,
+    }
+    return updated, generation
 
 
 def _campaign_from_run(reference: str):
@@ -1080,6 +1134,15 @@ def _render_preview(payload: dict) -> str:
         f"  {index}. {item['mode'] or '—'} · {item['scenario']}"
         for index, item in enumerate(payload["execution_order"], start=1)
     ]
+    generation = payload.get("generation") or {}
+    if generation:
+        totals = generation.get("totals", {})
+        lines.append(
+            "Генерация: "
+            f"новых {totals.get('new', 0)} · повторов {totals.get('repeat', 0)} · "
+            f"контекст прошлых payload'ов "
+            f"{len(generation.get('history_context', {}).get('prior_payloads', []))}"
+        )
     for scenario in payload["scenarios"]:
         lines += [
             "",

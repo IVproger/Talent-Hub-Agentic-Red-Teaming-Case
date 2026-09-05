@@ -28,6 +28,17 @@ class GenerateDryRunTests(unittest.TestCase):
         self.assertEqual(scenario["payloads"], payloads)
         self.assertEqual(gen.call_count, 1)
 
+    def test_human_preview_shows_new_and_repeat_counts(self):
+        with patch("agentic_redteam.app_cli.generate", return_value=["новый подход"]), \
+             patch("agentic_redteam.app_cli.make_llm_client", return_value=Mock()):
+            code, out = run_cli(
+                "run", "--profile", PROFILE, "--scenario", "bac-tool-argument",
+                "--generate", "1", "--mode", "vulnerable", "--dry-run",
+            )
+        self.assertEqual(code, 0, out)
+        self.assertIn("новых 1", out)
+        self.assertIn("повторов 0", out)
+
     def test_generate_zero_is_a_usage_error(self):
         code, out = run_cli("run", "--profile", PROFILE, "--scenario", "bac-tool-argument",
                             "--generate", "0", "--dry-run", "--json")

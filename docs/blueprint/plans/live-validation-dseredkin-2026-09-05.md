@@ -63,13 +63,34 @@ export COMPOSE_PROJECT_NAME=genai-invest-agent-memory-stand
    дописывало. Теперь база приводится к тому, что даёт ingest сейчас;
    статусы находок (US-36) реиндексацию переживают.
 
-## Что осталось непроверенным
+## Дополнение: Langfuse/W3C проверены вживую
+
+Позднее в тот же день локальный Langfuse v4 был поднят с отдельными project
+keys, а `agent-api` пересоздан с теми же keys. Кампания
+`20260905-192427-e7f221` создала trace
+`8ff45f3b1396f50fbe4e3b16c1603079`, root observation
+`8d78a2ae81bf0216` и 19 наблюдений. Через public API Langfuse подтверждена
+родительская цепочка:
+
+```text
+redteam.run
+└── campaign.attempt
+    └── stand.chat
+        ├── stand.memory.read
+        ├── stand.tools.load
+        ├── stand.react.loop
+        │   ├── ChatOpenAI
+        │   └── stand.tool.portfolio_get_positions_valuation
+        └── stand.memory.append
+```
+
+Один `traceId` и реальные parent observation IDs доказывают продолжение W3C-
+контекста через HTTP-границу runner → target. Подробные команды и критерии:
+[live-langfuse-validation-2026-09-05.md](live-langfuse-validation-2026-09-05.md).
+
+## Что осталось непроверенным после дополнения
 
 - **UI против живой цели** — гонялись только его тесты.
-- **Телеметрия Langfuse** — в `stand/.env` пустые `LANGFUSE_PUBLIC_KEY` и
-  `LANGFUSE_SECRET_KEY`, поэтому трасса не писалась. Fail-open отработал
-  правильно и назвал причину в `observability.json`. Нужен ключ проекта.
-- **Сквозная трасса** (`traceparent` из адаптера) — не делалась, зона oushtt.
 - **Target-специфика в каталоге**: `bac-tool-argument` держит
   `target_principal: "1002"`, `system-prompt-leak` — `cus=1001` в `params`.
   Снимается параметризацией payload'ов из профиля (хвост мульти-таргета).

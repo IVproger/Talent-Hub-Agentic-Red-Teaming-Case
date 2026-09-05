@@ -49,6 +49,32 @@ class CampaignArtifactTests(unittest.TestCase):
         self.assertEqual([s["name"] for s in campaign["scenarios"][0]["steps"]],
                          ["inject", "activate"])
 
+    def test_generation_metadata_is_visible_in_campaign_and_findings(self):
+        root = Path(tempfile.mkdtemp())
+        generation = {
+            "requested_per_scenario": 1,
+            "history_context": {"confirmed": ["ASI03"], "ineffective": [],
+                                "prior_payloads": ["old"]},
+            "scenarios": [{"scenario_id": "chain", "variants": [
+                {"payload": "p1", "classification": "new"}
+            ], "new": 1, "repeat": 0}],
+            "totals": {"new": 1, "repeat": 0},
+        }
+        adapter = FakeAdapter({"attacker": "1001", "victim": "1002"}, ["ok"] * 4)
+        evidence = FakeEvidenceSource([
+            Facts(), Facts(tool_calls=[ObservedToolCall("get_portfolio", "1003", {}, "r")])
+        ])
+        findings = run_campaign(
+            [scenario()], RunnerDeps(adapter, evidence), RunStorage(root), "generated",
+            modes=["vulnerable"], profile_ref="stand@1.0.0",
+            metadata={"generation": generation},
+        )
+        campaign = json.loads((root / "generated/campaign.json").read_text())
+        self.assertEqual(campaign["generation"], generation)
+        self.assertEqual(findings["generation"], generation)
+        self.assertEqual(findings["diversity"]["new_payloads"], 1)
+        self.assertEqual(findings["diversity"]["repeat_payloads"], 0)
+
     def test_transcript_has_one_row_per_attempt(self):
         rows = [json.loads(line) for line in
                 (self.run_dir / "transcript.jsonl").read_text(encoding="utf-8").splitlines()]

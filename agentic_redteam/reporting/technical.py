@@ -109,7 +109,9 @@ def _diversity_section(diversity: dict) -> list[str]:
     return [
         "## Покрытие и разнообразие",
         f"Сценариев: {diversity.get('scenarios', 0)} · "
-        f"различных подходов (payload'ов): {diversity.get('payloads', 0)}.",
+        f"различных подходов (payload'ов): {diversity.get('payloads', 0)} · "
+        f"новых: {diversity.get('new_payloads', 0)} · "
+        f"повторов: {diversity.get('repeat_payloads', 0)}.",
         f"Пункты стандарта: {listed('standard_refs')}.",
         f"Классы атак: {listed('attack_classes')}.",
         f"Затронутая поверхность — инструменты: {listed('tools')}; "

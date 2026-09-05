@@ -640,6 +640,11 @@ def _coverage(profile: TargetProfile, refs: list[str]) -> tuple[list[dict], set[
     rows = []
     for spec in resolve_specs(refs):
         required = required_kinds(spec.goal)
+        # То же правило, что и в EvidenceBundle.supports: state-вердикт требует
+        # источника действий, память — только усилитель (US-04 AC2). Гейт нельзя
+        # выполнить самим бандлом: он поднимает провайдеров, а coverage read-only.
+        if any(assertion["type"] != "response_contains" for assertion in spec.goal):
+            required.add("tool_calls")
         missing = sorted(required - available)
         rows.append({
             "scenario_id": spec.id,

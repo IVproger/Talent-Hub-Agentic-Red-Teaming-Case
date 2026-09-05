@@ -89,6 +89,15 @@ class ProfileCoverageTests(unittest.TestCase):
         self.assertEqual(row["reachable"], "unobservable")
         self.assertIn("tool_calls", row["missing_kinds"])
 
+    def test_memory_goal_still_needs_an_action_source(self):
+        """US-04 AC2: память — усилитель; без источника вызовов state недостижим."""
+        code, out = run_cli("profile", "coverage", "--profile", DVAA,
+                            "--scenario", "mem-policy-conformant", "--json")
+        self.assertEqual(code, 0, out)
+        row = json.loads(out)["coverage"][0]
+        self.assertEqual(row["reachable"], "unobservable")
+        self.assertEqual(row["missing_kinds"], ["tool_calls"])
+
     def test_trace_provider_counts_as_a_tool_call_source(self):
         import tempfile
         from pathlib import Path

@@ -5,6 +5,8 @@ import json
 import sqlite3
 from pathlib import Path
 
+from .ingest import attacks_from_run
+
 ATTACK_FIELDS = (
     "id", "campaign_run_id", "profile_name", "profile_version",
     "scenario_id", "attack_class", "standard_refs", "payload", "payload_tokens",
@@ -71,3 +73,16 @@ class KnowledgeStore:
 
     def close(self) -> None:
         self._conn.close()
+
+    def record_run(self, run_dir) -> int:
+        attacks = attacks_from_run(run_dir)
+        for attack in attacks:
+            self.record(attack)
+        return len(attacks)
+
+    def rebuild_from_runs(self, runs_root) -> int:
+        total = 0
+        for run_dir in sorted(Path(runs_root).iterdir()):
+            if run_dir.is_dir() and (run_dir / "campaign.json").is_file():
+                total += self.record_run(run_dir)
+        return total

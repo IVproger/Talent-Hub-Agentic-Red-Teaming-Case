@@ -618,17 +618,20 @@ payload'ы генерируются **один раз списком** (этап
 
 ---
 
-## 10. Вне области Ядра (будущие спеки)
+## 10. Вне области Ядра — отдельные спеки (все описаны ✅)
+
+Эпики вне scope Ядра описаны отдельными спеками, реализуются после Ядра поверх его замороженных интерфейсов.
 
 | Эпик | Спек | Плагинится в |
 |---|---|---|
-| E2 карта поверхности → threat-model артефакт (`surface.json`) | surface-map | profile.surface + calibrate |
-| E3/E4 шаблоны + composer + генерация списка payload'ов | attack-generation | Scenario + assertions |
-| **E7 технический отчёт** | [technical-report](2026-09-05-e7-technical-report-design.md) ✅ описан | findings + transcript |
-| E6 база знаний | knowledge-base | runs/ + storage |
-| E8 регрессия | regression | profile.diff + сравнение прогонов |
-| E9 бизнес-отчёт | business-report | profile.business + findings |
-| E5 UI кампании | campaign-ui | runner + plan |
+| E2 карта поверхности → threat-model артефакт (`surface.json`) | [surface-map](2026-09-05-e2-surface-map-design.md) ✅ | profile.surface + calibrate |
+| E3/E4 шаблоны + composer + генерация | [attack-generation](2026-09-05-e3e4-attack-generation-design.md) ✅ | Scenario + assertions |
+| E5 настройка/UI кампании | [campaign-ui](2026-09-05-e5-campaign-ui-design.md) ✅ | runner + CLI |
+| E6 база знаний | [knowledge-base](2026-09-05-e6-knowledge-base-design.md) ✅ | runs/ + storage |
+| E7 технический отчёт | [technical-report](2026-09-05-e7-technical-report-design.md) ✅ | findings + transcript |
+| E8 регрессия | [regression](2026-09-05-e8-regression-design.md) ✅ | profile.diff + сравнение прогонов |
+| E9 бизнес-отчёт | [business-report](2026-09-05-e9-business-report-design.md) ✅ | profile.business + findings |
+| Сквозное: рамки, разнообразие, судьба находки | [crosscutting](2026-09-05-crosscutting-safety-metrics-lifecycle.md) ✅ | authorization + metrics + lifecycle |
 
 `NOT_APPLICABLE`, дедуп, транскрипт-реплей, canary как обязательный
 источник — реализуются в этих спеках, но интерфейсы под них Ядро уже

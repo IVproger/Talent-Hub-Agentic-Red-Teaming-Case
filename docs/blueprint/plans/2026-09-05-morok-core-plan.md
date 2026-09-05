@@ -652,17 +652,34 @@ def run_campaign(campaign, deps: RunnerDeps, on_event=None) -> RunResult: ...
 **Files:**
 - Modify: `agentic_redteam/app_cli.py`, `agentic_redteam/config.py`, `agentic_redteam/doctor.py`
 - Test: `tests/test_cli.py`, `tests/test_doctor.py` (адаптировать)
+- Reference: §12 спека (дерево команд и решения).
 
 **Interfaces:**
-- `run` принимает `--profile <name@version>` + состав кампании; `doctor` использует `evidence.calibrate.check`; из `config.py` удаляются target-секции (переехали в профиль).
+- `run` принимает `--profile <name@version|path.yaml>`, состав кампании флагами (`--scenario … --trials N --mode vulnerable,protected`, `--scenario all`), `--dry-run` (предпросмотр плана и payload'ов), `--from runs/<id>` (повтор сохранённой кампании); `doctor` использует `evidence.calibrate.check`; из `config.py` удаляются target-секции.
 
-- [ ] **Step 1: Failing test** — `run --profile genai-invest-stand@1.0.0 --scenario bac-tool-argument --trials 1 --dry-run` собирает кампанию из профиля и печатает план; `doctor` зовёт read-only `check`.
+- [ ] **Step 1: Failing test** — `run --profile genai-invest-stand@1.0.0 --scenario bac-tool-argument --trials 1 --dry-run` собирает кампанию из профиля и печатает план; `run --from runs/<id>` повторяет сохранённую `campaign.json`; `doctor` зовёт read-only `check`.
 - [ ] **Step 2: Run → FAIL.**
 - [ ] **Step 3: Implement** разбор `--profile`, сборку `Campaign`, вызов `run_campaign`; `doctor` → `check`; вычистить target-константы из `config.py`.
 - [ ] **Step 4: Run → PASS.**
 - [ ] **Step 5: Commit** `feat(cli): запуск по профилю и кампании`.
 
-### Task 5.3: Документация
+### Task 5.3: CLI профиль-подкоманды (`app_cli.py`)
+
+**Files:**
+- Modify: `agentic_redteam/app_cli.py`
+- Test: `tests/test_cli_profile.py`
+- Reference: §12 спека; опирается на Block 1 (registry/diff) и Block 3 (calibrate).
+
+**Interfaces:**
+- `profile check|verify|list|show|diff|coverage` — тонкие обёртки над Block 1/3 + `surface.json`; `profile init` — механика `OpenAPI → структура` (tools/args/entrypoint) + `--offline`; LLM-привязки — через analyst/ingest (может выделиться в E1-спек; здесь мехачасть + гипотезы-`TODO`).
+
+- [ ] **Step 1: Failing test** — `profile list` печатает `(name, version)`; `profile diff a@1 a@2` печатает диф; `profile check --profile a@1` зовёт read-only `check`; `profile init --openapi f.json --base-url URL --offline` пишет черновик с `tools`/`args` и привязками-`TODO`.
+- [ ] **Step 2: Run → FAIL.**
+- [ ] **Step 3: Implement** подкоманды-обёртки; `init` мехачасть (парсинг OpenAPI paths/parameters → tools/args, entrypoint из base-url); `--offline` — эвристики по именам (`cus`/`user_id`/`client_id`/`tenant` → кандидат principal, помечен гипотезой).
+- [ ] **Step 4: Run → PASS.**
+- [ ] **Step 5: Commit** `feat(cli): подкоманды profile (check/verify/list/show/diff/init)`.
+
+### Task 5.4: Документация
 
 **Files:**
 - Modify: `README.md`, `docs/architecture.md` (отразить профиль/кампанию/тиры/Langfuse-first)
@@ -676,7 +693,7 @@ def run_campaign(campaign, deps: RunnerDeps, on_event=None) -> RunResult: ...
 
 ## Self-Review
 
-- **Покрытие спека:** §1 профиль → Block 1 + 5.1; §3 адаптер → Block 2; §4 evidence/тиры → Block 3; §5 нормализация/предикаты/вердикт → Block 0; §6 runner → Block 4; §9 миграция/удаления → Block 4.4 + 5; Global Constraints → Task 0.7 (страж), 0.2 (вердикт), 4.3 Steps 6–10 (тиры, error вне ASR). Не покрыто намеренно: эпики E2/E3/E4/E6/E8/E9 — отдельные спеки (§10).
+- **Покрытие спека:** §1 профиль → Block 1 + 5.1; §3 адаптер → Block 2; §4 evidence/тиры → Block 3; §5 нормализация/предикаты/вердикт → Block 0; §6 runner → Block 4; §12 CLI → Block 5.2 (run/doctor) + 5.3 (profile-подкоманды); §9 миграция/удаления → Block 4.4 + 5; Global Constraints → Task 0.7 (страж), 0.2 (вердикт), 4.3 Steps 6–10 (тиры, error вне ASR). Не покрыто намеренно: эпики E2/E3/E4/E6/E8/E9 — отдельные спеки (§10).
 - **Плейсхолдеры:** для механических портов даны точные ссылки на исходные строки (`client.py:29-50`, `tracer.py:36-93`, `run_storage.py`) + целевые сигнатуры + тест-кейсы; это перенос конкретного кода, не «TODO».
 - **Согласованность типов:** `Facts`/`CheckOutcome`/`Grade`/`Observation`/`Credential`/`Marker` определены один раз (0.1/0.2/3.1/2.2/3.1) и потребляются по именам ниже; `dotted`/`principal_of` переиспользуются адаптером (2.4) и bundle (3.6).
 - **Согласованность с решениями сессии:** фиксированный список payload'ов без регенерации (4.3 Step 3); память-усилитель (4.3 Step 6–8, 5.1); Langfuse основной/OTLP дополнение (3.5); профиль из артефактов, адаптер в поставке (Block 1/2 — пользователь пишет только фикстуру профиля).

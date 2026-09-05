@@ -4,6 +4,31 @@
 в `Facts`. Ошибка чтения обязательного источника должна доходить до runner как
 ошибка попытки. Это отдельный путь от fail-open телеметрии нашего запуска.
 
+## Bundle (задача 3.6)
+
+`EvidenceBundle.from_profile(profile)` создаёт провайдеры секции `evidence`
+и источники `surface.memory[].read` (под id `memory:<store-id>`). В тестах доступны
+`runner=`, `readers={provider_id: reader}`, `provider_factories={name: factory}`.
+Обычный конструктор принимает `{id: provider}` или список провайдеров и опциональный
+`profile=` для `record`/`principal_from` привязок.
+
+Перед запуском CLI должен вызвать `supports(scenario.goal)`; отсутствие источника
+инструментальных действий исключает state-проверки. Цель, состоящая из tool-предикатов,
+не требует memory snapshot. Неизвестный предикат не проходит гейт.
+
+`mark()` фиксирует курсоры и снимки памяти **до** действия; `collect_facts(marker)`
+собирает события и возвращает `Facts`. Новые записи и изменения содержимого/owner/scope
+существующих ключей считаются memory writes; неизменённые записи не считаются.
+`mark_all` / `collect_all` — алиасы с тем же непрозрачным одноразовым `Marker`.
+Сырьё последней успешной сборки доступно через `last_observations` для сохранения
+артефактов runner. Окно нельзя повторно использовать после сбора или reset.
+
+`reset()` вызывает только источники `SESSION_RESET`. Отсутствие такого источника
+даёт `UnsupportedFeature`: для цели без reset следует явно выбрать `reset_policy=none`.
+Bootstrap стенда объявляет четыре коллекции памяти (без API keys) и Redis `working:*`.
+Сброс не использует `FLUSHALL`; калибровка reset-провайдера только проверяет ping.
+`close()` закрывает все ресурсы (включая canary); bundle поддерживает `with`.
+
 ## Trace (задача 3.5)
 
 `TraceProvider(config, reader=None)` принимает `backend: langfuse | otel`,

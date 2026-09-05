@@ -67,6 +67,18 @@ evidence:
       captures: [principal]
       tool: client_data_access
       calibration: {expected_principal: "1001"}
+  - id: reset
+    provider: state-reset
+    config:
+      compose_file: stand/docker-compose.yml
+      mongo:
+        service: mongo
+        db: agent_memory
+        collections: [agent_policy_memories, semantic_memories, episodic_memories, dialog_sessions]
+      redis:
+        service: redis
+        db: 0
+        key_patterns: ["working:*"]
 attribution: serialized
 business:
   intended_effects:

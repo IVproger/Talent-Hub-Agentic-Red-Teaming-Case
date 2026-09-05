@@ -48,6 +48,10 @@
   callbacks возвращаются как `Observation`, преобразование в `ObservedCallback` — в bundle.
 - **3.5:** `TraceProvider`, `LangfuseReader` (Observations API v2/v1), `OtelJsonReader`;
   параметры и корреляция описаны в [evidence integration](oushtt-evidence-integration.md).
+- **3.6:** `EvidenceBundle.from_profile(profile)` собирает провайдеры, предоставляет
+  `mark/collect_facts/reset` и алиасы `mark_all/collect_all`, нормализует наблюдения.
+  Добавлены `StateResetProvider` с явной областью очистки и JSON-file память для DVAA.
+  Отсутствие reset-провайдера требует `reset_policy=none`, а не молчаливого no-op.
 
 Тесты: 236 (1 пре-существующий фейл `stand.observability`).
 
@@ -63,7 +67,9 @@ def reset(self) -> None: ...
 ```
 **`collect_facts` возвращает уже `Facts`** (не `list[Observation]`) — то есть нормализация (Observation → Facts через `projection`/`principal_of`/`memdiff`) живёт **в bundle** (3.6), как в спеке §4.2.
 
-Спек §4.2 у bundle называет методы `mark_all()`/`collect_all()->Facts`. **Нужно выровнять имена**: либо bundle экспонирует `mark`/`collect_facts`/`reset`, либо делаем тонкий шим. Предложение — bundle реализует ровно `mark`/`collect_facts`/`reset` (плюс свои `capabilities()`/`supports()` для гейта).
+Bundle реализует `mark`/`collect_facts`/`reset`, а также `mark_all`/`collect_all`
+как алиасы. Оба варианта используют непрозрачный одноразовый `Marker`.
+`capabilities()`/`supports(goal)` доступны для preflight-гейта.
 
 ### 2. Runner ↔ adapter (уже совпадает)
 
@@ -95,8 +101,8 @@ RunnerDeps(adapter, evidence, id_factory=None, now=None, telemetry=None)
 
 | Задача (dseredkin) | Нужен код oushtt |
 |---|---|
-| Wiring runner → реальный evidence | **3.6 bundle** (по seam выше) — последний недостающий кусок |
-| Исполнение `run --profile` (без `--dry-run`) | то же: без bundle собрать `RunnerDeps` нечем |
+| Wiring runner → реальный evidence | **Разблокировано:** `EvidenceBundle.from_profile(profile)` готов |
+| Исполнение `run --profile` (без `--dry-run`) | **Разблокировано:** адаптер и bundle готовы для `RunnerDeps` |
 | 5.3 CLI `profile check/verify` | 3.7 calibrate (S4) |
 | 4.4 удаление старого · перевод `scenario.py` | big-bang — когда новый путь заменит старый |
 

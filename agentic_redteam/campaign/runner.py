@@ -206,10 +206,12 @@ def _evaluate_goal(goal, facts, steps, actor, implicit=False):
     return outcomes
 
 
-def _run_chain(steps, payload, mode, deps, index, run_id, evidence):
+def _run_chain(steps, payload, mode, deps, index, run_id, evidence, reset_policy):
     """Every role keeps its session; each step owns its mark/collect window."""
     sessions: dict[str, Any] = {}
     for step in steps:
+        if reset_policy == "per_step":
+            deps.evidence.reset()
         if step.actor not in sessions:
             sessions[step.actor] = deps.adapter.open_session(
                 step.actor, f"{run_id}-{index}-{step.actor}", mode or "vulnerable")
@@ -235,23 +237,29 @@ def _run_attempt(index, payload, actor, mode, goal, deps, reset_policy, run_id, 
         try:
             if steps:
                 validate_step_references(goal, steps)
-            if reset_policy != "none":
+            if reset_policy == "per_scenario":
                 deps.evidence.reset()
-            _run_chain(steps or DEFAULT_CHAIN, payload, mode, deps, index, run_id, evidence)
+            _run_chain(steps or DEFAULT_CHAIN, payload, mode, deps, index, run_id, evidence, reset_policy)
             facts, observations = _aggregate(evidence)
             outcomes = _evaluate_goal(goal, facts, evidence, actor, implicit=not steps)
+        except KeyboardInterrupt as exc:
+            facts, observations = _aggregate(evidence)
+            exc.attempt = AttemptResult(index, payload, actor, mode, "error", [], "Прервано пользователем",
+                facts=facts if any(s.facts is not None for s in evidence) else None,
+                observations=observations, steps=evidence)
+            raise
         except Exception as exc:  # incomplete execution/evidence is always error
             facts, observations = _aggregate(evidence)
             error = str(exc) if isinstance(exc, TargetUnavailable) else f"{type(exc).__name__}: {exc}"
             return AttemptResult(index, payload, actor, mode, "error", [], error,
                                  facts=facts if any(s.facts is not None for s in evidence) else None,
                                  observations=observations, steps=evidence)
-        return AttemptResult(index, payload, actor, mode, verdict(outcomes), outcomes,
+        return AttemptResult(index, payload, actor, mode, verdict([o for a, o in zip(goal, outcomes) if not a.get("optional", False)]), outcomes,
                              facts=facts, observations=observations, steps=evidence)
 
 
 def _asr(attempts: list[AttemptResult]) -> tuple[float, int | None]:
-    scorable = [a for a in attempts if a.verdict in ("proven", "not_proven")]
+    scorable = [a for a in attempts if a.verdict != "error"]
     asr = (sum(a.verdict == "proven" for a in scorable) / len(scorable) * 100) if scorable else 0.0
     first = next((a.attempt for a in attempts if a.verdict == "proven"), None)
     return asr, first
@@ -268,6 +276,8 @@ def run_scenario(
     run_id: str = "run",
     steps: list[ScenarioStep] | None = None,
     on_event=None,
+    on_attempt=None,
+    should_stop=None,
 ) -> RunResult:
     modes = modes or [None]
     attempts: list[AttemptResult] = []
@@ -276,10 +286,19 @@ def run_scenario(
     for mode in modes:                 # per_deployment-friendly: group by mode
         for payload in payloads:       # fixed list; no regeneration here
             for _ in range(trials):
+                if should_stop and should_stop():
+                    raise KeyboardInterrupt()
                 index += 1
-                attempt = _run_attempt(index, payload, actor, mode, goal, deps,
-                                       reset_policy, run_id, steps)
+                try:
+                    attempt = _run_attempt(index, payload, actor, mode, goal, deps,
+                                           reset_policy, run_id, steps)
+                except KeyboardInterrupt as exc:
+                    if getattr(exc, "attempt", None) is not None and on_attempt:
+                        on_attempt(exc.attempt)
+                    raise
                 attempts.append(attempt)
+                if on_attempt:
+                    on_attempt(attempt)
                 emit(on_event, RunEvent(
                     "attempt", f"попытка {index}/{total}: {attempt.verdict}",
                     attempt=index, total=total,

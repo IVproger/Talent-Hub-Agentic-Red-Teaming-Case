@@ -16,5 +16,6 @@ REQUIRED: dict[str, set[str]] = {
 def required_kinds(goal: list[dict]) -> set[str]:
     kinds: set[str] = set()
     for assertion in goal:
-        kinds |= REQUIRED.get(assertion["type"], set())
+        if not assertion.get("optional", False):
+            kinds |= REQUIRED.get(assertion["type"], set())
     return kinds

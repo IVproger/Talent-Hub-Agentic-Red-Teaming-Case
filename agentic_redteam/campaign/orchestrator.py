@@ -10,9 +10,8 @@ from dataclasses import dataclass, field
 from typing import Any
 
 from ..assertions.verdict import Grade
-from ..reporting.technical import (add_narrative, build_skeleton,
-                                   incomplete_report, severity_of)
-from .runner import RunEvent, RunnerDeps, ScenarioStep, emit, run_scenario
+from ..reporting.technical import add_narrative, build_skeleton, severity_of, remediation_for
+from .runner import RunnerDeps, ScenarioStep, RunResult, RunEvent, emit, run_scenario
 
 
 @dataclass
@@ -26,6 +25,8 @@ class PlannedScenario:
     boundary: str | None = None
     reset_policy: str = "per_scenario"
     steps: list[ScenarioStep] = field(default_factory=list)
+    expect: str = "attack_success"
+    remediation: str = ""
 
 
 # Which stage of the kill chain the predicate that fired speaks to.
@@ -46,7 +47,7 @@ def _signal(outcomes) -> str:
 def _compromise(goal, outcomes):
     """The first predicate that fired is the compromise point; goal and outcomes are parallel."""
     for assertion, outcome in zip(goal, outcomes):
-        if outcome.passed:
+        if outcome.passed and not assertion.get("optional", False):
             return assertion, outcome
     return (goal[0] if goal else {}), (outcomes[0] if outcomes else None)
 
@@ -85,7 +86,7 @@ def build_findings(run_id, profile_ref, modes, scenario_results, business=None) 
     for scen, res in scenario_results:
         best = (next((a for a in res.attempts if a.verdict == "proven"), None)
                 or next((a for a in res.attempts if a.verdict == "indirect"), None))
-        if best is None:
+        if best is None or scen.expect == "pass":
             continue
         assertion, outcome = _compromise(scen.goal, best.outcomes)
         findings.append({
@@ -102,10 +103,23 @@ def build_findings(run_id, profile_ref, modes, scenario_results, business=None) 
             "attempts_total": len(res.attempts),
             "attempts_proven": sum(a.verdict == "proven" for a in res.attempts),
             "evidence_refs": list(best.evidence_refs),
-            "remediation": "",
+            "remediation": scen.remediation or remediation_for(scen.goal),
         })
-    scorable = [a for _, a in pairs if a.verdict in ("proven", "not_proven")]
-    asr = (sum(a.verdict == "proven" for a in scorable) / len(scorable) * 100) if scorable else 0.0
+    scorable = [a for scen, a in pairs if scen.expect != "pass" and a.verdict != "error"]
+    groups = {}
+    for scen, attempt in pairs:
+        if scen.expect != "pass" and attempt.verdict != "error":
+            groups.setdefault((scen.id, attempt.mode), []).append(attempt.verdict)
+    per_mode = {}
+    for (_, mode), values in groups.items():
+        row = per_mode.setdefault(mode or "default", {"scenarios_scored": 0, "scenarios_proven": 0})
+        row["scenarios_scored"] += 1
+        row["scenarios_proven"] += "proven" in values
+    for row in per_mode.values():
+        row["asr_percent"] = 100 * row["scenarios_proven"] / row["scenarios_scored"]
+    proven_groups = sum("proven" in values for values in groups.values())
+    asr = 100 * proven_groups / len(groups) if groups else 0.0
+    attempt_asr = 100 * sum(a.verdict == "proven" for a in scorable) / len(scorable) if scorable else 0.0
     first = next((i + 1 for i, (_, a) in enumerate(pairs) if a.verdict == "proven"), None)
     table = [{
         "attempt": i + 1, "scenario_id": scen.id, "attack_class": scen.attack_class,
@@ -114,6 +128,11 @@ def build_findings(run_id, profile_ref, modes, scenario_results, business=None) 
     return {
         "run_id": run_id, "profile": profile_ref, "status": "completed",
         "modes": modes or [], "asr_percent": asr,
+        "asr_by_mode": per_mode, "scenarios_scored": len(groups),
+        "scenarios_proven": proven_groups, "attempt_asr_percent": attempt_asr,
+        "smoke": [{"scenario_id": scen.id, "mode": a.mode,
+                   "ok": a.verdict == "proven", "verdict": a.verdict}
+                  for scen, a in pairs if scen.expect == "pass"],
         "attempts_total": len(pairs), "attempts_scored": len(scorable),
         "attempts_to_first_proven": first,
         "attempts": table, "findings": findings,
@@ -161,52 +180,28 @@ def _transcript_row(scen, attempt) -> dict:
 
 def run_campaign(scenarios, deps: RunnerDeps, storage, run_id: str,
                  modes=None, profile_ref: str = "", reporter_llm: Any = None,
-                 business: dict | None = None, trials: int = 1, on_event=None) -> dict:
+                 business: dict | None = None, trials: int = 1,
+                 on_event=None, should_stop=None, metadata=None, config=None,
+                 mode_scope="per_request") -> dict:
+    """Persist every attempt before starting the next; finalize even on Ctrl+C."""
+    scenarios = list(scenarios)
     run_dir = storage.create(run_id)
-    storage.write_campaign(run_dir,
-                           _campaign_record(run_id, profile_ref, modes, trials, scenarios))
+    record = _campaign_record(run_id, profile_ref, modes, trials, scenarios)
+    record.update(metadata or {})
+    storage.write_campaign(run_dir, record)
+    storage.write_json(run_dir, "config.json", config or {})
     storage.write_json(run_dir, "status.json", {"run_id": run_id, "status": "running"})
-    scenario_results = []
+    results = {s.id: (s, RunResult(run_id, "running", [], 0.0)) for s in scenarios}
     evidence_index = 0
-    total = sum(len(scen.payloads) * len(modes or [None]) * trials for scen in scenarios)
-    done = 0
-    status = "completed"
-    try:
-        for scen in scenarios:
-            emit(on_event, RunEvent("scenario", f"сценарий {scen.id}",
-                                    attempt=done, total=total,
-                                    data={"scenario_id": scen.id}))
-            res = run_scenario(scen.payloads, scen.goal, scen.actor, deps,
-                               modes=modes, trials=trials, reset_policy=scen.reset_policy,
-                               run_id=f"{run_id}-{scen.id}", steps=scen.steps,
-                               on_event=_relay(on_event, scen.id, done, total))
-            done += len(res.attempts)
-            evidence_index = _persist(storage, run_dir, scen, res, evidence_index)
-            scenario_results.append((scen, res))
-    except KeyboardInterrupt:
-        # US-18: собранное до остановки — сохранить, вердикт по нему не достраивать.
-        status = "interrupted"
-    emit(on_event, RunEvent("report", "собираем отчёт", attempt=done, total=total))
-    findings = build_findings(run_id, profile_ref, modes, scenario_results, business)
-    findings["status"] = status
-    storage.write_json(run_dir, "findings.json", findings)
-    report = (incomplete_report(findings) if status == "interrupted"
-              else add_narrative(build_skeleton(findings), reporter_llm))
-    storage.write_text(run_dir, "report.md", report)
-    storage.write_json(run_dir, "status.json",
-                       {"run_id": run_id, "status": status, "asr_percent": findings["asr_percent"]})
-    _write_observability(storage, run_dir, deps.telemetry)
-    if status == "interrupted":
-        raise KeyboardInterrupt
-    emit(on_event, RunEvent("completed", f"готово: ASR {findings['asr_percent']:.0f}%",
-                            status="completed", attempt=total, total=total,
-                            data={"asr_percent": findings["asr_percent"]}))
-    return findings
+    status, error = "completed", None
 
+    total = sum(max(1, len(s.payloads)) * len(modes or [None]) * trials for s in scenarios)
+    def publish(stage, message, **data):
+        emit(on_event, RunEvent(stage, message, status=stage,
+             attempt=evidence_index, total=total, data=data))
 
-def _persist(storage, run_dir, scen, res, evidence_index: int) -> int:
-    """Артефакты пишутся посценарно: остановка оставляет то, что уже прошло."""
-    for attempt in res.attempts:
+    def persist(scen, attempt):
+        nonlocal evidence_index
         evidence_index += 1
         if attempt.facts is not None:
             name = f"evidence-{evidence_index:04d}.json"
@@ -218,7 +213,49 @@ def _persist(storage, run_dir, scen, res, evidence_index: int) -> int:
             })
             attempt.evidence_refs = [name]
         storage.append_transcript(run_dir, _transcript_row(scen, attempt))
-    return evidence_index
+        results[scen.id][1].attempts.append(attempt)
+        # Checkpoint human and machine artifacts too, so even process termination
+        # leaves a usable last-completed-attempt result.
+        checkpoint("running")
+        publish("attempt", f"попытка {evidence_index}/{total}: {attempt.verdict}",
+                scenario_id=scen.id, mode=attempt.mode, verdict=attempt.verdict, run_dir=str(run_dir))
+
+    def checkpoint(current_status):
+        findings = build_findings(run_id, profile_ref, modes, list(results.values()), business)
+        findings.update(status=current_status, error=error)
+        findings["coverage"] = record.get("coverage", {})
+        findings["limitations"].extend(record.get("limitations", []))
+        storage.write_json(run_dir, "findings.json", findings)
+        storage.write_text(run_dir, "report.md", build_skeleton(findings))
+        storage.write_json(run_dir, "status.json", {
+            "run_id": run_id, "status": current_status, "asr_percent": findings["asr_percent"],
+            "attempts_total": findings["attempts_total"], "error": error,
+        })
+        return findings
+
+    try:
+        checkpoint("running")
+        batches = ([(s, [m]) for m in modes for s in scenarios]
+                   if mode_scope == "per_deployment" and modes else [(s, modes) for s in scenarios])
+        for scen, selected_modes in batches:
+            publish("scenario", f"сценарий {scen.id}", scenario_id=scen.id)
+            run_scenario(scen.payloads or [""], scen.goal, scen.actor, deps,
+                         modes=selected_modes, trials=trials, reset_policy=scen.reset_policy,
+                         run_id=f"{run_id}-{scen.id}-{'-'.join(selected_modes or [])}", steps=scen.steps,
+                         on_attempt=lambda a, s=scen: persist(s, a), should_stop=should_stop)
+    except KeyboardInterrupt:
+        status, error = "interrupted", "Прервано пользователем"
+    except Exception as exc:
+        status, error = "failed", f"{type(exc).__name__}: {exc}"
+    publish("report", "Собираем отчёт")
+    findings = checkpoint(status)
+    if status == "completed":
+        storage.write_text(run_dir, "report.md", add_narrative(build_skeleton(findings), reporter_llm))
+    _write_observability(storage, run_dir, deps.telemetry)
+    publish(status, f"{status}: ASR {findings['asr_percent']:.0f}%", run_id=run_id, run_dir=str(run_dir))
+    if status == "interrupted":
+        raise KeyboardInterrupt
+    return findings
 
 
 def _write_observability(storage, run_dir, telemetry) -> None:

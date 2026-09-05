@@ -7,6 +7,7 @@ import tempfile
 from dataclasses import asdict, is_dataclass
 from pathlib import Path
 from typing import Any
+from ..redaction import redact_data, redact_secrets
 
 
 class StorageError(RuntimeError):
@@ -33,12 +34,12 @@ class RunStorage:
         return self.write_text(
             run_dir,
             name,
-            json.dumps(_jsonable(value), ensure_ascii=False, indent=2) + "\n",
+            json.dumps(redact_data(_jsonable(value)), ensure_ascii=False, indent=2) + "\n",
         )
 
     def write_jsonl(self, run_dir: Path, name: str, rows: list[Any]) -> Path:
         text = "".join(
-            json.dumps(_jsonable(row), ensure_ascii=False) + "\n" for row in rows
+            json.dumps(redact_data(_jsonable(row)), ensure_ascii=False) + "\n" for row in rows
         )
         return self.write_text(run_dir, name, text)
 
@@ -101,7 +102,9 @@ class RunStorage:
     def append_transcript(self, run_dir: str | Path, entry: Any) -> Path:
         target = _safe_child(Path(run_dir).resolve(), "transcript.jsonl")
         with open(target, "a", encoding="utf-8") as handle:
-            handle.write(json.dumps(_jsonable(entry), ensure_ascii=False) + "\n")
+            handle.write(json.dumps(redact_data(_jsonable(entry)), ensure_ascii=False) + "\n")
+            handle.flush()
+            os.fsync(handle.fileno())
         return target
 
 

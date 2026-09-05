@@ -3,6 +3,10 @@
 The stand reads model settings when ``agent-api`` starts.  Its OpenAI-compatible
 ``model`` request field is not an execution override, so the red-team harness must
 verify the live container instead of pretending to switch it per request.
+
+Survives the pipeline removal: `stand sync` and `doctor` need these checks, and
+they describe the bundled stand, not the old run path. The Compose file is now
+explicit — there is no target-specific default left in the engine.
 """
 from __future__ import annotations
 
@@ -11,7 +15,6 @@ import subprocess
 from dataclasses import dataclass
 from typing import Callable
 
-from . import config
 from .llm import LLMRoleConfig
 
 
@@ -34,8 +37,8 @@ Runner = Callable[..., subprocess.CompletedProcess[str]]
 
 
 class TargetRuntime:
-    def __init__(self, compose_file: str | None = None, runner: Runner | None = None):
-        self.compose_file = compose_file or config.COMPOSE_FILE
+    def __init__(self, compose_file: str, runner: Runner | None = None):
+        self.compose_file = compose_file
         self._runner = runner or subprocess.run
 
     def inspect(self) -> TargetModelState:

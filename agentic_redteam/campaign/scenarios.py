@@ -21,7 +21,7 @@ from ..errors import PipelineConfigurationError
 from .orchestrator import PlannedScenario
 from .runner import ScenarioStep, validate_step_references
 
-CATALOG = Path(__file__).resolve().parents[1] / "scenarios" / "v2"
+CATALOG = Path(__file__).resolve().parents[1] / "scenarios"
 RESET_POLICIES = ("per_scenario", "per_step", "none")
 # Fields dispatch.evaluate reads unconditionally — missing them is a config error.
 GOAL_REQUIRED: dict[str, tuple[str, ...]] = {

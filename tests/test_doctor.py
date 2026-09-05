@@ -41,6 +41,7 @@ class DoctorTests(unittest.TestCase):
             (stand / "app" / "api_server.py").write_text("", encoding="utf-8")
             checks = run_checks(
                 roles,
+                target_api="http://localhost:8600",
                 compose_file=str(stand / "docker-compose.yml"),
                 check_network=False,
             )
@@ -92,6 +93,7 @@ class DoctorTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as temporary:
             checks = run_checks(
                 roles,
+                target_api="http://localhost:8600",
                 compose_file=str(Path(temporary) / "missing.yml"),
                 check_network=False,
                 target_model=LLMRoleConfig(provider="openrouter", model="openai/test"),

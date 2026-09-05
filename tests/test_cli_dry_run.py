@@ -75,13 +75,6 @@ class ProfileDryRunTests(unittest.TestCase):
         self.assertEqual(code, 2)
         self.assertIn("nope", json.loads(out)["error"])
 
-    def test_legacy_run_is_untouched_by_the_new_flag(self):
-        import os
-        from unittest.mock import patch
-        with patch.dict(os.environ, {"OPENROUTER_API_KEY": "test-key"}):
-            code, out = run_cli("run", "--scenario", "generated-bac", "--dry-run", "--json")
-        self.assertEqual(code, 0)
-        self.assertIn("configurations", json.loads(out))
 
 
 if __name__ == "__main__":

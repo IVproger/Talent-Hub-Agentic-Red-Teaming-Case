@@ -8,7 +8,7 @@ from pathlib import Path
 
 import yaml
 
-from agentic_redteam.pipeline import PipelineConfigurationError
+from agentic_redteam.errors import PipelineConfigurationError
 from agentic_redteam.profile.schema import Boundary, MemoryDecl, TargetProfile, ToolDecl
 
 

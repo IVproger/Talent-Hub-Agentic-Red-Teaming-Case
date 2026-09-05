@@ -19,6 +19,7 @@ from . import __version__
 from .assertions.registry import required_kinds
 from .adapters.http_chat import HttpChatAdapter
 from .campaign.orchestrator import PlannedScenario, run_campaign
+from .reporting.technical import add_narrative, build_skeleton
 from .campaign.plan import Campaign, execution_order
 from .campaign.runner import RunnerDeps, ScenarioStep
 from .campaign.scenarios import resolve as resolve_specs
@@ -29,30 +30,19 @@ from .evidence.calibrate import check, verify
 from .llm import (
     LLMConfigurationError,
     LLMRequestError,
-    apply_role_overrides,
     make_llm_client,
     role_configs_from_mapping,
 )
-from .pipeline import (
-    DEFAULT_RUNS_ROOT,
-    GENERATED_BAC_SCENARIO_ID,
-    PipelineConfigurationError,
-    PipelineRunError,
-    RunConfig,
-    load_effective_config,
-    regenerate_report,
-    run_pipeline,
-    sanitize_error,
-)
+from .errors import PipelineConfigurationError, sanitize_error
 from .profile.diff import diff as profile_diff
 from .profile.registry import ProfileRegistry
 from .profile.schema import TargetProfile
-from .scenario import Scenario, bundled_scenarios
 from .stand_sync import StandSyncError, sync_stand
 from .storage.runs import RunStorage
 from .target_runtime import TargetConfigurationError
 
 
+DEFAULT_RUNS_ROOT = Path(__file__).resolve().parents[1] / "runs"
 VERSION = __version__
 EXIT_USAGE = 2
 EXIT_PREFLIGHT = 3
@@ -82,8 +72,8 @@ def build_parser() -> argparse.ArgumentParser:
         prog="python -m agentic_redteam",
         description="Проверки безопасности целевого агента на основе состояния (state-based).",
         epilog=(
-            "Примеры: python -m agentic_redteam doctor; "
-            "python -m agentic_redteam run --scenario generated-bac"
+            "Примеры: python -m agentic_redteam profile coverage --profile name@1.0.0; "
+            "python -m agentic_redteam run --profile name@1.0.0 --scenario all --dry-run"
         ),
     )
     parser.add_argument("--version", action="version", version=VERSION)
@@ -95,15 +85,15 @@ def build_parser() -> argparse.ArgumentParser:
     doctor.add_argument("--offline", action="store_true", help="проверять только файлы и конфигурацию")
     doctor.add_argument("--json", action="store_true", help="вывести один JSON-результат в stdout")
 
-    run = commands.add_parser("run", help="запустить генерируемые или встроенные сценарии безопасности")
+    run = commands.add_parser("run", help="прогнать кампанию по профилю цели")
     _add_config_path(run)
     run.add_argument(
         "--profile",
-        help="профиль цели: путь к YAML (адресация name@version — с реестром профилей)",
+        help="профиль цели: name@version из реестра или путь к YAML",
     )
     run.add_argument(
         "--mode",
-        help="режимы кампании через запятую, например vulnerable,protected (только с --profile)",
+        help="режимы кампании через запятую, например vulnerable,protected",
     )
     run.add_argument(
         "--from",
@@ -115,19 +105,10 @@ def build_parser() -> argparse.ArgumentParser:
         "--scenario",
         action="append",
         default=[],
-        help="id сценария или путь к YAML; повторяйте для нескольких",
+        help="id сценария, путь к YAML или all; повторяйте для нескольких",
     )
-    run.add_argument("-n", "--trials", type=int, default=1, help="прогонов на сценарий (по умолчанию: 1)")
-    run.add_argument("--attacker-cus")
-    run.add_argument("--victim-cus")
-    run.add_argument("--auth-mode", choices=("vulnerable", "protected"))
-    run.add_argument(
-        "--arch", help="файл архитектуры (.mmd) для контекста Adaptive BAC"
-    )
-    run.add_argument(
-        "--system-card",
-        help="файл описания компонентов (system card) для контекста Adaptive BAC",
-    )
+    run.add_argument("-n", "--trials", type=int, default=1,
+                     help="прогонов на payload (по умолчанию: 1)")
     run.add_argument(
         "-o",
         "--output",
@@ -137,7 +118,7 @@ def build_parser() -> argparse.ArgumentParser:
     run.add_argument(
         "--dry-run",
         action="store_true",
-        help="показать итоговую конфигурацию (с редактированием секретов) без запуска",
+        help="показать план и payload'ы, ничего не отправляя цели",
     )
     run.add_argument("--json", action="store_true", help="вывести один JSON-результат в stdout")
 
@@ -173,9 +154,8 @@ def build_parser() -> argparse.ArgumentParser:
         sub.add_argument("--json", action="store_true", help="вывести один JSON-результат в stdout")
 
     report = commands.add_parser("report", help="пересобрать отчёт из сохранённого запуска")
-    report.add_argument("--run", required=True, help="каталог сохранённого запуска")
-    report.add_argument("--report-provider", choices=("ollama", "openrouter"))
-    report.add_argument("--report-model")
+    report.add_argument("--run", required=True, help="каталог сохранённого прогона")
+    _add_config_path(report)
     report.add_argument("--json", action="store_true", help="вывести один JSON-результат в stdout")
 
     stand = commands.add_parser("stand", help="управление настроенным целевым стендом")
@@ -271,20 +251,6 @@ def main(argv: list[str] | None = None) -> int:
             if result:
                 print(f"запуск: {result.run_dir}", file=sys.stderr)
         return EXIT_PROVIDER
-    except PipelineRunError as exc:
-        payload = {
-            "ok": False,
-            "error": sanitize_error(exc),
-            "exit_code": EXIT_PIPELINE,
-            "run": asdict(exc.result) if exc.result else None,
-        }
-        if getattr(args, "json", False):
-            print(json.dumps(payload, ensure_ascii=False))
-        else:
-            print(f"ошибка: {exc}", file=sys.stderr)
-            if exc.result:
-                print(f"запуск: {exc.result.run_dir}", file=sys.stderr)
-        return EXIT_PIPELINE
     except KeyboardInterrupt:
         print("Прервано.", file=sys.stderr)
         return 130
@@ -333,70 +299,121 @@ def _doctor(args) -> int:
 def _run_scenarios(args) -> int:
     if args.trials < 1:
         raise PipelineConfigurationError("--trials должен быть не меньше 1.")
-    if args.profile or args.from_run:
-        if args.dry_run:
-            return _preview_campaign(args)
-        return _execute_campaign(args)
-    scenario_ids = _resolve_scenario_ids(args.scenario)
-    roles = _role_configs(args)
-    context_overrides = {}
-    if args.arch is not None:
-        context_overrides["arch"] = Path(args.arch)
-    if args.system_card is not None:
-        context_overrides["system_card"] = Path(args.system_card)
-    configs = [
-        RunConfig(
-            target_config=Path(args.config),
-            **context_overrides,
-            output_root=Path(args.output),
-            num_candidates=args.trials,
-            attacker_cus=args.attacker_cus,
-            victim_cus=args.victim_cus,
-            auth_mode=args.auth_mode,
-            llm_roles=roles,
-            scenario_id=scenario_id,
+    if not args.profile and not args.from_run:
+        raise PipelineConfigurationError(
+            "Укажите --profile name@version|path.yaml (или --from runs/<id> для повтора)."
         )
-        for scenario_id in scenario_ids
-    ]
     if args.dry_run:
-        effective = [load_effective_config(config)["safe"] for config in configs]
-        payload = {"ok": True, "dry_run": True, "configurations": effective}
-        if args.json:
-            print(json.dumps(payload, ensure_ascii=False))
-        else:
-            print(yaml.safe_dump(payload, sort_keys=False, allow_unicode=True))
-        return 0
-    results = []
-    for config in configs:
+        return _preview_campaign(args)
+    return _execute_campaign(args)
+
+
+def new_run_id() -> str:
+    return f"{datetime.now(UTC).strftime('%Y%m%d-%H%M%S')}-{secrets.token_hex(3)}"
+
+
+def execute_campaign(profile, planned, modes, trials, output_root, run_id,
+                     reporter_llm=None, on_event=None) -> dict:
+    """Собрать реальные адаптер и evidence по профилю и прогнать кампанию.
+
+    Общее ядро запуска: CLI и UI зовут его, а не повторяют сборку зависимостей —
+    иначе демо и рабочий инструмент разошлись бы в поведении (US-07 AC3).
+    """
+    storage = RunStorage(output_root)
+    with EvidenceBundle.from_profile(profile) as bundle:
+        selected, skipped = _gate_scenarios(bundle, planned)
+        _require_reset_source(bundle, selected)
+        adapter = HttpChatAdapter.from_profile(profile)
+        try:
+            findings = run_campaign(
+                selected, RunnerDeps(adapter, bundle), storage, run_id,
+                modes=modes, profile_ref=f"{profile.name}@{profile.version}",
+                reporter_llm=reporter_llm, business=profile.business,
+                trials=trials, on_event=on_event,
+            )
+        finally:
+            adapter.close()
+    return {
+        "run_id": run_id,
+        "run_dir": str(Path(output_root).expanduser().resolve() / run_id),
+        "scenarios": [scenario.id for scenario in selected],
+        "skipped": skipped,
+        "asr_percent": findings["asr_percent"],
+        "findings": len(findings["findings"]),
+    }
+
+
+def _execute_campaign(args) -> int:
+    _reject_conflicting_sources(args)
+    if args.from_run:
+        raise PipelineConfigurationError(
+            "--from пока только предпросмотр: добавьте --dry-run."
+        )
+    profile = load_profile(args.profile)
+    campaign, planned, _ = _campaign_from_profile(args)
+    run_id = new_run_id()
+    if not args.json:
+        print(f"прогон {run_id}: {', '.join(s.id for s in planned)}", file=sys.stderr)
+
+    def progress(event) -> None:
         if not args.json:
-            print(
-                f"запуск {config.scenario_id} ({args.trials} прогон(ов))",
-                file=sys.stderr,
-            )
+            print(f"[{event.stage}] {event.message}", file=sys.stderr)
 
-        def progress(event) -> None:
-            if not args.json:
-                print(f"[{event.stage}] {event.message}", file=sys.stderr)
-
-        result = run_pipeline(
-            config,
-            on_event=progress,
-        )
-        results.append(result)
+    summary = execute_campaign(
+        profile, planned, campaign.modes, campaign.trials, args.output, run_id,
+        reporter_llm=reporter_from_config(args.config), on_event=progress,
+    )
+    skipped = summary["skipped"]
     if args.json:
-        print(
-            json.dumps(
-                {"ok": True, "runs": [asdict(result) for result in results]},
-                ensure_ascii=False,
-            )
-        )
+        print(json.dumps({"ok": True, "run": summary}, ensure_ascii=False))
     else:
-        for result in results:
-            print(
-                f"{result.scenario_id}: {result.status} · "
-                f"ASR {result.asr_percent:.0f}% · {result.run_dir}"
-            )
+        print(f"{run_id}: ASR {summary['asr_percent']:.0f}% · "
+              f"находок {summary['findings']} · {summary['run_dir']}")
+        for note in skipped:
+            print(f"пропущено: {note}")
     return 0
+
+
+def _gate_scenarios(bundle, planned) -> tuple[list, list[str]]:
+    """Гейт покрытия: сценарий без своего источника не запускается вовсе.
+
+    Прогнать его было бы хуже, чем пропустить: он дал бы `not_proven`, который
+    неотличим от «атака не сработала» (US-04 AC2).
+    """
+    selected, skipped = [], []
+    for scenario in planned:
+        supported, reasons = bundle.supports(scenario.goal)
+        if supported:
+            selected.append(scenario)
+        else:
+            skipped.append(f"{scenario.id}: {', '.join(reasons)}")
+    if not selected:
+        raise PipelineConfigurationError(
+            "Ни один сценарий не покрыт источниками профиля — " + "; ".join(skipped)
+        )
+    return selected, skipped
+
+
+def _require_reset_source(bundle, selected) -> None:
+    if "session_reset" in {str(kind) for kind in bundle.capabilities()}:
+        return
+    needing = [scenario.id for scenario in selected if scenario.reset_policy != "none"]
+    if needing:
+        raise PipelineConfigurationError(
+            "Профиль не объявляет источник session_reset, а сценарии требуют сброса: "
+            + ", ".join(needing)
+            + ". Добавьте reset-провайдер или возьмите сценарии с reset_policy: none."
+        )
+
+
+def reporter_from_config(config_path):
+    """Нарратив отчёта необязателен и fail-open — скелет остаётся детерминированным."""
+    try:
+        roles = _role_configs_at(config_path)
+        roles["report_writer"].validate()
+        return make_llm_client(roles["report_writer"])
+    except Exception:
+        return None
 
 
 def _preview_campaign(args) -> int:
@@ -590,6 +607,8 @@ def _planned_from_saved(data: dict) -> PlannedScenario:
         steps=[ScenarioStep(**step) for step in data.get("steps", [])],
     )
 
+
+PROFILES_ROOT = Path(__file__).resolve().parents[1] / "profiles"
 
 def load_profile(reference: str) -> TargetProfile:
     """`name@version` — из реестра, иначе путь к YAML (спек §12)."""
@@ -995,51 +1014,22 @@ def _render_coverage(rows: list[dict], available: set[str], profile: TargetProfi
     return "\n".join(lines)
 
 
-def _resolve_scenario_ids(values: list[str]) -> list[str]:
-    try:
-        catalog = bundled_scenarios()
-    except (OSError, ValueError, TypeError, KeyError, yaml.YAMLError) as exc:
-        raise PipelineConfigurationError("Не удалось загрузить встроенные сценарии.") from exc
-    available = {GENERATED_BAC_SCENARIO_ID, *catalog}
-    if not values:
-        return [GENERATED_BAC_SCENARIO_ID, *catalog]
-    resolved: list[str] = []
-    for value in values:
-        path = Path(value)
-        if path.is_file():
-            try:
-                scenario_id = Scenario.load(path).id
-            except (OSError, ValueError, TypeError, KeyError, yaml.YAMLError) as exc:
-                raise PipelineConfigurationError(
-                    f"Не удалось загрузить конфигурацию сценария: {path}"
-                ) from exc
-        else:
-            scenario_id = value
-        if scenario_id not in available:
-            raise PipelineConfigurationError(
-                f"Неизвестный сценарий '{scenario_id}'. Доступные: "
-                + ", ".join(sorted(available))
-            )
-        if scenario_id not in resolved:
-            resolved.append(scenario_id)
-    return resolved
-
 
 def _report(args) -> int:
+    """Пересобрать report.md из сохранённого findings.json — вердикт не меняется."""
     run_dir = Path(args.run).expanduser().resolve()
+    storage = RunStorage(run_dir.parent)
     try:
-        saved = json.loads((run_dir / "config.json").read_text(encoding="utf-8"))
-        roles = role_configs_from_mapping(saved.get("llm"))
+        findings = storage.load_json(run_dir, "findings.json")
     except (OSError, ValueError) as exc:
-        raise PipelineConfigurationError(f"В сохранённом запуске нет корректного config.json: {run_dir}") from exc
-    roles = apply_role_overrides(
-        roles,
-        {"report_writer": {"provider": args.report_provider, "model": args.report_model}},
-    )
-    roles["report_writer"].validate()
-    output = regenerate_report(run_dir, make_llm_client(roles["report_writer"]))
+        raise PipelineConfigurationError(
+            f"В сохранённом прогоне нет корректного findings.json: {run_dir}"
+        ) from exc
+    output = storage.write_text(
+        run_dir, "report.md",
+        add_narrative(build_skeleton(findings), reporter_from_config(args.config)))
     if args.json:
-        print(json.dumps({"ok": True, "report": str(output)}))
+        print(json.dumps({"ok": True, "report": str(output)}, ensure_ascii=False))
     else:
         print(f"отчёт: {output}")
     return 0

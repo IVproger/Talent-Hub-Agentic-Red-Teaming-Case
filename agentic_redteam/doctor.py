@@ -12,7 +12,7 @@ from dataclasses import asdict, dataclass
 from pathlib import Path
 from typing import Callable, Mapping
 
-from . import config as runtime_config
+from .errors import PipelineConfigurationError
 from .llm import LLMRoleConfig, validate_role_configs
 from .target_runtime import TargetConfigurationError, TargetRuntime
 
@@ -39,8 +39,13 @@ def run_checks(
     provider_probe: Callable[[LLMRoleConfig], tuple[bool, str]] | None = None,
     provider_roles: tuple[str, ...] = ("attack_generator", "report_writer"),
 ) -> list[CheckResult]:
+    # Никаких target-дефолтов в движке: цель и её compose приходят из конфигурации.
+    if not compose_file or not target_api:
+        raise PipelineConfigurationError(
+            "doctor требует target.endpoint и target.compose_file в конфигурации."
+        )
     selected_target = target_model or LLMRoleConfig()
-    compose = Path(compose_file or runtime_config.COMPOSE_FILE)
+    compose = Path(compose_file)
     stand_dir = compose.parent
     stand_ready = compose.is_file() and (stand_dir / "app" / "api_server.py").is_file()
     results = [
@@ -111,7 +116,7 @@ def run_checks(
             ok, message = probe(cfg)
             results.append(CheckResult(f"provider_{role}", ok, message))
 
-    target_base = (target_api or runtime_config.AGENT_API).rstrip("/")
+    target_base = target_api.rstrip("/")
     try:
         target_parts = urllib.parse.urlsplit(target_base)
         target_port = target_parts.port

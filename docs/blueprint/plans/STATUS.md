@@ -18,6 +18,20 @@
 ### oushtt — готово (Фаза 0)
 - `adapters/base.py` (2.1), `evidence/base.py` (3.1), `profile/schema.py` (1.1), `errors.py`
 - фикстуры: `tests/data/profile_stand.yaml`, `profile_dvaa.yaml`
+- **1.2:** файловый `ProfileRegistry` (`list/load/save`), неизменяемые версии,
+  bootstrap `profiles/genai-invest-stand/1.0.0.yaml`.
+- **1.3:** `profile.diff.diff(a, b)` — `tools/roles/entrypoint/memory`,
+  `added/removed` как словари, `changed` с `before/after`; пустой диф — `{}`.
+- **2.2:** `Credential`, `IdentityProvider`, `StaticIdentityProvider`; runtime-секрет
+  через `identities.credential.secret_env`, шаблоны `{principal}/{role}/{secret}`.
+- **2.3:** `DockerExecMintProvider(identities, runner)` — перенос mint без
+  зависимости от `client.py`; compose/service из профиля, stdout с ключом не выводится в ошибках.
+- **2.4:** `HttpChatAdapter(profile, identities, transport=None)` и
+  `HttpChatAdapter.from_profile(profile)`. `entrypoint.preflight.path` проверяется GET
+  без mint. `per_deployment` требует переданный `mode_switcher(mode, declaration)`.
+- **3.2:** `DbQueryProvider(config, runner)` — Mongo через mongosh (локально/Compose),
+  payload `{store_id, documents, record, scope}`, read-only калибровка; пустая коллекция
+  означает неподтверждённую привязку. `uri_env` необязателен для локального Compose Mongo.
 
 Тесты: 161 (1 пре-существующий фейл `stand.observability`).
 

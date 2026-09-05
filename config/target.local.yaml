@@ -18,36 +18,35 @@ target:
     - session_id
   auth_mode: vulnerable
 
+# Локальный вариант боевого config/target.yaml: LLM-роли на Ollama.
+# Всё остальное идентично общему конфигу; отличается только блок llm.
+# Запуск:  --config config/target.local.yaml   (ключи OpenRouter не нужны)
 llm:
   attack_generator:
-    provider: openrouter
-    model: z-ai/glm-5.3-flash
-    base_url: https://openrouter.ai/api/v1
-    api_key_env: OPENROUTER_API_KEY
+    provider: ollama
+    model: qwen3:8b
+    base_url: http://localhost:11434
     temperature: 0
     timeout: 600
 
   analyst:
-    provider: openrouter
-    model: z-ai/glm-5.3-flash
-    base_url: https://openrouter.ai/api/v1
-    api_key_env: OPENROUTER_API_KEY
+    provider: ollama
+    model: qwen3:8b
+    base_url: http://localhost:11434
     temperature: 0
     timeout: 600
 
   judge:
-    provider: openrouter
-    model: z-ai/glm-5.3-flash
-    base_url: https://openrouter.ai/api/v1
-    api_key_env: OPENROUTER_API_KEY
+    provider: ollama
+    model: qwen3:8b
+    base_url: http://localhost:11434
     temperature: 0
     timeout: 600
 
   report_writer:
-    provider: openrouter
-    model: z-ai/glm-5.3-flash
-    base_url: https://openrouter.ai/api/v1
-    api_key_env: OPENROUTER_API_KEY
+    provider: ollama
+    model: qwen3:8b
+    base_url: http://localhost:11434
     temperature: 0
     timeout: 600
 

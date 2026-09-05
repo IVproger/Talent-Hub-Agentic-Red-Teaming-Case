@@ -34,6 +34,8 @@
   означает неподтверждённую привязку. `uri_env` необязателен для локального Compose Mongo.
 - **3.3:** `LogRegexProvider(config, runner)` — Docker/file/cli-json, курсор с
   проверкой целостности префикса; read-only calibration по `calibration.expected_principal`.
+- **3.4:** `HttpCanaryProvider(config)`, `bind_addr`, `url_for(token)`, `close()`;
+  callbacks возвращаются как `Observation`, преобразование в `ObservedCallback` — в bundle.
 
 Тесты: 161 (1 пре-существующий фейл `stand.observability`).
 

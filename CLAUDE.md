@@ -26,7 +26,7 @@
 
 ## Как работать
 
-- **Тесты:** `python -m unittest discover -s tests` (используй `.venv/bin/python`). На границе каждой задачи набор зелёный. Есть 1 пре-существующий фейл `stand.observability` — не связан с ядром.
+- **Тесты:** `python -m unittest discover -s tests` (используй `.venv/bin/python`). На границе каждой задачи набор зелёный — все 441. Если `stand.observability` падает, venv отстал от `requirements.txt`: `.venv/bin/pip install -r requirements.txt` (нужен langfuse 4.x, он тянет opentelemetry).
 - **TDD:** падающий тест → fail → минимальная реализация → pass → мелкий коммит (формат: `feat(scope): …`, wrap 72). **Без** `Claude-Session`-трейлера.
 - **Big-bang миграция:** старый код (`client.py`, `tracer.py`, `state.py`, `scorers.py`, `target_runtime.py`, `pipeline.py`) переписывается на месте и удаляется, только когда новый путь (runner+CLI) заменит его целиком.
 - **Язык:** доки/интерфейс — русский; код/идентификаторы — английский.

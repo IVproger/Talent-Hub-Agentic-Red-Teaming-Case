@@ -2,56 +2,51 @@
 
 ## Supported path
 
-> Этот раздел описывает действующий (старый) путь исполнения. Новое ядро
-> — ниже, в разделе «Ядро: профиль → факты → вердикт»; старый путь удаляется
-> целиком, когда новый его заменит.
-
-Both the CLI and Streamlit UI call `agentic_redteam.pipeline.run_pipeline`.
-Adaptive BAC and bundled YAML scenarios share target preflight, state evidence,
-deterministic scoring, report generation, telemetry and per-run storage.
+CLI и Streamlit-UI зовут один и тот же `campaign.orchestrator.run_campaign`.
+Старый `pipeline.run_pipeline` удалён: адаптер и evidence собираются из
+профиля цели, а не из target-специфичных дефолтов.
 
 ```text
-config/target.yaml
+profiles/<name>/<version>.yaml
         |
-        +--> stand sync --> stand/.env --> agent-api
+        +--> profile check / verify (калибровка источников)
         |
-        +--> doctor (read only)
-        |
-        +--> CLI / UI --> pipeline --> runs/<run-id>/
+        +--> CLI / UI --> run_campaign --> runs/<run-id>/
                                 |
-                                +--> agent-api --> ReAct/tools/memory
+                                +--> HttpChatAdapter --> цель
                                 |
-                                +--> deterministic verdict
+                                +--> EvidenceBundle --> Facts
+                                |
+                                +--> предикаты --> вердикт
 ```
 
-`config/target.yaml` owns non-secret model/provider settings. `stand/.env` owns
-credentials and operational limits. The sync command projects the YAML target
-model into the three stand variables required by its current implementation.
+`config/target.yaml` держит настройки движка (LLM-роли, наблюдаемость) и ссылку
+на bootstrap-профиль стенда. `stand sync` — отдельный инструмент настройки
+нашего стенда, вне target-независимого ядра.
 
 ## Evidence boundary
 
-The runner captures memory snapshots and the invest-server access log around an
-attempt. Scorers consume that state, never the natural-language answer or a
-Langfuse trace. This keeps verdicts reproducible when report generation or
-telemetry is unavailable.
+Провайдеры (`log_regex`, `db_query`, `http_canary`, `trace`) отдают сырые
+`Observation`; `EvidenceBundle` нормализует их в `Facts`. Предикаты работают
+только с фактами — ни текст ответа модели, ни трасса вердикта не определяют.
 
-The access log is currently global to the isolated local stand. Do not mix
-unrelated traffic with a run until the stand emits a run/session correlation ID
-in its audit events.
+Гейт покрытия обязателен: цель без источника вызовов инструментов не даёт
+state-вердикта, и это видно до прогона через `profile coverage`.
 
 ## Distributed tracing
 
-When enabled, the runner starts `redteam.run` and injects W3C trace context into
-the two target endpoints. The stand only instruments requests with a
-`traceparent`, continues the same OpenTelemetry context, and adds observations
-for target LLM calls, tools and memory orchestration. Both sides use one
-Langfuse project; `component` metadata distinguishes `redteam-runner` from
-`target-stand`, while `agent_role` distinguishes `attacker`, `target` and
-`report_writer` observations.
+Runner создаёт корневую трассу и наблюдение на каждую попытку; `observability.json`
+прогона связывает трассу с детерминированными артефактами. Телеметрия
+необязательна и fail-open: значения редактируются и ограничиваются до экспорта,
+отказ экспорта не меняет ни вердикт, ни остальные артефакты.
 
-All telemetry is optional and fail-open. Capture is redacted and bounded before
-export. The local artifact manifest is the correlation record between the trace
-and the deterministic run.
+Стенд умеет продолжать W3C-контекст, если запрос приходит с `traceparent`, но
+адаптер его сейчас **не пробрасывает**: сквозной трассы «наш прогон → ReAct-цикл
+и tool calls внутри цели» нет. В трассе видны попытки кампании, не внутренности
+цели.
+
+Langfuse как **источник evidence** — отдельная вещь и не fail-open: провайдер
+`trace` в профиле load-bearing, его отказ даёт `error`, а не пустой успех.
 
 ## Ядро: профиль → факты → вердикт
 

@@ -12,8 +12,7 @@
 
 - `config/target.yaml` — единственный источник provider/model/base URL для трёх
   LLM-ролей и настроек запуска;
-- `agentic_redteam/scenarios/` — четыре фиксированных YAML-сценария,
-  `scenarios/v2/` — они же в новом словаре предикатов;
+- `agentic_redteam/scenarios/` — четыре встроенных YAML-сценария;
 - `profiles/<name>/<version>.yaml` — реестр профилей целей;
 - `docs/target/` — архитектура и system card целевого стенда;
 - `runs/<run-id>/` — артефакты новых запусков;
@@ -38,7 +37,8 @@ cp stand/.env.example stand/.env
 
 Модели движка задаются в `config/target.yaml`, в секции `llm`. Роли независимы:
 
-- `attack_generator` генерирует adaptive BAC payloads;
+- `attack_generator` — генератор payload'ов; **сейчас не используется**,
+  ждёт эпика генерации атак;
 - `report_writer` пишет технический отчёт по уже собранным evidence.
 - `analyst` предназначен для анализа и заполнения профиля цели.
 
@@ -77,83 +77,27 @@ OpenAPI описывает HTTP-поверхность; привязки инс�
 
 ## Запуск
 
+Всё знание о цели живёт в **профиле** — ядро о цели не знает. Профиль описывает
+точку входа, роли, границы изоляции, инструменты, память, режимы и источники
+evidence; секретов в нём нет, только имена переменных окружения.
+
 ```bash
 # Поднять стенд.
 docker compose -f stand/docker-compose.yml up -d --build
 
-# Read-only preflight.
-python -m agentic_redteam doctor
-
-# Adaptive BAC: предварительный просмотр и реальный запуск.
-python -m agentic_redteam run --scenario generated-bac --dry-run
-python -m agentic_redteam run --scenario generated-bac --trials 5
-
-# Один или несколько фиксированных сценариев через тот же pipeline.
-python -m agentic_redteam run --scenario bac-tool-argument --trials 3
-python -m agentic_redteam run \
-  --scenario mem-policy-conformant \
-  --scenario poison-to-tool-chain \
-  --trials 2
-
-# Пересобрать отчёт существующего нового запуска.
-python -m agentic_redteam report --run runs/<run-id>
-
-# Локальный desktop UI.
-python -m agentic_redteam serve
-```
-
-Одна команда `run` обслуживает adaptive и фиксированные сценарии. Флаги
-`--arch` и `--system-card` переопределяют контекст цели (схему архитектуры и
-описание компонентов), который читает генератор Adaptive BAC; без них берутся
-файлы из `docs/target/`. Список параметров и точные идентификаторы доступны
-через `python -m agentic_redteam run --help`. Флаг `--json` поддерживается командами,
-которые возвращают результат. Exit codes: `0` — успех, `2` — ошибка аргументов
-или конфигурации, `3` — preflight target, `4` — LLM provider, `5` — pipeline.
-
-UI не предлагает временные provider/model overrides: он показывает значения из
-YAML read-only. В нём доступны выбор сценария, CUS, число прогонов, auth mode,
-preflight, прогресс, outcome, evidence trace, отчёт, файлы и история из `runs/`.
-
-В блоке «Контекст цели» можно загрузить или отредактировать прямо в интерфейсе
-схему архитектуры стенда (`arch.mmd`) и описание компонентов (`system-card.md`);
-этот контекст подаётся генератору Adaptive BAC. Без изменений используются файлы
-из `docs/target/`, отредактированный контент применяется только к текущему запуску.
-
-## Профиль и кампания (новый путь)
-
-Всё знание о цели живёт в **профиле** — ядро о цели не знает. Профиль
-описывает точку входа, роли, границы изоляции, инструменты, память, режимы и
-источники evidence; секретов в нём нет, только имена переменных окружения.
-
-```bash
-# Что вообще есть в реестре.
+# Что есть в реестре и что цель вообще позволяет проверить.
 python -m agentic_redteam profile list
-
-# Карта поверхности: инструменты, память, границы, источники.
 python -m agentic_redteam profile show --profile genai-invest-stand@1.0.0
-
-# Что изменилось между версиями профиля.
-python -m agentic_redteam profile diff genai-invest-stand@1.0.0 path/to/other.yaml
-
-# Гейт покрытия: какие сценарии на этой цели вообще доказуемы состоянием.
 python -m agentic_redteam profile coverage --profile genai-invest-stand@1.0.0
 
-# Read-only проверка подключения и привязок источников evidence.
+# Read-only проверка подключения и привязок источников.
 python -m agentic_redteam profile check --profile genai-invest-stand@1.0.0
+python -m agentic_redteam doctor --profile genai-invest-stand@1.0.0
 
 # Проба видимости памяти. МЕНЯЕТ состояние цели: чистит память и пишет маркеры.
 python -m agentic_redteam profile verify --profile genai-invest-stand@1.0.0
-```
 
-`coverage` сверяет источники, которые объявляет профиль, с теми, что требуют
-предикаты сценария. Сценарий без своего источника честно помечается «нет
-источника» — вердикт по нему не поднимется выше `indirect`, и знать это лучше
-до прогона, а не после.
-
-Кампания собирается флагами и предварительно показывается целиком:
-
-```bash
-# План и payload'ы до отправки — цель не затрагивается.
+# Предпросмотр: план и payload'ы, цель не затрагивается.
 python -m agentic_redteam run --profile genai-invest-stand@1.0.0 \
   --scenario all --mode vulnerable,protected --dry-run
 
@@ -161,23 +105,36 @@ python -m agentic_redteam run --profile genai-invest-stand@1.0.0 \
 python -m agentic_redteam run --profile genai-invest-stand@1.0.0 \
   --scenario poison-to-tool-chain --mode vulnerable,protected --trials 3
 
-# Повтор сохранённой кампании из артефакта прогона.
+# Повтор сохранённой кампании и пересборка отчёта.
 python -m agentic_redteam run --from runs/<run-id> --dry-run
+python -m agentic_redteam report --run runs/<run-id>
+
+# Локальный desktop UI.
+python -m agentic_redteam serve
 ```
 
-Перед прогоном срабатывает гейт покрытия: сценарий, для которого профиль не
-объявляет нужного источника, **не запускается вовсе** и попадает в список
-пропущенных. Прогнать его было бы хуже, чем пропустить — `not_proven` от
-нехватки evidence неотличим от «атака не сработала».
+`profile coverage` — гейт покрытия: сверяет источники, которые объявляет
+профиль, с теми, что требуют предикаты сценария. Сценарий без своего источника
+помечается «нет источника» и **не запускается вовсе**. Прогнать его было бы
+хуже, чем пропустить: `not_proven` от нехватки evidence неотличим от «атака не
+сработала».
 
-Сценарии нового словаря лежат в `agentic_redteam/scenarios/v2/`. Сценарий —
-это цепочка шагов (кто говорит и в каком порядке) плюс варианты payload'а,
-которые подставляются в шаг с `payload: true`. Многошаговая атака —
-внедрение → фиксация памяти → активация другой ролью — исполняется как **одна
-попытка**: один сброс цели, одно окно evidence.
+Сценарии лежат в `agentic_redteam/scenarios/`. Сценарий — это цепочка шагов
+(кто говорит и в каком порядке) плюс варианты payload'а, которые подставляются
+в шаг с `payload: true`. Многошаговая атака — внедрение → фиксация памяти →
+активация другой ролью — исполняется как **одна попытка**: один сброс цели,
+одно окно evidence.
 
-> `run --from` пока только предпросмотр (`--dry-run`). Старый путь запуска из
-> раздела «Запуск» выше остаётся рабочим и уйдёт, когда новый заменит его целиком.
+Флаг `--json` поддерживается командами, которые возвращают результат.
+Exit codes: `0` — успех, `2` — ошибка аргументов или конфигурации,
+`3` — preflight target, `4` — LLM provider, `5` — прогон.
+
+Ctrl+C останавливает прогон безопасно: собранное сохраняется со статусом
+`interrupted`, технические ошибки в знаменатель ASR не входят.
+
+> Генерации payload'ов сейчас нет. Adaptive BAC ушёл вместе со старым
+> pipeline; вариативные payload'ы вернутся с эпиком генерации атак. Пока в
+> кампании только фиксированные payload'ы из каталога.
 
 ## Артефакты
 
@@ -207,14 +164,21 @@ python -m agentic_redteam run --from runs/<run-id> --dry-run
 ## Langfuse (опционально)
 
 Инструкция запуска находится в [`deploy/langfuse/README.md`](deploy/langfuse/README.md).
-Runner создаёт корневую `redteam.run` trace, а target продолжает её через
-стандартный W3C `traceparent`. В одной трассе видны генерация атаки, попытки,
-запросы к target, target LLM/ReAct, tool calls, memory/finalize, scoring и отчёт.
+Runner создаёт корневую trace и наблюдение на каждую попытку; ссылка на трассу
+сохраняется в `observability.json` прогона.
 
 Tracing включён в YAML, но работает fail-open: Langfuse не вычисляет security
 verdict и не заменяет локальные evidence. Без credentials или при недоступном
-сервисе запуск продолжается, а проблема фиксируется только как warning. До
+сервисе прогон продолжается, а проблема фиксируется только как warning. До
 экспорта применяются redaction и ограничение размера значений.
+
+Две разные вещи, которые легко спутать: **телеметрия нашего прогона** fail-open
+и на вердикт не влияет; **Langfuse/OTLP как источник evidence** (провайдер
+`trace` в профиле) — load-bearing, его отказ даёт `error`, а не пустой успех.
+
+> Сквозной трассы «наш прогон → внутренности цели» сейчас нет: адаптер не
+> пробрасывает W3C `traceparent`. В трассе видны попытки кампании, но не
+> ReAct-цикл и tool calls внутри стенда.
 
 ## Проверка разработки
 

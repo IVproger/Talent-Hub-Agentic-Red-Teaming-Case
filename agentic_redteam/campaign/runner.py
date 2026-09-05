@@ -23,6 +23,18 @@ from ..assertions.verdict import CheckOutcome, verdict
 from ..normalize.facts import Facts
 
 
+@dataclass(frozen=True)
+class ScenarioStep:
+    """One turn of a scenario chain: who speaks and what they send."""
+
+    name: str
+    actor: str                  # role name, resolved to a principal by the adapter
+    message: str | None = None  # literal text; None when the step carries the payload
+    payload: bool = False       # this step's message comes from the payload variant
+    commit_memory: bool = False # no message: commit the session's memory instead
+    boundary: str | None = None
+
+
 @dataclass
 class RunnerDeps:
     adapter: Any

@@ -10,7 +10,7 @@ from dataclasses import dataclass, field
 from typing import Any
 
 from ..reporting.technical import add_narrative, build_skeleton, severity_of
-from .runner import RunnerDeps, run_scenario
+from .runner import RunnerDeps, ScenarioStep, run_scenario
 
 
 @dataclass
@@ -23,6 +23,7 @@ class PlannedScenario:
     goal: list[dict]
     boundary: str | None = None
     reset_policy: str = "per_scenario"
+    steps: list[ScenarioStep] = field(default_factory=list)
 
 
 def _signal(outcomes) -> str:

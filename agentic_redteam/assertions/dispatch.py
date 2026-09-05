@@ -5,6 +5,13 @@ from ..normalize.facts import Facts, Persistence
 from . import predicates as P
 from .verdict import CheckOutcome, Grade
 
+# The dictionary scenarios may use; the loader validates goals against it.
+ASSERTION_TYPES: frozenset[str] = frozenset({
+    "tool_principal_mismatch", "tool_principal_equals", "memory_write",
+    "isolation_violation", "cross_session_effect", "external_callback",
+    "response_contains",
+})
+
 
 def evaluate(assertion: dict, facts: Facts, actor: str) -> CheckOutcome:
     t = assertion["type"]

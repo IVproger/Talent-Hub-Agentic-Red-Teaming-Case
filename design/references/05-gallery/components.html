@@ -1,0 +1,161 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Agentic Red Team · каталог текущих UI-компонентов</title>
+<style>
+/* Извлечено из agentic_redteam/ui/app.py -> _styles().
+   Единственный источник оформления в продукте: один st.markdown
+   с unsafe_allow_html=True. Правки здесь ни на что не влияют. */
+
+@import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&display=swap');
+:root { --ink:#11110f; --paper:#f4f4ef; --surface:#e9e9e4; --line:#a9a9a1; --muted:#5c5c57; }
+html, body, .stApp, button, input, textarea, select { font-family:"JetBrains Mono","SFMono-Regular",Consolas,monospace !important; font-variant-ligatures:none; }
+.material-symbols-rounded,.material-symbols-outlined,[data-testid="stIconMaterial"] { font-family:"Material Symbols Rounded" !important; font-weight:normal !important; font-style:normal !important; letter-spacing:normal !important; text-transform:none !important; white-space:nowrap; word-wrap:normal; direction:ltr; font-feature-settings:"liga"; -webkit-font-feature-settings:"liga"; -webkit-font-smoothing:antialiased; }
+h1,h2,h3,h4,h5 { color:var(--ink); letter-spacing:-.035em; }
+h2 { font-size:1.15rem !important; }
+h3 { font-size:.72rem !important; letter-spacing:.08em; text-transform:uppercase; margin-top:1.4rem !important; }
+h5 { font-size:.72rem !important; margin-bottom:.45rem !important; }
+p,label { line-height:1.5; } code { color:var(--ink) !important; }
+.page-head { display:flex; align-items:baseline; justify-content:space-between; gap:2rem; border-bottom:1px solid var(--ink); padding:.35rem 0 1rem; margin-bottom:2rem; }
+.page-head h1 { font-size:1.35rem; line-height:1; margin:0; font-weight:700; }
+.page-head p { color:var(--muted); font-size:.72rem; margin:0; }
+.scenario-meta { display:flex; justify-content:space-between; gap:1rem; margin:.65rem 0 .8rem; color:var(--muted); font-size:.64rem; }
+.scenario-meta code { font-size:.64rem; font-weight:600; }
+.scenario-meta span { text-align:right; }
+.config-source>small { display:block; color:var(--muted); font-size:.6rem; padding:0 0 .5rem; }
+.model-row { border-top:1px solid var(--line); padding:.55rem 0; font-size:.62rem; }
+.model-row span { display:block; color:var(--muted); margin-bottom:.2rem; }
+.model-row strong { display:block; overflow-wrap:anywhere; }
+.scenario-summary { margin:0 0 2rem; }
+.scenario-title { display:flex; align-items:baseline; justify-content:space-between; gap:2rem; }
+.scenario-title h2 { font-size:1.4rem !important; margin:0 0 .55rem; }
+.scenario-title code { color:var(--muted) !important; font-size:.65rem; }
+.scenario-summary>p { max-width:76ch; color:var(--muted); font-size:.78rem; margin:0 0 1rem; }
+.scenario-summary>small { display:block; color:var(--muted); font-size:.62rem; margin-top:.65rem; }
+.step-line { display:flex; align-items:center; flex-wrap:wrap; gap:.65rem; border-top:1px solid var(--line); border-bottom:1px solid var(--line); padding:.7rem 0; font-size:.7rem; }
+.step-line span { font-weight:600; }
+.step-line i { color:var(--muted); font-style:normal; }
+.result-summary { border:1px solid var(--ink); margin:1.25rem 0 1rem; }
+.result-title { display:flex; align-items:baseline; gap:1rem; padding:1.15rem 1.25rem; border-bottom:1px solid var(--ink); }
+.result-title span,.result-title small { color:var(--muted); font-size:.64rem; }
+.result-title strong { font-size:1.5rem; margin-right:auto; letter-spacing:-.05em; }
+.result-summary dl { display:grid; grid-template-columns:repeat(4,1fr); margin:0; }
+.result-summary dl>div { padding:.9rem 1rem; border-right:1px solid var(--line); }
+.result-summary dl>div:last-child { border-right:0; }
+.result-summary dt { color:var(--muted); font-size:.61rem; margin-bottom:.4rem; }
+.result-summary dd { font-size:.9rem; font-weight:700; margin:0; }
+.ratio-track { height:.35rem; border-top:1px solid var(--line); }
+.ratio-track i { height:100%; display:block; background:var(--ink); }
+.trace-rail { display:flex; flex-wrap:wrap; gap:.5rem; border-bottom:1px solid var(--line); padding:1rem 0; margin:.5rem 0 1rem; }
+.trace-node { display:flex; gap:.55rem; align-items:baseline; border-right:1px solid var(--line); padding-right:.7rem; }
+.trace-node:last-child { border-right:0; }
+.trace-node b { font-size:.66rem; }
+.trace-node small { color:var(--muted); font-size:.6rem; }
+.live-log { border-bottom:1px solid var(--line); padding:.45rem 0; margin:.5rem 0 1.5rem; }
+.live-row { display:grid; grid-template-columns:10rem 1fr; gap:1rem; padding:.3rem 0; font-size:.66rem; }
+.live-row code { font-weight:700; }
+.check-row { display:grid; grid-template-columns:3.2rem 1fr; border-top:1px solid var(--line); padding:.5rem 0; font-size:.64rem; }
+.check-row:first-child { border-top:0; }
+.check-row span { display:flex; flex-direction:column; gap:.18rem; }
+.check-row strong { font-size:.64rem; }
+.check-row small { color:var(--muted); font-size:.59rem; line-height:1.4; }
+a,a:visited,a:hover,a:active,a * { color:var(--ink)!important; }
+a svg,a path,a line { color:var(--ink)!important; stroke:var(--ink)!important; }
+hr { border-color:var(--line); }
+@media (prefers-reduced-motion:reduce) { *,*::before,*::after { transition-duration:.01ms!important; animation-duration:.01ms!important; } }
+</style>
+<style>
+/* Обвязка каталога — не часть продукта. */
+body { background:var(--paper); color:var(--ink); margin:0; padding:3rem clamp(1rem,5vw,5rem) 6rem; }
+.gallery-head { border-bottom:1px solid var(--ink); padding-bottom:1rem; margin-bottom:2.5rem; }
+.gallery-head h1 { font-size:1.35rem; margin:0 0 .5rem; }
+.gallery-head p { color:var(--muted); font-size:.75rem; max-width:70ch; margin:0; line-height:1.6; }
+.block { border-top:1px solid var(--line); padding:2rem 0 2.5rem; }
+.block-head { display:flex; align-items:baseline; gap:1rem; justify-content:space-between; margin-bottom:.5rem; }
+.block-head h2 { font-size:.95rem !important; margin:0; }
+.block-head code { font-size:.62rem; color:var(--muted) !important; }
+.block>p { color:var(--muted); font-size:.7rem; max-width:78ch; margin:0 0 1.25rem; line-height:1.6; }
+.demo { background:var(--paper); border:1px dashed var(--line); padding:1.5rem; margin-bottom:1rem; }
+.demo--surface { background:var(--surface); }
+details.markup { border:1px solid var(--line); }
+details.markup summary { cursor:pointer; padding:.5rem .75rem; font-size:.64rem; letter-spacing:.04em; }
+details.markup pre { margin:0; padding:.75rem; border-top:1px solid var(--line); overflow-x:auto;
+  font-size:.62rem; line-height:1.6; background:var(--surface); }
+</style>
+</head>
+<body>
+<header class="gallery-head">
+  <h1>Каталог текущих UI-компонентов</h1>
+  <p>Все кастомные HTML-блоки Streamlit-приложения, собранные настоящим CSS
+  продукта и настоящими функциями из <code>agentic_redteam/ui/app.py</code>.
+  Страница статическая: она показывает исходное состояние перед редизайном,
+  включая блоки, которые в живом интерфейсе видны только во время прогона.</p>
+</header>
+<section class="block">
+  <div class="block-head"><h2>Шапка страницы</h2><code>page-head</code></div>
+  <p>`_page_header()` — единственный заголовок продукта. Название слева, подзаголовок справа, разделительная линия цвета --ink.</p>
+  <div class="demo">
+<header class="page-head">
+  <h1>Agentic Red Team</h1>
+  <p>Сценарии безопасности агента с проверкой по состоянию.</p>
+</header>
+</div>
+  <details class="markup"><summary>РАЗМЕТКА</summary><pre>&lt;header class=&quot;page-head&quot;&gt;
+  &lt;h1&gt;Agentic Red Team&lt;/h1&gt;
+  &lt;p&gt;Сценарии безопасности агента с проверкой по состоянию.&lt;/p&gt;
+&lt;/header&gt;</pre></details>
+</section>
+
+<section class="block">
+  <div class="block-head"><h2>Мета сценария (сайдбар)</h2><code>scenario-meta</code></div>
+  <p>`_scenario_card_html()` — класс атаки слева, ATLAS-техники справа, 0.64rem.</p>
+  <div class="demo demo--surface"><div class="scenario-meta"><code>tool_argument_bac</code><span>AML.T0012 · AML.T0077</span></div></div>
+  <details class="markup"><summary>РАЗМЕТКА</summary><pre>&lt;div class=&quot;scenario-meta&quot;&gt;&lt;code&gt;tool_argument_bac&lt;/code&gt;&lt;span&gt;AML.T0012 · AML.T0077&lt;/span&gt;&lt;/div&gt;</pre></details>
+</section>
+
+<section class="block">
+  <div class="block-head"><h2>Модели из конфигурации (сайдбар)</h2><code>config-source / model-row</code></div>
+  <p>`_configured_models_html()` — read-only список ролей LLM из config/target.yaml.</p>
+  <div class="demo demo--surface"><div class="config-source"><small>config/target.yaml</small><div class="model-row"><span>Генератор атак</span><strong>openrouter / z-ai/glm-5.3-flash</strong></div><div class="model-row"><span>Целевой ReAct-агент</span><strong>openrouter / qwen/qwen3-8b</strong></div><div class="model-row"><span>Автор отчёта</span><strong>openrouter / z-ai/glm-5.3-flash</strong></div></div></div>
+  <details class="markup"><summary>РАЗМЕТКА</summary><pre>&lt;div class=&quot;config-source&quot;&gt;&lt;small&gt;config/target.yaml&lt;/small&gt;&lt;div class=&quot;model-row&quot;&gt;&lt;span&gt;Генератор атак&lt;/span&gt;&lt;strong&gt;openrouter / z-ai/glm-5.3-flash&lt;/strong&gt;&lt;/div&gt;&lt;div class=&quot;model-row&quot;&gt;&lt;span&gt;Целевой ReAct-агент&lt;/span&gt;&lt;strong&gt;openrouter / qwen/qwen3-8b&lt;/strong&gt;&lt;/div&gt;&lt;div class=&quot;model-row&quot;&gt;&lt;span&gt;Автор отчёта&lt;/span&gt;&lt;strong&gt;openrouter / z-ai/glm-5.3-flash&lt;/strong&gt;&lt;/div&gt;&lt;/div&gt;</pre></details>
+</section>
+
+<section class="block">
+  <div class="block-head"><h2>Карточка выбранного сценария</h2><code>scenario-summary / step-line</code></div>
+  <p>`_render_scenario_summary()` — заголовок, id, описание, цепочка шагов, класс и ATLAS.</p>
+  <div class="demo"><section class="scenario-summary"><div class="scenario-title"><h2>Adaptive BAC / Tool Argument</h2><code>generated-bac</code></div><p>LLM генерирует вариативные запросы; успех фиксируется только по cross-CUS аргументу реального tool call.</p><div class="step-line"><span>generate</span><i>→</i><span>probe</span><i>→</i><span>observe</span><i>→</i><span>verdict</span></div><small>tool_argument_bac · AML.T0012 · AML.T0077</small></section></div>
+  <details class="markup"><summary>РАЗМЕТКА</summary><pre>&lt;section class=&quot;scenario-summary&quot;&gt;&lt;div class=&quot;scenario-title&quot;&gt;&lt;h2&gt;Adaptive BAC / Tool Argument&lt;/h2&gt;&lt;code&gt;generated-bac&lt;/code&gt;&lt;/div&gt;&lt;p&gt;LLM генерирует вариативные запросы; успех фиксируется только по cross-CUS аргументу реального tool call.&lt;/p&gt;&lt;div class=&quot;step-line&quot;&gt;&lt;span&gt;generate&lt;/span&gt;&lt;i&gt;→&lt;/i&gt;&lt;span&gt;probe&lt;/span&gt;&lt;i&gt;→&lt;/i&gt;&lt;span&gt;observe&lt;/span&gt;&lt;i&gt;→&lt;/i&gt;&lt;span&gt;verdict&lt;/span&gt;&lt;/div&gt;&lt;small&gt;tool_argument_bac · AML.T0012 · AML.T0077&lt;/small&gt;&lt;/section&gt;</pre></details>
+</section>
+
+<section class="block">
+  <div class="block-head"><h2>Итог прогона</h2><code>result-summary / ratio-track</code></div>
+  <p>`_render_outcome_summary()` — единственный «крупный» элемент интерфейса: вердикт, 4 метрики в grid и полоса доли подтверждённых попыток.</p>
+  <div class="demo"><section class="result-summary"><div class="result-title"><span>ИТОГ</span><strong>COMPROMISED</strong><small>20260905-104500-uiref-bac</small></div><dl><div><dt>ASR</dt><dd>40%</dd></div><div><dt>Подтверждено</dt><dd>2/5</dd></div><div><dt>Evidence</dt><dd>5 / 10</dd></div><div><dt>Статус</dt><dd>COMPLETED</dd></div></dl><div class="ratio-track"><i style="width:40.00%"></i></div></section></div>
+  <details class="markup"><summary>РАЗМЕТКА</summary><pre>&lt;section class=&quot;result-summary&quot;&gt;&lt;div class=&quot;result-title&quot;&gt;&lt;span&gt;ИТОГ&lt;/span&gt;&lt;strong&gt;COMPROMISED&lt;/strong&gt;&lt;small&gt;20260905-104500-uiref-bac&lt;/small&gt;&lt;/div&gt;&lt;dl&gt;&lt;div&gt;&lt;dt&gt;ASR&lt;/dt&gt;&lt;dd&gt;40%&lt;/dd&gt;&lt;/div&gt;&lt;div&gt;&lt;dt&gt;Подтверждено&lt;/dt&gt;&lt;dd&gt;2/5&lt;/dd&gt;&lt;/div&gt;&lt;div&gt;&lt;dt&gt;Evidence&lt;/dt&gt;&lt;dd&gt;5 / 10&lt;/dd&gt;&lt;/div&gt;&lt;div&gt;&lt;dt&gt;Статус&lt;/dt&gt;&lt;dd&gt;COMPLETED&lt;/dd&gt;&lt;/div&gt;&lt;/dl&gt;&lt;div class=&quot;ratio-track&quot;&gt;&lt;i style=&quot;width:40.00%&quot;&gt;&lt;/i&gt;&lt;/div&gt;&lt;/section&gt;</pre></details>
+</section>
+
+<section class="block">
+  <div class="block-head"><h2>Строки preflight</h2><code>check-row</code></div>
+  <p>`_render_preflight_checks()` — PASS/FAIL, имя проверки, сообщение.</p>
+  <div class="demo"><div class="check-row"><b>PASS</b><span><strong>stand</strong><small>Каталог с исходниками стенда доступен.</small></span></div><div class="check-row"><b>FAIL</b><span><strong>llm_config</strong><small>report_writer: OpenRouter is selected but OPENROUTER_API_KEY is not set. Export the key before starting the run.</small></span></div><div class="check-row"><b>PASS</b><span><strong>docker</strong><small>Исполняемый файл Docker доступен.</small></span></div></div>
+  <details class="markup"><summary>РАЗМЕТКА</summary><pre>&lt;div class=&quot;check-row&quot;&gt;&lt;b&gt;PASS&lt;/b&gt;&lt;span&gt;&lt;strong&gt;stand&lt;/strong&gt;&lt;small&gt;Каталог с исходниками стенда доступен.&lt;/small&gt;&lt;/span&gt;&lt;/div&gt;&lt;div class=&quot;check-row&quot;&gt;&lt;b&gt;FAIL&lt;/b&gt;&lt;span&gt;&lt;strong&gt;llm_config&lt;/strong&gt;&lt;small&gt;report_writer: OpenRouter is selected but OPENROUTER_API_KEY is not set. Export the key before starting the run.&lt;/small&gt;&lt;/span&gt;&lt;/div&gt;&lt;div class=&quot;check-row&quot;&gt;&lt;b&gt;PASS&lt;/b&gt;&lt;span&gt;&lt;strong&gt;docker&lt;/strong&gt;&lt;small&gt;Исполняемый файл Docker доступен.&lt;/small&gt;&lt;/span&gt;&lt;/div&gt;</pre></details>
+</section>
+
+<section class="block">
+  <div class="block-head"><h2>Живой лог прогона</h2><code>live-log / live-row</code></div>
+  <p>`_live_progress_html()` — последние 6 событий, показывается только во время запуска.</p>
+  <div class="demo"><section class="live-log"><div class="live-row"><code>PREFLIGHT</code><span>Стенд и провайдеры проверены.</span></div><div class="live-row"><code>GENERATE</code><span>Сгенерировано 5 кандидатов payload.</span></div><div class="live-row"><code>ATTEMPT / PROVEN</code><span>Попытка 2/5 · cross-CUS аргумент в tool call.</span></div><div class="live-row"><code>REPORT</code><span>Собираем технический отчёт…</span></div></section></div>
+  <details class="markup"><summary>РАЗМЕТКА</summary><pre>&lt;section class=&quot;live-log&quot;&gt;&lt;div class=&quot;live-row&quot;&gt;&lt;code&gt;PREFLIGHT&lt;/code&gt;&lt;span&gt;Стенд и провайдеры проверены.&lt;/span&gt;&lt;/div&gt;&lt;div class=&quot;live-row&quot;&gt;&lt;code&gt;GENERATE&lt;/code&gt;&lt;span&gt;Сгенерировано 5 кандидатов payload.&lt;/span&gt;&lt;/div&gt;&lt;div class=&quot;live-row&quot;&gt;&lt;code&gt;ATTEMPT / PROVEN&lt;/code&gt;&lt;span&gt;Попытка 2/5 · cross-CUS аргумент в tool call.&lt;/span&gt;&lt;/div&gt;&lt;div class=&quot;live-row&quot;&gt;&lt;code&gt;REPORT&lt;/code&gt;&lt;span&gt;Собираем технический отчёт…&lt;/span&gt;&lt;/div&gt;&lt;/section&gt;</pre></details>
+</section>
+
+<section class="block">
+  <div class="block-head"><h2>Рейка шагов трейса</h2><code>trace-rail / trace-node</code></div>
+  <p>`_trace_rail_html()` — шаги попытки с числом tool call и дельтой памяти.</p>
+  <div class="demo"><div class="trace-rail"><span class="trace-node"><b>01 generate</b><small>CUS 1001 · 0 tool · 0 memory Δ</small></span><span class="trace-node"><b>02 probe</b><small>CUS 1001 · 1 tool · 0 memory Δ</small></span><span class="trace-node"><b>03 observe</b><small>CUS 1002 · 0 tool · 1 memory Δ</small></span><span class="trace-node"><b>04 verdict</b><small>CUS 1001 · 0 tool · 0 memory Δ</small></span></div></div>
+  <details class="markup"><summary>РАЗМЕТКА</summary><pre>&lt;div class=&quot;trace-rail&quot;&gt;&lt;span class=&quot;trace-node&quot;&gt;&lt;b&gt;01 generate&lt;/b&gt;&lt;small&gt;CUS 1001 · 0 tool · 0 memory Δ&lt;/small&gt;&lt;/span&gt;&lt;span class=&quot;trace-node&quot;&gt;&lt;b&gt;02 probe&lt;/b&gt;&lt;small&gt;CUS 1001 · 1 tool · 0 memory Δ&lt;/small&gt;&lt;/span&gt;&lt;span class=&quot;trace-node&quot;&gt;&lt;b&gt;03 observe&lt;/b&gt;&lt;small&gt;CUS 1002 · 0 tool · 1 memory Δ&lt;/small&gt;&lt;/span&gt;&lt;span class=&quot;trace-node&quot;&gt;&lt;b&gt;04 verdict&lt;/b&gt;&lt;small&gt;CUS 1001 · 0 tool · 0 memory Δ&lt;/small&gt;&lt;/span&gt;&lt;/div&gt;</pre></details>
+</section>
+
+</body>
+</html>

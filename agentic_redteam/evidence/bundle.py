@@ -15,6 +15,16 @@ from ..normalize.projection import dotted, principal_of, project_memory
 from .base import EvidenceKind, Marker, Observation
 
 
+def _memory_record(record):
+    """Persist a target-independent snapshot row for human-readable diffs."""
+    return {
+        "key": record.key,
+        "owner": record.owner,
+        "scope": record.scope,
+        "content": record.content,
+    }
+
+
 class EvidenceBundle:
     def __init__(self, providers, profile=None):
         self.providers = dict(providers) if isinstance(providers, dict) else {
@@ -25,6 +35,7 @@ class EvidenceBundle:
         self._windows = {}
         self._closed = False
         self.last_observations = {}
+        self.last_memory_diffs = []
 
     @classmethod
     def from_profile(cls, profile, *, runner=subprocess.run, readers=None, provider_factories=None):
@@ -154,7 +165,7 @@ class EvidenceBundle:
             markers, before = self._windows.pop(since.token)
         except (KeyError, AttributeError):
             raise ValueError("Окно evidence неизвестно или уже использовано.") from None
-        facts, raw = Facts(), {}
+        facts, raw, memory_diffs = Facts(), {}, []
         for name, provider in self.providers.items():
             observations = self._collect(name, markers[name])
             raw[name] = observations
@@ -175,6 +186,11 @@ class EvidenceBundle:
                 elif observation.kind == EvidenceKind.MEMORY_SNAPSHOT:
                     store_id, after = self._project_snapshot(observation)
                     previous = before.get((name, store_id), [])
+                    memory_diffs.append({
+                        "store": store_id,
+                        "before": [_memory_record(record) for record in previous],
+                        "after": [_memory_record(record) for record in after],
+                    })
                     writes = memory_diff(previous, after)
                     previous_by_key = {record.key: record for record in previous if record.key is not None}
                     # The core diff detects new keys; an in-place content/scope/
@@ -187,6 +203,7 @@ class EvidenceBundle:
                 elif observation.kind == EvidenceKind.EXTERNAL_CALLBACK:
                     facts.callbacks.append(ObservedCallback(payload["token"], payload["source"]))
         self.last_observations = raw
+        self.last_memory_diffs = memory_diffs
         return facts
 
     collect_all = collect_facts

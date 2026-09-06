@@ -10,10 +10,12 @@ FINDINGS = {
     "findings": [
         {"scenario_id": "bac", "attack_class": "tool_bac", "verdict": "proven",
          "severity": "critical", "boundary": "cross_user",
-         "standard_refs": ["ASI03"], "evidence_refs": ["evidence-0001.json"]},
+         "standard_refs": ["ASI03"], "evidence_refs": ["evidence-0001.json"],
+         "observation_id": "span-1"},
         {"scenario_id": "leak", "attack_class": "prompt_leak", "verdict": "indirect",
          "severity": "info", "evidence_refs": ["evidence-0002.json"]},
     ],
+    "observability": {"trace_url": "https://langfuse/trace/t"},
 }
 
 BUSINESS = {
@@ -33,6 +35,7 @@ class BusinessReportTests(unittest.TestCase):
         self.assertIn("[critical] bac", report)
         self.assertNotIn("prompt_leak", report)
         self.assertIn("evidence-0001.json", report)
+        self.assertIn("?observation=span-1", report)
 
     def test_explicit_profile_mapping_is_marked_as_confirmed(self):
         report = build_business_report(FINDINGS, BUSINESS)

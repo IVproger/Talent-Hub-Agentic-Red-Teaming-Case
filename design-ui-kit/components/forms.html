@@ -1,0 +1,24 @@
+<!DOCTYPE html>
+<html lang="ru"><head><meta charset="utf-8"><title>MOROK · Поля ввода</title>
+<link rel="stylesheet" href="../css/tokens.css"><link rel="stylesheet" href="../css/base.css"><link rel="stylesheet" href="../css/components.css">
+<style>body{padding:40px;display:flex;flex-direction:column;gap:24px;max-width:1100px}.demo{display:flex;flex-direction:column;gap:12px}.demo h4{margin:0;font-size:11px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--mk-color-text-tertiary)}</style>
+</head><body>
+<div class="mk-stack mk-gap-1"><a href="../index.html" class="mk-meta">← Дизайн-кит</a><h1 class="mk-h1">Поля ввода</h1></div>
+
+<div class="mk-grid mk-grid-1-1">
+<div class="mk-card"><h3 class="mk-h3">Точки входа</h3><div class="mk-grid" style="grid-template-columns:repeat(2,minmax(0,1fr));gap:12px 16px">
+<div class="mk-field"><label class="mk-field__label">Chat API агента</label><input class="mk-input mk-input--mono" value="http://stand:8600/api/chat"></div>
+<div class="mk-field"><label class="mk-field__label">Health check</label><input class="mk-input mk-input--mono" value="http://stand:8600/healthz"></div>
+<div class="mk-field"><label class="mk-field__label">MCP-сервер</label><input class="mk-input mk-input--mono" value="mcp://crm-mcp:9100"></div>
+<div class="mk-field"><label class="mk-field__label">Трассы (Langfuse)</label><input class="mk-input mk-input--mono" value="http://langfuse.local:3000"></div></div></div>
+<div class="mk-card"><h3 class="mk-h3">Архитектура решения</h3>
+<div class="mk-dropzone mk-dropzone--filled"><span class="mk-dropzone__icon">mmd</span><span class="mk-stack" style="gap:2px;min-width:0"><span class="mk-mono" style="font-size:14px;font-weight:500">stand/arch.mmd</span><span class="mk-caption">14 узлов · 19 связей · загружено</span></span><span class="mk-text-positive" style="margin-left:auto;font-weight:600">✓</span></div>
+<textarea class="mk-textarea mk-textarea--mono" rows="5" style="font-size:13px">graph LR
+  U[Клиент] --> GW[API Gateway]
+  GW --> AG[ReAct-агент qwen3-8b]</textarea></div>
+<div class="mk-card"><h3 class="mk-h3">Требования и регламенты</h3><div class="mk-dropzone"><span style="font-size:14px;font-weight:500">Перетащите файлы или нажмите для выбора</span><span class="mk-caption">Политики ИБ, требования регулятора, SLA агента · PDF, DOCX, MD</span></div></div>
+<div class="mk-card"><h3 class="mk-h3">Что учесть в документе</h3><textarea class="mk-textarea" rows="4" placeholder="Например: документ для риск-комитета 12 сентября; нужна оценка в терминах 152-ФЗ…"></textarea>
+<div class="mk-stack mk-gap-2"><span class="mk-caption">Аудитория</span><div class="mk-row mk-gap-2" style="flex-wrap:wrap"><button class="mk-chip" data-mk-chip aria-pressed="true">Риск-комитет</button><button class="mk-chip" data-mk-chip aria-pressed="true">Команда агента</button><button class="mk-chip" data-mk-chip aria-pressed="false">CISO</button><button class="mk-chip" data-mk-chip aria-pressed="false">Комплаенс</button></div></div></div>
+</div>
+<script src="../js/components.js"></script>
+</body></html>

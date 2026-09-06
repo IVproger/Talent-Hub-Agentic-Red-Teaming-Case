@@ -37,12 +37,27 @@ class Telemetry:
 
     def observation(self, name, **_kw):
         self.names.append(name)
-        return nullcontext()
+        observation = type("Observation", (), {
+            "id": f"obs-{len(self.names)}",
+            "trace_id": "trace-1",
+            "update": lambda self, **_values: None,
+        })()
+        return nullcontext(observation)
 
     def flush(self) -> None:
         if self.breaks:
             raise RuntimeError("Langfuse недоступен")
         self.flushed = True
+
+    def trace_observations(self):
+        if self.breaks:
+            raise RuntimeError("Langfuse недоступен")
+        return [
+            {"id": "target-request", "name": "stand.chat", "type": "AGENT",
+             "parent_observation_id": "obs-2", "input": {}},
+            {"id": "target-tool", "name": "stand.tool.get_portfolio", "type": "TOOL",
+             "parent_observation_id": "target-request", "input": {"cus": "1002"}},
+        ]
 
 
 def scenario():
@@ -75,6 +90,18 @@ class TelemetryArtifactTests(unittest.TestCase):
         self.assertEqual(manifest["trace_url"], "http://localhost:3001/t/trace-1")
         self.assertEqual(manifest["root_observation_id"], "obs-root")
         self.assertTrue(telemetry.flushed)
+
+    def test_report_deep_links_the_exact_target_tool_span(self):
+        telemetry = Telemetry()
+        findings = self._run(telemetry, run_id="linked")
+        finding = findings["findings"][0]
+        self.assertEqual(finding["observation_id"], "target-tool")
+        self.assertEqual(finding["step_observation_id"], "obs-2")
+        self.assertEqual(finding["observation_name"], "stand.tool.get_portfolio")
+        report = (self.root / "linked" / "report.md").read_text(encoding="utf-8")
+        self.assertIn("?observation=target-tool", report)
+        self.assertIn("🔴", report)
+        self.assertTrue((self.root / "linked" / "business-report.md").exists())
 
     def test_run_without_telemetry_writes_no_manifest(self):
         findings = self._run(None, run_id="r2")

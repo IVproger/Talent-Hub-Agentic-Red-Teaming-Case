@@ -6,7 +6,130 @@ narrative is fail-open and introduces no facts. Report never affects the verdict
 """
 from __future__ import annotations
 
+import json
 from typing import Any
+from urllib.parse import parse_qsl, urlencode, urlsplit, urlunsplit
+
+
+def observation_url(trace_url: str | None, observation_id: str | None) -> str | None:
+    """Build the Langfuse deep link that selects one exact observation."""
+    if not trace_url or not observation_id:
+        return None
+    parts = urlsplit(trace_url)
+    query = dict(parse_qsl(parts.query, keep_blank_values=True))
+    query["observation"] = observation_id
+    return urlunsplit((parts.scheme, parts.netloc, parts.path,
+                       urlencode(query), parts.fragment))
+
+
+def _cell(value: Any) -> str:
+    return " ".join(str(value if value not in (None, "") else "—")
+                    .replace("\n", " ").replace("|", "\\|").split())
+
+
+def _excerpt(value: Any, limit: int = 500) -> str:
+    text = " ".join(str(value or "—").split())
+    return text if len(text) <= limit else text[:limit - 1].rstrip() + "…"
+
+
+def _step_event(step: dict) -> str:
+    calls = step.get("tool_calls") or []
+    if calls:
+        call = calls[0]
+        args = json.dumps(call.get("args") or {}, ensure_ascii=False, sort_keys=True)
+        return (f"tool `{call.get('tool')}` · principal `{call.get('principal')}` · "
+                f"args `{_excerpt(args, 180)}`")
+    writes = step.get("memory_writes") or []
+    if writes:
+        write = writes[0]
+        return (f"memory `{write.get('store')}` · scope `{write.get('scope')}` · "
+                f"key `{write.get('key') or '—'}`")
+    callbacks = step.get("callbacks") or []
+    if callbacks:
+        return f"callback `{callbacks[0].get('source')}`"
+    if step.get("response"):
+        return "ответ агента получен"
+    return "state-сигналов нет"
+
+
+def _trace_fragment(finding: dict, trace_url: str | None) -> str:
+    chain = finding.get("chain") or []
+    problem_name = finding.get("problem_step")
+    problem = next((step for step in chain if step.get("name") == problem_name), None)
+    if problem is None and chain:
+        problem = chain[-1]
+    observation_id = finding.get("observation_id") or (
+        problem.get("observation_id") if problem else None
+    )
+    deep_link = observation_url(trace_url, observation_id)
+    lines = ["#### Доказательный фрагмент"]
+    if observation_id:
+        target = f"[Открыть проблемный span]({deep_link})" if deep_link else "Проблемный span"
+        lines.append(f"{target} · observation `{observation_id}`")
+    if problem:
+        lines += [
+            "",
+            f"1. **Запрос · `{problem.get('name')}` / {problem.get('role')} "
+            f"(`{problem.get('principal')}`):** {_excerpt(problem.get('request'))}",
+            f"2. **Ответ агента:** {_excerpt(problem.get('response'))}",
+            f"3. **🔴 Подтверждённое нарушение:** {_step_event(problem)}",
+            f"4. **Почему это проблема:** {_excerpt(finding.get('compromise_point'))}",
+        ]
+    else:
+        lines += ["", "Локальная детализация шага отсутствует; используйте evidence-файл."]
+    return "\n".join(lines)
+
+
+def memory_diff_rows(chain: list[dict]) -> list[tuple]:
+    rows = []
+    for step in chain:
+        for snapshot in step.get("memory_diffs") or []:
+            before = {str(item.get("key")): item for item in snapshot.get("before") or []
+                      if item.get("key") is not None}
+            after = {str(item.get("key")): item for item in snapshot.get("after") or []
+                     if item.get("key") is not None}
+            for key in sorted(set(before) | set(after)):
+                old, new = before.get(key), after.get(key)
+                if old == new:
+                    continue
+                change = "добавлено" if old is None else "удалено" if new is None else "изменено"
+                rows.append((step.get("name"), snapshot.get("store"), change, key,
+                             _excerpt((old or {}).get("content"), 180),
+                             _excerpt((new or {}).get("content"), 180)))
+            # Stores without stable keys still get an honest before/after summary.
+            if not before and not after and (snapshot.get("before") or snapshot.get("after")):
+                old = "; ".join(_excerpt(item.get("content"), 80)
+                                for item in snapshot.get("before") or []) or "—"
+                new = "; ".join(_excerpt(item.get("content"), 80)
+                                for item in snapshot.get("after") or []) or "—"
+                if old != new:
+                    rows.append((step.get("name"), snapshot.get("store"), "изменено",
+                                 "без ключа", old, new))
+    return rows
+
+
+def _memory_diff(chain: list[dict]) -> str:
+    rows = memory_diff_rows(chain)
+    if not rows:
+        return "_Подтверждённых изменений памяти в доказавшей попытке нет._"
+    head = "| Шаг | Хранилище | Изменение | Ключ | До | После |\n|---|---|---|---|---|---|"
+    body = ["| " + " | ".join(_cell(value) for value in row) + " |" for row in rows]
+    return "\n".join([head, *body])
+
+
+def _chain_graph(chain: list[dict], problem_step: str | None) -> str:
+    if not chain:
+        return "—"
+    nodes = []
+    for step in chain:
+        name = str(step.get("name") or "шаг").replace("`", "'")
+        if name == problem_step:
+            nodes.append(f"🔴 **`{name}` · НАРУШЕНИЕ**")
+        elif step.get("completed"):
+            nodes.append(f"✓ `{name}`")
+        else:
+            nodes.append(f"✕ `{name}`")
+    return " → ".join(nodes)
 
 
 def remediation_for(goal):
@@ -40,20 +163,25 @@ def severity_of(verdict: str, boundary: str | None, business: dict | None = None
 def _table(attempts: list[dict]) -> str:
     head = "| # | Сценарий | Класс | Роли | Режим | Verdict | Признак |\n|---|---|---|---|---|---|---|"
     rows = [
-        f"| {a.get('attempt')} | {a.get('scenario_id')} | {a.get('attack_class')} | "
-        f"{a.get('roles')} | {a.get('mode')} | {a.get('verdict')} | {a.get('signal', '')} |"
+        "| " + " | ".join(_cell(value) for value in (
+            a.get("attempt"), a.get("scenario_id"), a.get("attack_class"),
+            a.get("roles"), a.get("mode"), a.get("verdict"), a.get("signal", ""),
+        )) + " |"
         for a in attempts
     ]
     return "\n".join([head, *rows])
 
 
-def _finding(f: dict) -> str:
+def _finding(f: dict, trace_url: str | None = None) -> str:
     refs = " / ".join(f.get("standard_refs", []))
     total = f.get("attempts_total")
     sample = f" · {f.get('attempts_proven', 0)}/{total} попыток" if total else ""
     scenario = f"{f.get('scenario_id')} · " if f.get("scenario_id") else ""
     payload = str(f.get("payload") or "—").replace("```", "` ` `")
-    chain = _chain_lines(f.get("chain") or [])
+    chain = _chain_lines(
+        f.get("chain") or [], f.get("problem_step"), trace_url,
+        f.get("observation_id"),
+    )
     outcomes = "\n".join(
         f"  - `{item.get('assertion')}`: {item.get('grade')} · "
         f"{'выполнено' if item.get('passed') else 'не выполнено'} · {item.get('detail', '—')}"
@@ -67,20 +195,28 @@ def _finding(f: dict) -> str:
         f"- **Роли/режим:** {f.get('roles', '—')} · {f.get('mode') or '—'} · "
         f"reset {f.get('reset_policy', '—')}{sample}\n"
         f"- **Evidence:** {', '.join(f.get('evidence_refs', [])) or '—'}\n"
+        f"- **Проблемный span:** `{f.get('observation_id') or '—'}`\n"
         f"- **Verdict:** {f.get('verdict')}\n"
         f"- **Направление исправления:** {f.get('remediation', '—')}\n"
         f"- **Payload:**\n\n```text\n{payload}\n```\n"
         f"- **Проверки цели:**\n{outcomes}\n"
-        f"- **Цепочка:**\n{chain}"
+        f"- **Граф цепочки:** {_chain_graph(f.get('chain') or [], f.get('problem_step'))}\n"
+        f"- **Детали цепочки:**\n{chain}\n\n"
+        f"{_trace_fragment(f, trace_url)}\n\n"
+        f"#### Изменение памяти · до → после\n{_memory_diff(f.get('chain') or [])}"
     )
 
 
-def _chain_lines(chain: list[dict]) -> str:
+def _chain_lines(chain: list[dict], problem_step: str | None = None,
+                 trace_url: str | None = None,
+                 problem_observation_id: str | None = None) -> str:
     if not chain:
         return "  - Детализация шагов отсутствует в этом артефакте."
     lines = []
     for step in chain:
         state = "завершён" if step.get("completed") else "оборван"
+        problem = step.get("name") == problem_step
+        marker = "🔴 **НАРУШЕНИЕ**" if problem else "✓"
         signals = []
         for call in step.get("tool_calls") or []:
             signals.append(f"tool `{call.get('tool')}` → principal `{call.get('principal')}`")
@@ -94,9 +230,19 @@ def _chain_lines(chain: list[dict]) -> str:
         detail = "; ".join(signals) or "state-сигналов нет"
         if step.get("error"):
             detail += "; ошибка: " + str(step["error"])
+        observation_id = (
+            problem_observation_id
+            if problem and problem_observation_id else step.get("observation_id")
+        )
+        deep_link = observation_url(trace_url, observation_id)
+        trace_ref = (
+            f" · [span `{observation_id}`]({deep_link})"
+            if deep_link else
+            (f" · span `{observation_id}`" if observation_id else "")
+        )
         lines.append(
-            f"  - `{step.get('name')}` · {step.get('role')} / principal "
-            f"`{step.get('principal')}` · {state}: {detail}"
+            f"  - {marker} `{step.get('name')}` · {step.get('role')} / principal "
+            f"`{step.get('principal')}` · {state}: {detail}{trace_ref}"
         )
     return "\n".join(lines)
 
@@ -123,6 +269,8 @@ def _diversity_section(diversity: dict) -> list[str]:
 
 def build_skeleton(findings: dict) -> str:
     r = findings.get("reproduction", {})
+    observability = findings.get("observability") or {}
+    trace_url = observability.get("trace_url")
     parts = [
         f"<!-- run_id: {findings.get('run_id')} -->",
         "# Технический отчёт безопасности",
@@ -149,7 +297,10 @@ def build_skeleton(findings: dict) -> str:
         "## Находки",
     ]
     fs = findings.get("findings", [])
-    parts.append("\n\n".join(_finding(f) for f in fs) if fs else "_Подтверждённых находок нет._")
+    parts.append(
+        "\n\n".join(_finding(f, trace_url) for f in fs)
+        if fs else "_Подтверждённых находок нет._"
+    )
     parts += [
         "",
         "## Точка компрометации и цепочка",
@@ -169,13 +320,14 @@ def build_skeleton(findings: dict) -> str:
         "## Ограничения",
         "\n".join(f"- {x}" for x in findings.get("limitations", [])) or "—",
     ]
-    observability = findings.get("observability") or {}
     if observability:
+        trace_target = observability.get("trace_url")
         parts += [
             "",
             "## Трассировка",
             f"Trace ID: `{observability.get('trace_id') or '—'}`  ",
-            f"Trace URL: {observability.get('trace_url') or '—'}  ",
+            (f"Trace URL: [открыть полную трассу]({trace_target})  "
+             if trace_target else "Trace URL: —  "),
             f"Root observation: `{observability.get('root_observation_id') or '—'}`",
         ]
     if findings.get("status") != "completed":
@@ -212,7 +364,8 @@ def add_narrative(skeleton: str, reporter_llm: Any) -> str:
         return skeleton
     try:
         prose = reporter_llm.complete(
-            "Дай краткую человеческую сводку по этому техническому отчёту, "
+            "Дай краткую человеческую сводку по этому техническому отчёту "
+            "только на русском языке, "
             "не добавляя новых фактов:\n\n" + skeleton[:50000]
         ).strip()
     except Exception:

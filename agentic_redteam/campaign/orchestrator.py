@@ -11,6 +11,7 @@ from dataclasses import dataclass, field
 from typing import Any
 
 from ..assertions.verdict import Grade
+from ..reporting.business import build_business_report
 from ..reporting.technical import add_narrative, build_skeleton, severity_of, remediation_for
 from ..verification.judge import VerificationSpec
 from .runner import (
@@ -94,6 +95,10 @@ def _step_summary(step) -> dict:
         "role": step.role,
         "principal": step.principal,
         "session_id": step.session_id,
+        "request": step.request,
+        "response": step.response,
+        "observation_id": step.observation_id,
+        "trace_id": step.trace_id,
         "completed": facts is not None and not step.error,
         "error": step.error,
         "tool_calls": [
@@ -109,7 +114,92 @@ def _step_summary(step) -> dict:
             {"token": callback.token, "source": callback.source}
             for callback in (facts.callbacks if facts else [])
         ],
+        "memory_diffs": list(step.memory_diffs),
     }
+
+
+def _compromise_step(attempt, assertion) -> Any | None:
+    """Resolve the narrowest trace span that carries the proven assertion."""
+    selector = assertion.get("at") or assertion.get("activate")
+    if selector:
+        selected = next((step for step in attempt.steps if step.name == selector), None)
+        if selected is not None:
+            return selected
+    assertion_type = assertion.get("type")
+    for step in attempt.steps:
+        facts = step.facts
+        if facts is None:
+            continue
+        if assertion_type == "memory_write" and facts.memory_writes:
+            return step
+        if assertion_type in ("tool_principal_mismatch", "tool_principal_equals",
+                              "isolation_violation", "cross_session_effect") and facts.tool_calls:
+            return step
+        if assertion_type == "external_callback" and facts.callbacks:
+            return step
+        if assertion_type == "response_contains" and step.response is not None:
+            return step
+    return attempt.steps[-1] if attempt.steps else None
+
+
+def _input_values(value) -> set[str]:
+    if isinstance(value, dict):
+        return {item for nested in value.values() for item in _input_values(nested)}
+    if isinstance(value, (list, tuple)):
+        return {item for nested in value for item in _input_values(nested)}
+    return {str(value)} if value is not None else set()
+
+
+def _is_descendant(observation: dict, ancestor_id: str, by_id: dict[str, dict]) -> bool:
+    parent_id = observation.get("parent_observation_id")
+    seen = set()
+    while parent_id and parent_id not in seen:
+        if parent_id == ancestor_id:
+            return True
+        seen.add(parent_id)
+        parent_id = (by_id.get(parent_id) or {}).get("parent_observation_id")
+    return False
+
+
+def _attach_exact_tool_observations(findings: dict, observations: list[dict]) -> None:
+    """Replace a proving step span with its concrete descendant TOOL span."""
+    by_id = {row.get("id"): row for row in observations if row.get("id")}
+    for finding in findings.get("findings", []):
+        assertion_types = {item.get("assertion") for item in finding.get("outcomes", [])
+                           if item.get("passed")}
+        if not assertion_types.intersection({
+            "tool_principal_mismatch", "tool_principal_equals", "isolation_violation",
+            "cross_session_effect",
+        }):
+            continue
+        step_id = finding.get("observation_id")
+        if not step_id:
+            continue
+        problem_step = next(
+            (step for step in finding.get("chain", [])
+             if step.get("name") == finding.get("problem_step")),
+            None,
+        )
+        principals = {
+            str(call.get("principal"))
+            for call in (problem_step or {}).get("tool_calls", [])
+            if call.get("principal") is not None
+        }
+        candidates = [
+            row for row in observations
+            if str(row.get("type", "")).upper() == "TOOL"
+            and _is_descendant(row, step_id, by_id)
+        ]
+        matching = [
+            row for row in candidates
+            if not principals or principals.intersection(_input_values(row.get("input")))
+        ]
+        if len(matching) != 1:
+            continue
+        exact = matching[0]
+        finding["step_observation_id"] = step_id
+        finding["observation_id"] = exact["id"]
+        finding["observation_name"] = exact.get("name") or None
 
 
 def _limitations(pairs) -> list[str]:
@@ -167,6 +257,7 @@ def build_findings(run_id, profile_ref, modes, scenario_results, business=None) 
             continue
         report_goal = _report_goal(scen)
         assertion, outcome = _compromise(report_goal, best.outcomes)
+        problem_step = _compromise_step(best, assertion)
         findings.append({
             "scenario_id": scen.id,
             "attack_class": scen.attack_class,
@@ -175,6 +266,12 @@ def build_findings(run_id, profile_ref, modes, scenario_results, business=None) 
             "severity": severity_of(best.verdict, scen.boundary, business),
             "boundary": scen.boundary,
             "attempt": best.attempt,
+            "observation_id": (
+                problem_step.observation_id if problem_step else best.observation_id
+            ),
+            "attempt_observation_id": best.observation_id,
+            "trace_id": (problem_step.trace_id if problem_step else best.trace_id),
+            "problem_step": problem_step.name if problem_step else None,
             "payload": best.payload,
             "compromise_point": outcome.detail if outcome else "",
             "chain_stage": STAGE_BY_ASSERTION.get(assertion.get("type"), "действие"),
@@ -265,11 +362,14 @@ def _transcript_row(scen, attempt) -> dict:
                      for o in attempt.outcomes],
         "error": attempt.error,
         "evidence_refs": list(attempt.evidence_refs),
+        "observation_id": attempt.observation_id,
+        "trace_id": attempt.trace_id,
         "verification": attempt.verification,
         "steps": [{"name": step.name, "role": step.role, "principal": step.principal,
                    "session_id": step.session_id, "evidence_complete": step.facts is not None,
                    "request": step.request, "response": step.response,
-                   "error": step.error} for step in attempt.steps],
+                   "error": step.error, "observation_id": step.observation_id,
+                   "trace_id": step.trace_id} for step in attempt.steps],
     }
 
 
@@ -290,13 +390,20 @@ def run_campaign(scenarios, deps: RunnerDeps, storage, run_id: str,
             root = None
     try:
         with root or nullcontext():
-            return _run_campaign(
+            findings = _run_campaign(
                 scenarios, deps, storage, run_id, modes, profile_ref,
                 reporter_llm, business, trials, on_event, should_stop,
                 metadata, config, mode_scope,
             )
-    finally:
-        _write_observability(storage, storage.root / run_id, deps.telemetry)
+    except BaseException:
+        _finalize_reports(
+            storage, storage.root / run_id, deps.telemetry, reporter_llm, business
+        )
+        raise
+    return _finalize_reports(
+        storage, storage.root / run_id, deps.telemetry, reporter_llm, business,
+        findings=findings,
+    )
 
 
 def _run_campaign(scenarios, deps: RunnerDeps, storage, run_id: str,
@@ -377,32 +484,68 @@ def _run_campaign(scenarios, deps: RunnerDeps, storage, run_id: str,
         status, error = "failed", f"{type(exc).__name__}: {exc}"
     publish("report", "Собираем отчёт")
     findings = checkpoint(status)
-    if status == "completed":
-        storage.write_text(run_dir, "report.md", add_narrative(build_skeleton(findings), reporter_llm))
     publish(status, f"{status}: ASR {findings['asr_percent']:.0f}%", run_id=run_id, run_dir=str(run_dir))
     if status == "interrupted":
         raise KeyboardInterrupt
     return findings
 
 
-def _write_observability(storage, run_dir, telemetry) -> None:
+def _write_observability(storage, run_dir, telemetry) -> dict | None:
     """Манифест связывает прогон с его трассой.
 
     Наблюдаемость нашего прогона fail-open: её отказ не меняет ни вердикт, ни
     остальные артефакты — они уже на диске к этому моменту.
     """
     if telemetry is None:
-        return
+        return None
     try:
         telemetry.flush()
-        storage.write_json(run_dir, "observability.json", {
+        manifest = {
             "trace_id": telemetry.trace_id,
             "trace_url": telemetry.trace_url,
             "root_observation_id": telemetry.root_observation_id,
             "warning": telemetry.warning,
-        })
+        }
+        storage.write_json(run_dir, "observability.json", manifest)
+        return manifest
     except Exception:
-        pass
+        return None
+
+
+def _finalize_reports(storage, run_dir, telemetry, reporter_llm, business,
+                      findings=None) -> dict:
+    """Close trace linkage first, then render all human artifacts once."""
+    manifest = _write_observability(storage, run_dir, telemetry)
+    if findings is None:
+        try:
+            findings = storage.load_json(run_dir, "findings.json")
+        except (OSError, ValueError):
+            return {}
+    if manifest:
+        findings["observability"] = manifest
+    read_trace = getattr(telemetry, "trace_observations", None)
+    if read_trace is not None:
+        try:
+            _attach_exact_tool_observations(findings, read_trace())
+        except Exception:
+            pass
+    storage.write_json(run_dir, "findings.json", findings)
+    skeleton = build_skeleton(findings)
+    technical = (
+        add_narrative(skeleton, reporter_llm)
+        if findings.get("status") == "completed" else skeleton
+    )
+    storage.write_text(run_dir, "report.md", technical)
+    storage.write_text(
+        run_dir,
+        "business-report.md",
+        build_business_report(
+            findings,
+            business or {},
+            reporter_llm if findings.get("status") == "completed" else None,
+        ),
+    )
+    return findings
 
 
 def _relay(on_event, scenario_id: str, offset: int, total: int):

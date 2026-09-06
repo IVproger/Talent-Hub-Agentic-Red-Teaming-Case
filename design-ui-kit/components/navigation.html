@@ -1,0 +1,29 @@
+<!DOCTYPE html>
+<html lang="ru"><head><meta charset="utf-8"><title>MOROK · Шаги, вкладки, шапка, сайдбар</title>
+<link rel="stylesheet" href="../css/tokens.css"><link rel="stylesheet" href="../css/base.css"><link rel="stylesheet" href="../css/components.css">
+<style>body{padding:40px;display:flex;flex-direction:column;gap:24px;max-width:1100px}.demo{display:flex;flex-direction:column;gap:12px}.demo h4{margin:0;font-size:11px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--mk-color-text-tertiary)}</style>
+</head><body>
+<div class="mk-stack mk-gap-1"><a href="../index.html" class="mk-meta">← Дизайн-кит</a><h1 class="mk-h1">Шаги, вкладки, шапка, сайдбар</h1></div>
+
+<div class="demo"><h4>Шапка со шагами</h4>
+<div class="mk-header" style="border-radius:12px">
+<div class="mk-header__brand"><button class="mk-icon-btn" data-mk-toggle-sidebar><svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6"><rect x="1.5" y="2.5" width="13" height="11" rx="2.5"/><line x1="6" y1="2.5" x2="6" y2="13.5"/></svg></button><span class="mk-logo"><img src="../assets/logo-eye-white.svg" width="44" height="30" alt="">MOROK</span></div>
+<nav class="mk-header__nav"><div class="mk-steps" data-mk-steps>
+<button class="mk-step mk-step--done" data-step="1"><span class="mk-step__n">✓</span>Контекст</button>
+<button class="mk-step" data-step="2" aria-current="step"><span class="mk-step__n">2</span>Синхронизация</button>
+<button class="mk-step" data-step="3"><span class="mk-step__n">3</span>Сценарии</button>
+<button class="mk-step" data-step="4"><span class="mk-step__n">4</span>Прогон</button>
+<button class="mk-step" data-step="5"><span class="mk-step__n">5</span>Отчёт</button>
+<button class="mk-step" data-step="6"><span class="mk-step__n">6</span>Для бизнеса</button></div></nav>
+<div class="mk-header__aside"><span class="mk-target-chip"><span class="mk-dot mk-dot--ok"></span>assistant-bank-demo</span></div></div>
+<p class="mk-caption">Кликните по шагам — состояние переключается через MK.steps. Пройденные шаги получают ✓.</p></div>
+<div class="demo"><h4>Вкладки внутри контента</h4><div class="mk-tabs" data-mk-tabs><button class="mk-tab" data-tab="a" aria-selected="true">Находки</button><button class="mk-tab" data-tab="b">Трейс</button><button class="mk-tab" data-tab="c">Отчёт</button><button class="mk-tab" data-tab="d">Файлы</button></div></div>
+<div class="demo"><h4>Сайдбар (288px)</h4>
+<div class="mk-sidebar" style="height:auto;border-right:0;border-radius:20px;border:1px solid var(--mk-color-border)">
+<div class="mk-sidebar__section"><span class="mk-label">Цель аудита</span><div class="mk-panel" style="padding:14px;display:flex;flex-direction:column;gap:6px"><span style="font-weight:600;font-size:14px">Ассистент для бизнеса</span><span class="mk-meta" style="font-size:11px">assistant-bank-demo · 14 компонентов</span><span class="mk-status mk-status--ok" style="font-size:12px;margin-top:4px">Подключён · трассы идут</span></div></div>
+<div class="mk-sidebar__section"><span class="mk-label">Подключение</span><div class="mk-stack"><div class="mk-kv"><span class="mk-kv__k">Chat API</span><span class="mk-kv__v mk-text-positive"><span class="mk-dot mk-dot--ok" style="width:6px;height:6px"></span>200 · 84 ms</span></div><div class="mk-kv"><span class="mk-kv__k">Трассы</span><span class="mk-kv__v mk-text-positive"><span class="mk-dot mk-dot--ok" style="width:6px;height:6px"></span>langfuse · live</span></div><div class="mk-kv"><span class="mk-kv__k">Память</span><span class="mk-kv__v mk-text-positive"><span class="mk-dot mk-dot--ok" style="width:6px;height:6px"></span>128 записей</span></div><div class="mk-kv"><span class="mk-kv__k">MCP</span><span class="mk-kv__v mk-text-positive"><span class="mk-dot mk-dot--ok" style="width:6px;height:6px"></span>6 tools</span></div></div></div>
+<div class="mk-sidebar__section"><div class="mk-between"><span class="mk-label">Модели</span><span class="mk-meta" style="font-size:11px">config.json</span></div><div class="mk-stack mk-gap-2"><div class="mk-stack" style="gap:2px"><span class="mk-caption" style="font-size:11px">Генератор атак</span><span class="mk-mono" style="font-size:12px">local / glm-5.3-flash</span></div><div class="mk-stack" style="gap:2px"><span class="mk-caption" style="font-size:11px">Целевой агент</span><span class="mk-mono" style="font-size:12px">local / qwen3-8b</span></div></div></div>
+<div class="mk-sidebar__section"><span class="mk-label">История прогонов</span><button class="mk-history"><span class="mk-meta" style="font-size:11px">20260905-1045 · bac</span><span class="mk-between" style="font-size:12px;width:100%">Adaptive BAC<span class="mk-mono mk-text-negative" style="font-weight:600">40%</span></span></button></div>
+</div></div>
+<script src="../js/components.js"></script>
+</body></html>

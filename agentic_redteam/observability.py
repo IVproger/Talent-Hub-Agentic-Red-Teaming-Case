@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import os
+import json
 import re
 import sys
 import threading
@@ -322,6 +323,55 @@ class LangfuseTelemetry:
             self.warning = "Langfuse flush exceeded its configured timeout."
         elif error:
             self.warning = f"Langfuse flush failed: {type(error[0]).__name__}."
+
+    def trace_observations(self) -> list[dict]:
+        """Read the finished trace so reports can link an exact target span.
+
+        This is reporting-only and fail-open: an unavailable Langfuse read must
+        never change a verdict or prevent the deterministic report from being
+        written.
+        """
+        if self.client is None or not self.trace_id:
+            return []
+        try:
+            result: list[dict] = []
+            cursor = None
+            seen_cursors: set[str] = set()
+            for _page in range(100):
+                response = self.client.api.observations.get_many(
+                    trace_id=self.trace_id,
+                    fields="core,basic,io,metadata",
+                    limit=100,
+                    cursor=cursor,
+                )
+                for item in response.data:
+                    input_value = getattr(item, "input", None)
+                    if isinstance(input_value, str):
+                        try:
+                            input_value = json.loads(input_value)
+                        except ValueError:
+                            pass
+                    item_type = getattr(item, "type", None)
+                    result.append({
+                        "id": str(item.id),
+                        "name": str(getattr(item, "name", "") or ""),
+                        "type": str(getattr(item_type, "value", item_type) or ""),
+                        "parent_observation_id": (
+                            str(item.parent_observation_id)
+                            if getattr(item, "parent_observation_id", None) else None
+                        ),
+                        "input": input_value,
+                    })
+                cursor = getattr(response.meta, "cursor", None)
+                if not cursor:
+                    return result
+                if cursor in seen_cursors:
+                    raise ValueError("Langfuse returned a repeated cursor")
+                seen_cursors.add(cursor)
+            raise ValueError("Langfuse observation pagination limit exceeded")
+        except Exception as exc:
+            self.warning = f"Langfuse trace read failed: {type(exc).__name__}."
+            return []
 
     def _capture(self, value: Any) -> Any:
         if self.config.capture == "metadata-only":

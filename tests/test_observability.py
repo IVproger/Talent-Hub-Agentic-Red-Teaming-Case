@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import unittest
 from contextlib import contextmanager
+from types import SimpleNamespace
 
 from agentic_redteam.observability import (
     LangfuseConfig,
@@ -45,6 +46,28 @@ class FakeClient:
         self.flushed = True
 
 
+class FakeObservationsClient:
+    def get_many(self, **values):
+        self.values = values
+        return SimpleNamespace(
+            data=[SimpleNamespace(
+                id="tool-span",
+                name="stand.tool.get_portfolio",
+                type=SimpleNamespace(value="TOOL"),
+                parent_observation_id="step-span",
+                input='{"cus": "1002"}',
+            )],
+            meta=SimpleNamespace(cursor=None),
+        )
+
+
+class FakeReadClient(FakeClient):
+    def __init__(self):
+        super().__init__()
+        self.observations = FakeObservationsClient()
+        self.api = SimpleNamespace(observations=self.observations)
+
+
 class ObservabilityTests(unittest.TestCase):
     def test_disabled_config_requires_no_credentials(self):
         telemetry = LangfuseTelemetry(LangfuseConfig(), environ={})
@@ -80,6 +103,29 @@ class ObservabilityTests(unittest.TestCase):
             "verdict", "attack_success", "asr_percent"
         ])
         self.assertTrue(client.flushed)
+
+    def test_reads_exact_trace_observations_for_report_links(self):
+        client = FakeReadClient()
+        telemetry = LangfuseTelemetry(
+            LangfuseConfig(enabled=True),
+            environ={
+                "LANGFUSE_PUBLIC_KEY": "pk-lf-test",
+                "LANGFUSE_SECRET_KEY": "sk-lf-test",
+            },
+            client=client,
+        )
+        telemetry.trace_id = "a" * 32
+
+        rows = telemetry.trace_observations()
+
+        self.assertEqual(rows, [{
+            "id": "tool-span",
+            "name": "stand.tool.get_portfolio",
+            "type": "TOOL",
+            "parent_observation_id": "step-span",
+            "input": {"cus": "1002"},
+        }])
+        self.assertEqual(client.observations.values["trace_id"], "a" * 32)
 
     def test_redaction_is_recursive_and_bounded(self):
         value = sanitize_trace_value(

@@ -1,0 +1,26 @@
+<!DOCTYPE html>
+<html lang="ru"><head><meta charset="utf-8"><title>MOROK · Карточки и списки</title>
+<link rel="stylesheet" href="../css/tokens.css"><link rel="stylesheet" href="../css/base.css"><link rel="stylesheet" href="../css/components.css">
+<style>body{padding:40px;display:flex;flex-direction:column;gap:24px;max-width:1100px}.demo{display:flex;flex-direction:column;gap:12px}.demo h4{margin:0;font-size:11px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--mk-color-text-tertiary)}</style>
+</head><body>
+<div class="mk-stack mk-gap-1"><a href="../index.html" class="mk-meta">← Дизайн-кит</a><h1 class="mk-h1">Карточки и списки</h1></div>
+
+<div class="mk-grid mk-grid-1-1">
+<div class="mk-card"><div class="mk-card__head"><h3 class="mk-h3">Документация и контракты</h3><span class="mk-meta">4 файла</span></div>
+<div class="mk-stack mk-gap-2">
+<div class="mk-file-row"><span class="mk-file-row__kind">MD</span><span class="mk-stack" style="gap:2px"><span class="mk-file-row__name">system-card.md</span><span class="mk-file-row__meta">2 100 слов</span></span></div>
+<div class="mk-file-row"><span class="mk-file-row__kind">YAML</span><span class="mk-stack" style="gap:2px"><span class="mk-file-row__name">openapi-gateway.yaml</span><span class="mk-file-row__meta">12 endpoints</span></span></div>
+<div class="mk-file-row"><span class="mk-file-row__kind">PDF</span><span class="mk-stack" style="gap:2px"><span class="mk-file-row__name">Регламент обработки данных клиентов.pdf</span><span class="mk-file-row__meta">18 стр.</span></span></div>
+<button class="mk-btn mk-btn--ghost-dashed">+ Добавить файл</button></div></div>
+<div class="mk-card"><h3 class="mk-h3">Атаки (прогон)</h3>
+<div class="mk-stack mk-gap-2">
+<div class="mk-attack-row mk-attack-row--proven"><span class="mk-attack-row__n">1</span><span class="mk-attack-row__name">Подмена cus в get_customer_profile</span><span class="mk-badge mk-badge--proven">PROVEN</span></div>
+<div class="mk-attack-row mk-attack-row--not-proven"><span class="mk-attack-row__n">2</span><span class="mk-attack-row__name">Расширение выборки list_transactions</span><span class="mk-badge mk-badge--not-proven">NOT PROVEN</span></div>
+<div class="mk-attack-row mk-attack-row--running"><span class="mk-attack-row__n">3</span><span class="mk-attack-row__name">Ролевая легенда «менеджер сопровождения»</span><span class="mk-badge mk-badge--running">RUNNING</span></div>
+<div class="mk-attack-row"><span class="mk-attack-row__n">4</span><span class="mk-attack-row__name">Инъекция через реквизиты платежа</span><span class="mk-badge mk-badge--pending">PENDING</span></div></div></div>
+<div class="mk-card"><h3 class="mk-h3">Ключ — значение (сайдбар)</h3>
+<div class="mk-stack"><div class="mk-kv"><span class="mk-kv__k">Chat API</span><span class="mk-kv__v mk-text-positive"><span class="mk-dot mk-dot--ok" style="width:6px;height:6px"></span>200 · 84 ms</span></div><div class="mk-kv"><span class="mk-kv__k">Трассы</span><span class="mk-kv__v mk-text-positive"><span class="mk-dot mk-dot--ok" style="width:6px;height:6px"></span>langfuse · live</span></div><div class="mk-kv"><span class="mk-kv__k">Память</span><span class="mk-kv__v mk-text-secondary"><span class="mk-dot" style="width:6px;height:6px"></span>—</span></div></div></div>
+<div class="mk-card mk-card--dark"><h3 class="mk-h3">Тёмная карточка</h3><p class="mk-body" style="color:var(--mk-color-text-on-dark-secondary)">Единственная тёмная поверхность в контенте — панель лога. См. log.html.</p></div>
+</div>
+<script src="../js/components.js"></script>
+</body></html>

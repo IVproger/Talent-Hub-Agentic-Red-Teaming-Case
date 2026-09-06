@@ -9,6 +9,7 @@ from __future__ import annotations
 from typing import Any
 
 from ..redaction import redact_secrets
+from .technical import observation_url
 
 
 def _cell(value: Any) -> str:
@@ -59,6 +60,7 @@ def build_business_report(findings: dict, business: dict, reporter_llm=None) -> 
     intended = list(business.get("intended_effects") or [])
     prohibited = list(business.get("prohibited_actions") or [])
     proven = [item for item in findings.get("findings", []) if item.get("verdict") == "proven"]
+    trace_url = (findings.get("observability") or {}).get("trace_url")
 
     parts = [
         f"<!-- run_id: {findings.get('run_id')} -->",
@@ -95,6 +97,9 @@ def build_business_report(findings: dict, business: dict, reporter_llm=None) -> 
             consequence = "Нарушение заявленного запрета: " + action_text
         consequence = consequence or "не определено командой агента"
         evidence = ", ".join(finding.get("evidence_refs") or []) or "—"
+        deep_link = observation_url(trace_url, finding.get("observation_id"))
+        if deep_link:
+            evidence += f" · [проблемный span]({deep_link})"
         name = f"[{finding.get('severity', '—')}] {finding.get('scenario_id') or finding.get('attack_class', '—')}"
         next_step = "исправить контроль · ограничить функцию · принять риск владельцем"
         parts.append(

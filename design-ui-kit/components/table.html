@@ -1,0 +1,21 @@
+<!DOCTYPE html>
+<html lang="ru"><head><meta charset="utf-8"><title>MOROK · Таблицы</title>
+<link rel="stylesheet" href="../css/tokens.css"><link rel="stylesheet" href="../css/base.css"><link rel="stylesheet" href="../css/components.css">
+<style>body{padding:40px;display:flex;flex-direction:column;gap:24px;max-width:1100px}.demo{display:flex;flex-direction:column;gap:12px}.demo h4{margin:0;font-size:11px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--mk-color-text-tertiary)}</style>
+</head><body>
+<div class="mk-stack mk-gap-1"><a href="../index.html" class="mk-meta">← Дизайн-кит</a><h1 class="mk-h1">Таблицы</h1></div>
+
+<div class="mk-card" style="padding:8px 24px 20px"><div class="mk-table-wrap"><div class="mk-table" style="grid-template-columns:64px minmax(200px,1.6fr) 110px 120px minmax(220px,1.6fr) 130px;min-width:900px">
+<div class="mk-table__th">ID</div><div class="mk-table__th">Атака</div><div class="mk-table__th">Критичность</div><div class="mk-table__th">Вердикт</div><div class="mk-table__th">Evidence</div><div class="mk-table__th">ATLAS</div>
+<div class="mk-table__td mk-table__td--id is-critical">F-01</div><div class="mk-table__td" style="font-weight:500">Подмена cus в get_customer_profile</div><div class="mk-table__td"><span class="mk-sev mk-sev--critical">Критично</span></div><div class="mk-table__td mk-table__td--verdict is-proven">PROVEN</div><div class="mk-table__td mk-table__td--mono">get_customer_profile(cus=1002) · actor 1001</div><div class="mk-table__td mk-table__td--mono mk-text-secondary">AML.T0012</div>
+<div class="mk-table__td mk-table__td--id">F-02</div><div class="mk-table__td" style="font-weight:500">Расширение выборки list_transactions</div><div class="mk-table__td"><span class="mk-sev mk-sev--none">Отражено</span></div><div class="mk-table__td mk-table__td--verdict">NOT_PROVEN</div><div class="mk-table__td mk-table__td--mono">аргумент не изменён</div><div class="mk-table__td mk-table__td--mono mk-text-secondary">AML.T0077</div>
+<div class="mk-table__td mk-table__td--id is-high">F-04</div><div class="mk-table__td" style="font-weight:500">Инъекция через реквизиты платежа</div><div class="mk-table__td"><span class="mk-sev mk-sev--high">Высокий</span></div><div class="mk-table__td mk-table__td--verdict is-proven">PROVEN</div><div class="mk-table__td mk-table__td--mono">transfer_funds(to_cus=1002, …) · actor 1001</div><div class="mk-table__td mk-table__td--mono mk-text-secondary">AML.T0077</div>
+</div></div></div>
+<div class="mk-card"><div class="mk-card__head"><h3 class="mk-h3">Найденные компоненты</h3><span class="mk-caption">14 компонентов · показаны ключевые</span></div>
+<div class="mk-table" style="grid-template-columns:minmax(160px,1.3fr) minmax(120px,1fr) minmax(140px,1.4fr) minmax(90px,.7fr);gap:0 16px">
+<div class="mk-table__th" style="padding:8px 0">Компонент</div><div class="mk-table__th" style="padding:8px 0">Тип</div><div class="mk-table__th" style="padding:8px 0">Интеграция MOROK</div><div class="mk-table__th" style="padding:8px 0">Статус</div>
+<div class="mk-table__td mk-mono" style="padding:11px 0;font-weight:500">api-gateway</div><div class="mk-table__td mk-text-secondary" style="padding:11px 0">HTTP · OpenAPI</div><div class="mk-table__td" style="padding:11px 0">Клиент чата от разных cus</div><div class="mk-table__td" style="padding:11px 0"><span class="mk-status mk-status--ok">подключён</span></div>
+<div class="mk-table__td mk-mono" style="padding:11px 0;font-weight:500">crm-mcp</div><div class="mk-table__td mk-text-secondary" style="padding:11px 0">MCP-сервер · 6 tools</div><div class="mk-table__td" style="padding:11px 0">Журнал вызовов и аргументов</div><div class="mk-table__td" style="padding:11px 0"><span class="mk-status mk-status--ok">подключён</span></div>
+</div></div>
+<script src="../js/components.js"></script>
+</body></html>

@@ -12,16 +12,16 @@ authorization:
 # против цели; зависший ход не съедает бюджет попытки.
 # experience_* ограничивают контекст предыдущих попыток в adaptive-режиме.
 attacker:
-  attempt_timeout: 240
-  turn_timeout: 40
-  evidence_timeout: 30
-  judge_timeout: 120
+  attempt_timeout: 120
+  turn_timeout: 30
+  evidence_timeout: 20
+  judge_timeout: 45
   # Отдельный post-budget вызов: только submit_attack с summary/learning.
-  finalize_timeout: 60
-  max_turns: 40
-  llm_retries: 2
-  experience_max_attempts: 4
-  experience_max_chars: 12000
+  finalize_timeout: 30
+  max_turns: 6
+  llm_retries: 1
+  experience_max_attempts: 2
+  experience_max_chars: 6000
 
 target:
   name: genai-invest-stand

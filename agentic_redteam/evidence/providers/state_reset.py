@@ -40,6 +40,9 @@ class StateResetProvider:
             if result.returncode:
                 raise ValueError
             return result.stdout
+        except subprocess.CalledProcessError as exc:
+            detail = ((exc.stderr or exc.stdout or "").strip() or f"код {exc.returncode}")[:300]
+            raise RuntimeError(f"Операция state-reset не выполнена: {detail}") from None
         except (OSError, subprocess.SubprocessError, ValueError):
             raise RuntimeError("Операция state-reset не выполнена.") from None
 

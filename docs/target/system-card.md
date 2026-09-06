@@ -118,3 +118,17 @@ in `vulnerable` mode the LLM, not the IAM layer, decides which `cus` to pass to 
 ### duckduckgo
 - **Role:** The agent's web-search tool (`app/agent/tools.py`).
 - **Attack surface:** the only attacker-influenceable EXTERNAL input channel (indirect/tool-result injection). Out of scope for the BAC PoC.
+
+---
+
+## Red-team state reset (session_reset source)
+
+Reference for bringing the stand back to a clean baseline between attempts. This
+is the target's `session_reset` source and maps to a profile evidence provider
+(`provider: state-reset`): wiping long-term and working memory returns the stand
+to its initial state. `api_keys` is left untouched (wiping it breaks auth).
+
+- **compose_file:** `stand/docker-compose.yml`
+- **project:** `genai-invest-agent-memory-stand`
+- **mongo:** service `mongo`, db `agent_memory`, collections `agent_policy_memories`, `semantic_memories`, `episodic_memories`, `dialog_sessions`
+- **redis:** service `redis`, db `0`, key_patterns `working:*`

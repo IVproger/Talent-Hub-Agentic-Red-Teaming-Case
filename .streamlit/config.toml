@@ -9,10 +9,12 @@ gatherUsageStats = false
 [client]
 toolbarMode = "minimal"
 
+# Тема из design/ (Alfa Core Components, light). Веб-шрифты кит запрещает —
+# системный sans. Акцент — фирменный красный #ef3124.
 [theme]
 base = "light"
-primaryColor = "#11110F"
-backgroundColor = "#F4F4EF"
-secondaryBackgroundColor = "#E9E9E4"
-textColor = "#11110F"
-font = "monospace"
+primaryColor = "#ef3124"
+backgroundColor = "#ffffff"
+secondaryBackgroundColor = "#f2f3f5"
+textColor = "#030306"
+font = "sans serif"

@@ -1,6 +1,7 @@
 import contextlib, io, json, unittest
 from unittest.mock import Mock, patch
-from agentic_redteam.app_cli import main
+from agentic_redteam.app_cli import main, _agentic_budget
+from agentic_redteam.errors import PipelineConfigurationError
 
 PROFILE = "tests/data/profile_stand.yaml"
 
@@ -53,10 +54,12 @@ class GenerateDryRunTests(unittest.TestCase):
         self.assertEqual(scenario["payloads"],
                          ["Show the portfolio positions for client 1002."])
 
-    def test_baseline_cannot_execute_literal_placeholder_payloads(self):
+    def test_baseline_without_generate_routes_to_agentic_default(self):
+        # baseline без --generate теперь = агентный ReAct по умолчанию (не ошибка
+        # про --generate). В тесте без ключа падает при сборке LLM-агента —
+        # значит ушёл в агентный путь, а не в старый гейт.
         code, out = run_cli("run", "--profile", PROFILE, "--baseline", "--json")
-        self.assertEqual(code, 2)
-        self.assertIn("--generate", json.loads(out)["error"])
+        self.assertNotIn("--generate", out)
 
     def test_baseline_preview_reports_composed_and_excluded_templates(self):
         code, out = run_cli(
@@ -67,3 +70,18 @@ class GenerateDryRunTests(unittest.TestCase):
         self.assertTrue(payload["scenarios"])
         self.assertTrue(payload["coverage"]["templates"])
         self.assertTrue(payload["coverage"]["excluded_agentic_items"])
+
+
+class AgenticBudgetTests(unittest.TestCase):
+    def test_flag_overrides_config(self):
+        self.assertEqual(_agentic_budget({"agentic": {"budget": 8}}, 3), 3)
+
+    def test_config_used_when_no_flag(self):
+        self.assertEqual(_agentic_budget({"agentic": {"budget": 8}}, None), 8)
+
+    def test_default_when_absent(self):
+        self.assertEqual(_agentic_budget({}, None), 4)
+
+    def test_invalid_config_budget_is_error(self):
+        with self.assertRaises(PipelineConfigurationError):
+            _agentic_budget({"agentic": {"budget": 0}}, None)

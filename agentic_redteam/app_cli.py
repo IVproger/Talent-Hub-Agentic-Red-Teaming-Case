@@ -9,6 +9,7 @@ import re
 import secrets
 import subprocess
 import sys
+import time
 from collections.abc import Mapping
 from dataclasses import asdict, replace
 from datetime import UTC, datetime
@@ -21,7 +22,8 @@ from .adapters.base import AdapterFeature
 from .adapters.http_chat import HttpChatAdapter
 from .assertions.registry import required_kinds
 from .campaign.orchestrator import PlannedScenario, run_campaign
-from .campaign.agentic import run_agentic
+from .campaign.agentic import (
+    run_agentic, run_agentic_campaign, predicate_scenarios)
 from .campaign.authorization import AuthorizationError, authorization_from_mapping
 from .campaign.plan import Campaign, execution_order
 from .campaign.runner import RunnerDeps, ScenarioStep
@@ -426,15 +428,13 @@ def _run_scenarios(args) -> int:
         )
     if args.save_plan and not args.dry_run:
         raise PipelineConfigurationError("--save-plan используется вместе с --dry-run.")
-    if args.baseline and not args.generate and not args.dry_run:
-        raise PipelineConfigurationError(
-            "Исполнение --baseline требует --generate N: шаблоны не содержат "
-            "готового target-specific payload."
-        )
     if args.dry_run:
         return _preview_campaign(args)
     if args.agentic:
         return _run_agentic(args)
+    if args.baseline and not args.generate:
+        # дефолт: агентный ReAct по каждому OWASP-сценарию (K попыток с историей).
+        return _run_agentic_baseline(args)
     return _execute_campaign(args)
 
 
@@ -613,9 +613,148 @@ def _predicate_menu(planned) -> list[dict]:
     return menu
 
 
+def _agentic_budget(mapping: dict, override: int | None) -> int:
+    """Число ходов ReAct: флаг --agentic перекрывает config.agentic.budget, иначе 4."""
+    if override:
+        return override
+    budget = ((mapping or {}).get("agentic") or {}).get("budget")
+    if budget is None:
+        return 4
+    if not isinstance(budget, int) or isinstance(budget, bool) or budget < 1:
+        raise PipelineConfigurationError(
+            "agentic.budget должен быть целым числом ≥ 1."
+        )
+    return budget
+
+
+def _agentic_report_md(result: dict) -> str:
+    lines = ["# Технический отчёт — агентный ReAct",
+             f"**Прогон:** `{result['run_id']}` · **Профиль:** `{result['profile']}`", "",
+             "## Метрика",
+             f"ASR: {result['asr_percent']}% · сценарии proven: "
+             f"{result['scenarios_proven']}/{result['scenarios_scored']} · "
+             f"попыток: {result['attempts_total']}", "",
+             ]
+    timings = result.get("timings") or {}
+    if timings.get("phases"):
+        lines += ["## Тайминги", "| Фаза | Секунд |", "|---|---|"]
+        for p in timings["phases"]:
+            lines.append(f"| {p['name']} | {p['seconds']} |")
+        lines.append(f"| **Итого** | **{timings.get('total_seconds', 0)}** |")
+        lines.append("")
+    lines += ["## Попытки", "| Сценарий | OWASP | Вердикт | Целевой предикат | Шагов | Секунд |",
+              "|---|---|---|---|---|---|"]
+    for a in result["attempts"]:
+        lines.append(f"| {a['scenario_id']} | {a['attack_class']} | {a['verdict']} | "
+                     f"{a.get('target') or '—'} | {len(a['steps'])} | {a.get('seconds', '—')} |")
+    lines += ["", "## Траектории"]
+    for a in result["attempts"]:
+        lines.append(f"### {a['scenario_id']} — {a['verdict']}")
+        for i, st in enumerate(a["steps"], 1):
+            lines.append(f"{i}. `{st.get('target')}` [{st['verdict']}] — "
+                         f"{(st.get('detail') or '')[:140]}")
+        lines.append("")
+    return "\n".join(lines)
+
+
+def execute_agentic_campaign(profile, config, output_root, run_id, *,
+                             budget, documents=None, extra_phases=None,
+                             should_stop=None, on_progress=None) -> dict:
+    """Общее ядро агентного прогона: CLI и UI зовут его, не повторяя сборку.
+
+    Генератор сейдит по одному сценарию на каждый distinct-предикат baseline —
+    так агент проходит по всем предикатам, стартуя с осмысленной затравки, а не
+    с нуля. Пишет `findings.json` и `report.md`, возвращает summary.
+
+    `extra_phases` — уже замеренные заранее фазы (напр. «Создание профиля» из
+    UI), они попадают в `timings.phases` первыми.
+    """
+    def _progress(label):
+        if on_progress:
+            on_progress(label)
+
+    phases = list(extra_phases or [])
+    authorization = authorization_from_mapping(config).as_record()
+    _progress("Компоновка сценариев")
+    started = time.perf_counter()
+    planned, _coverage = build_baseline(profile)
+    scenarios = predicate_scenarios(planned)
+    phases.append({"name": "Компоновка сценариев", "seconds": round(time.perf_counter() - started, 3)})
+    roles = list(profile.identities.get("roles", {})) or ["attacker"]
+    agent = make_llm_client(role_configs_from_mapping(config.get("llm"))["attack_generator"])
+    mode = next(iter(profile.modes), None)
+    surface = surface_of(profile)
+    surface["documents"] = documents or []
+    started = time.perf_counter()
+    for i, scenario in enumerate(scenarios):
+        if should_stop and should_stop():
+            break
+        _progress(f"Генерация атак · {i + 1}/{len(scenarios)}")
+        try:
+            scenario.seed = generate(scenario, surface, 1, agent)[0]
+        except PipelineConfigurationError:
+            scenario.seed = None  # генератор не дал затравку — идём без неё
+    phases.append({"name": "Генерация атак", "seconds": round(time.perf_counter() - started, 3)})
+    with EvidenceBundle.from_profile(profile) as bundle:
+        adapter = HttpChatAdapter.from_profile(profile)
+        try:
+            started = time.perf_counter()
+            result = run_agentic_campaign(agent, adapter, bundle, scenarios,
+                                          surface=surface, roles=roles,
+                                          budget=budget, mode=mode, should_stop=should_stop,
+                                          on_progress=on_progress)
+            phases.append({"name": "Атака (ReAct)", "seconds": round(time.perf_counter() - started, 3)})
+        finally:
+            adapter.close()
+        try:
+            bundle.reset()
+        except Exception:
+            pass
+    result["timings"] = {
+        "phases": phases,
+        "total_seconds": round(sum(p["seconds"] for p in phases), 3),
+        "per_scenario": [{"scenario_id": a["scenario_id"], "seconds": a.get("seconds")}
+                         for a in result.get("attempts", [])],
+    }
+    result.update({"run_id": run_id, "profile": f"{profile.name}@{profile.version}",
+                   "authorization": authorization})
+    storage = RunStorage(output_root)
+    run_dir = storage.root / run_id
+    storage.write_json(run_dir, "findings.json", result)
+    (run_dir / "report.md").write_text(_agentic_report_md(result), encoding="utf-8")
+    # status.json — чтобы прогон был виден в истории (list_runs его требует).
+    # Отмена: финальный статус пишем атомарно как interrupted (без гонки с UI).
+    final_status = "interrupted" if (should_stop and should_stop()) else "completed"
+    storage.write_json(run_dir, "status.json", {
+        "run_id": run_id, "status": final_status,
+        "asr_percent": result["asr_percent"],
+        "scenarios_scored": result["scenarios_scored"],
+        "attempts_total": result["attempts_total"], "error": None,
+    })
+    return {"run_dir": run_dir, "findings": result}
+
+
+def _run_agentic_baseline(args) -> int:
+    profile = load_profile(args.profile)
+    config = _config_mapping(args.config)
+    budget = _agentic_budget(config, args.agentic)
+    summary = execute_agentic_campaign(
+        profile, config, args.output, new_run_id(), budget=budget)
+    run_dir = summary["run_dir"]
+    result = summary["findings"]
+    print(json.dumps({
+        "ok": True, "run_id": result["run_id"], "asr_percent": result["asr_percent"],
+        "scenarios_proven": result["scenarios_proven"],
+        "scenarios_scored": result["scenarios_scored"],
+        "run_dir": str(run_dir),
+    }, ensure_ascii=False))
+    return 0
+
+
 def _run_agentic(args) -> int:
     profile = load_profile(args.profile)
-    authorization = authorization_from_mapping(_config_mapping(args.config)).as_record()
+    config = _config_mapping(args.config)
+    authorization = authorization_from_mapping(config).as_record()
     planned, _coverage = build_baseline(profile)
     menu = _predicate_menu(planned)
     if getattr(args, "agentic_goal", None):
@@ -630,7 +769,7 @@ def _run_agentic(args) -> int:
         try:
             result = run_agentic(agent, adapter, bundle, surface=surface_of(profile),
                                  predicate_menu=menu, roles=roles,
-                                 budget=args.agentic, mode=mode)
+                                 budget=_agentic_budget(config, args.agentic), mode=mode)
         finally:
             adapter.close()
         try:

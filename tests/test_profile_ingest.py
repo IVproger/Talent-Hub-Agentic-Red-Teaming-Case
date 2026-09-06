@@ -5,7 +5,7 @@ from pathlib import Path
 
 import yaml
 
-from agentic_redteam.profile.ingest import build_draft
+from agentic_redteam.profile.ingest import build_draft, _SCHEMA_CONTRACT
 from tests.fakes import FakeLLM
 
 
@@ -277,6 +277,14 @@ class ProfileIngestTests(unittest.TestCase):
         self.assertIn("ok", ids)
         self.assertNotIn("bad-trace", ids)
 
+
+
+class SchemaContractTests(unittest.TestCase):
+    def test_state_reset_schema_declares_compose_project(self):
+        # без project docker compose exec бьёт не в тот проект и reset падает
+        idx = _SCHEMA_CONTRACT.index("provider: state-reset")
+        line = _SCHEMA_CONTRACT[idx:_SCHEMA_CONTRACT.index("\n", idx)]
+        self.assertIn("project", line)
 
 
 if __name__ == "__main__":

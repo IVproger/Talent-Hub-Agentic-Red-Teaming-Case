@@ -15,33 +15,55 @@ class UiTests(unittest.TestCase):
         import agentic_redteam.ui.app as app
         self.assertTrue(callable(app.main))
 
-    def test_profile_summary_reads_sections_and_rejected(self):
+    def test_find_openapi_picks_paths_doc_not_compose(self):
         import agentic_redteam.ui.app as app
-        path = Path(tempfile.mkdtemp()) / "profile.yaml"
-        path.write_text(yaml.safe_dump({
-            "adapter": "http-chat",
-            "identities": {"provider": "docker-exec-mint"},
-            "surface": {"tools": [{"name": "t1"}], "memory": [{"id": "m1"}]},
-            "evidence": [{"id": "e1", "provider": "log-regex"}],
-            "modes": {"vulnerable": {}, "protected": {}},
-            "ingest": {"judgement": {"rejected": [{"binding": "x", "reason": "y"}]}},
-        }), encoding="utf-8")
-        summary = app._profile_summary(str(path))
-        self.assertEqual(summary["identities"], "docker-exec-mint")
-        self.assertEqual(summary["tools"], ["t1"])
-        self.assertEqual(summary["memory"], ["m1"])
-        self.assertEqual(summary["evidence"], [("e1", "log-regex")])
-        self.assertEqual(sorted(summary["modes"]), ["protected", "vulnerable"])
-        self.assertEqual(len(summary["judgement"]), 1)
+        tmp = Path(tempfile.mkdtemp())
+        compose = tmp / "docker-compose.yml"
+        compose.write_text("services:\n  mongo: {}\n", encoding="utf-8")
+        openapi = tmp / "openapi.json"
+        openapi.write_text('{"openapi":"3.0.0","paths":{"/x":{}}}', encoding="utf-8")
+        arch = tmp / "arch.mmd"
+        arch.write_text("graph TD;", encoding="utf-8")
+        self.assertEqual(app._find_openapi([compose, arch, openapi]), openapi)
+        self.assertIsNone(app._find_openapi([compose, arch]))
 
     def test_ui_delegates_to_shared_core_without_own_verdict_logic(self):
         source = APP.read_text(encoding="utf-8")
-        # прогон и OWASP-сборка идут через общие функции ядра/CLI
-        self.assertIn("execute_campaign", source)
-        self.assertIn("build_baseline", source)
+        # прогон идёт через общее ядро CLI
+        self.assertIn("execute_agentic_campaign", source)
         # своей логики вердикта UI не держит (US-07 AC3)
         self.assertNotIn("def tool_principal_mismatch", source)
         self.assertNotIn("Grade.STATE", source)
+
+    def test_only_run_button_no_check_or_build(self):
+        source = APP.read_text(encoding="utf-8")
+        # единственное действие — «ЗАПУСК»; «ПРОВЕРКА»/«СОБРАТЬ ПРОФИЛЬ» убраны
+        self.assertIn("ЗАПУСК", source)
+        self.assertNotIn("ПРОВЕРКА", source)
+        self.assertNotIn("СОБРАТЬ ПРОФИЛЬ", source)
+
+    def test_run_is_async_with_autorefresh(self):
+        source = APP.read_text(encoding="utf-8")
+        # прогон в фоновом потоке + авто-обновление статуса
+        self.assertIn("threading", source)
+        self.assertIn("run_every", source)
+
+    def test_timings_tab_present(self):
+        source = APP.read_text(encoding="utf-8")
+        self.assertIn("ТАЙМИНГИ", source)
+
+    def test_run_history_panel_is_present(self):
+        source = APP.read_text(encoding="utf-8")
+        # история прогонов: список из runs/ (мастер-деталь) + открытие сохранённого
+        self.assertIn("list_runs", source)
+        self.assertIn("history_open", source)
+
+    def test_sections_are_a_segmented_switch_not_radio(self):
+        source = APP.read_text(encoding="utf-8")
+        # разделы — сегмент-переключатель (программно выбираемый), не radio
+        self.assertIn("st.segmented_control", source)
+        self.assertIn('"ЗАПУСК", "ИСТОРИЯ"', source)
+        self.assertNotIn('st.radio("Раздел"', source)
 
     def test_target_is_endpoint_driven_not_a_hardcoded_registry(self):
         source = APP.read_text(encoding="utf-8")

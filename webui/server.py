@@ -67,8 +67,16 @@ def _build_profile_from_target() -> str:
     roles = _role_configs_at(CONFIG)
     analyst = make_llm_client(roles["analyst"])
     judge = make_llm_client(roles["judge"])
+    # Механизм аутентификации/минтинга — знание оператора, не выводимое из
+    # артефактов: берём его из верифицированного профиля стенда (провайдер,
+    # config, credential, principal), роли/entrypoint/surface выводит LLM.
+    op_ident = load_profile(PROFILE_REF).identities
+    operator_identities = {k: op_ident[k] for k in
+                           ("provider", "config", "credential", "principal")
+                           if k in op_ident}
     draft = build_draft(op, STAND_URL, "target-" + Path(op).stem,
-                        documents=docs, analyst=analyst, judge=judge)
+                        documents=docs, analyst=analyst, judge=judge,
+                        identities=operator_identities)
     TargetProfile.from_mapping(draft)
     out = Path(op).parent / "profile.yaml"
     out.write_text(yaml.safe_dump(draft, allow_unicode=True, sort_keys=False), encoding="utf-8")

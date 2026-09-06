@@ -69,6 +69,28 @@ class ProfileIngestTests(unittest.TestCase):
         self.assertEqual(draft["entrypoint"]["review_required"], [])
         self.assertTrue(draft["surface"]["tools"][0]["sensitive"])
 
+    def test_operator_identities_override_sets_auth_mechanism(self):
+        # Механизм минтинга/аутентификации — знание оператора, не выводимое из
+        # артефактов; оператор задаёт его блоком identities, который побеждает
+        # догадку LLM (провайдер/конфиг/креды/principal), а роли остаются от LLM.
+        openapi = self._openapi()
+        operator = {
+            "provider": "docker-exec-mint",
+            "config": {"compose_file": "stand/docker-compose.yml",
+                       "project": "stand-proj", "service": "agent-api"},
+            "credential": {"headers": {"Authorization": "Bearer {secret}"}},
+            "principal": {"attribute": "cus", "type": "decimal"},
+        }
+        draft = build_draft(openapi, "http://localhost:7001", "target",
+                            identities=operator)
+        ident = draft["identities"]
+        self.assertEqual(ident["provider"], "docker-exec-mint")
+        self.assertEqual(ident["config"]["service"], "agent-api")
+        self.assertEqual(ident["config"]["project"], "stand-proj")
+        self.assertEqual(ident["credential"]["headers"]["Authorization"],
+                         "Bearer {secret}")
+        self.assertEqual(ident["principal"]["attribute"], "cus")
+
 
     def test_judge_accepts_bindings_into_profile_without_human(self):
         openapi = self._openapi()

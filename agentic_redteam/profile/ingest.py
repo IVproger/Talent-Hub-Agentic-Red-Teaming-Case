@@ -205,6 +205,7 @@ def build_draft(
     analyst=None,
     bindings=None,
     judge=None,
+    identities=None,
 ):
     source = read_document(openapi_path)
     try:
@@ -431,4 +432,12 @@ def build_draft(
             )
 
         _merge(draft, reviewed)
+    # Механизм аутентификации/минтинга — знание оператора, а не цели: его нельзя
+    # достоверно вывести из openapi+доков. Оператор задаёт его блоком identities
+    # (провайдер, config, credential, principal), который побеждает догадку LLM;
+    # роли остаются выведенными из документов. Мержим последним, авторитетно.
+    if identities:
+        from .schema import TargetProfile
+        _merge(draft, {"identities": identities})
+        TargetProfile.from_mapping(draft)  # оверрайд обязан оставлять draft загружаемым
     return draft

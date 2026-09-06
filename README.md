@@ -478,9 +478,17 @@ python -m agentic_redteam regress compare --before runs/<a> --after runs/<b>
 python -m agentic_redteam kb list --profile genai-invest-stand
 python -m agentic_redteam kb status <finding-id> --set fixed --note "закрыли привязку"
 
-# Локальный desktop UI.
+# Новый локальный Web UI (FastAPI), http://127.0.0.1:8502.
 python -m agentic_redteam serve
 ```
+
+`serve` запускает интерфейс из `webui/` тем же Python, которым вызван CLI.
+Перед первым запуском установите зависимости: `.venv/bin/python -m pip install -r requirements.txt`.
+Адрес и порт можно изменить: `python -m agentic_redteam serve --port 8503`.
+Разрешена только локальная привязка (`127.0.0.1` или `localhost`).
+Если на порту 8502 ещё работает старый Streamlit, остановите его или выберите другой порт.
+Старый интерфейс остаётся доступен из корня репозитория отдельной командой:
+`.venv/bin/python -m streamlit run agentic_redteam/ui/app.py --server.address 127.0.0.1 --server.port 8504`.
 
 Флаг `--json` поддерживается командами, которые возвращают результат.
 Exit codes: `0` — успех, `2` — ошибка аргументов или конфигурации,

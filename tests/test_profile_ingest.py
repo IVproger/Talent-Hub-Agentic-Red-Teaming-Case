@@ -91,6 +91,32 @@ class ProfileIngestTests(unittest.TestCase):
                          "Bearer {secret}")
         self.assertEqual(ident["principal"]["attribute"], "cus")
 
+    def test_operator_evidence_override_replaces_llm_guess(self):
+        # evidence-плюминг (сервисы compose, БД, лог-паттерны) — знание оператора,
+        # не выводимое из артефактов; операторский список evidence заменяет
+        # выдумку LLM целиком (напр. неверный db_query поверх настоящего стенда).
+        from agentic_redteam.app_cli import load_profile
+        operator_evidence = load_profile("genai-invest-stand@1.0.0").evidence
+        openapi = self._openapi()
+        draft = build_draft(openapi, "http://localhost:7001", "target",
+                            evidence=operator_evidence)
+        self.assertEqual([e["id"] for e in draft["evidence"]],
+                         [e["id"] for e in operator_evidence])
+        self.assertTrue(all(e["provider"] != "db_query" for e in draft["evidence"]))
+
+    def test_caller_base_url_is_authoritative(self):
+        # Адрес цели знает оператор (передаёт в build_draft). LLM/judge не вправе
+        # переписать его хостами из топологии в артефактах — иначе запрос уйдёт
+        # не на тот порт. Переданный base_url побеждает любую привязку.
+        openapi = self._openapi()
+        bindings = openapi.parent / "b.yaml"
+        bindings.write_text(yaml.safe_dump({
+            "entrypoint": {"base_url": "http://oauth2-proxy:8501"}}),
+            encoding="utf-8")
+        draft = build_draft(openapi, "http://localhost:8600", "target",
+                            bindings=bindings)
+        self.assertEqual(draft["entrypoint"]["base_url"], "http://localhost:8600")
+
 
     def test_judge_accepts_bindings_into_profile_without_human(self):
         openapi = self._openapi()

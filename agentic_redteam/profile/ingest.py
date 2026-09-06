@@ -206,6 +206,7 @@ def build_draft(
     bindings=None,
     judge=None,
     identities=None,
+    evidence=None,
 ):
     source = read_document(openapi_path)
     try:
@@ -432,12 +433,23 @@ def build_draft(
             )
 
         _merge(draft, reviewed)
-    # Механизм аутентификации/минтинга — знание оператора, а не цели: его нельзя
-    # достоверно вывести из openapi+доков. Оператор задаёт его блоком identities
-    # (провайдер, config, credential, principal), который побеждает догадку LLM;
-    # роли остаются выведенными из документов. Мержим последним, авторитетно.
+    # Инфраструктура наблюдения/аутентификации — знание оператора, а не цели:
+    # её нельзя достоверно вывести из openapi+доков. Оператор задаёт identities
+    # (провайдер, config, credential, principal) и evidence (провайдеры
+    # доказательств: сервисы compose, БД, лог-паттерны), которые побеждают
+    # догадку LLM; роли/entrypoint/surface остаются выведенными из документов.
+    # Мержим последними, авторитетно (список evidence заменяется целиком).
+    overrides: dict = {}
     if identities:
+        overrides["identities"] = identities
+    if evidence is not None:
+        overrides["evidence"] = evidence
+    if overrides:
         from .schema import TargetProfile
-        _merge(draft, {"identities": identities})
-        TargetProfile.from_mapping(draft)  # оверрайд обязан оставлять draft загружаемым
+        _merge(draft, overrides)
+        TargetProfile.from_mapping(draft)  # оверрайды обязаны оставлять draft загружаемым
+    # Адрес цели передал оператор — он авторитетен: LLM/judge могут выхватить
+    # host из топологии в артефактах (внутренние сервисы, не чат-вход) и увести
+    # запрос не на тот порт. Пиним base_url последним.
+    draft["entrypoint"]["base_url"] = base_url
     return draft

@@ -6,9 +6,17 @@
 """
 from __future__ import annotations
 
+import os
 import tempfile
 import threading
 from pathlib import Path
+
+# credential ролей минтится через `docker exec` в стенд; PATH процесса (напр.
+# запущенного из nohup/сервиса) может не содержать путь к docker — добавим его,
+# иначе минт падает с «Невозможно разрешить шаблон credential».
+for _bin in ("/usr/local/bin", "/opt/homebrew/bin"):
+    if _bin not in os.environ.get("PATH", "").split(os.pathsep):
+        os.environ["PATH"] = _bin + os.pathsep + os.environ.get("PATH", "")
 
 import re
 
@@ -67,7 +75,7 @@ def _build_profile_from_target() -> str:
     return str(out)
 
 
-def _bg(run_id: str, cancel: threading.Event) -> None:
+def _bg(run_id: str, cancel: threading.Event, scenario: str | None = None) -> None:
     storage = RunStorage(RUNS_ROOT)
     log: list[str] = []
 
@@ -75,23 +83,32 @@ def _bg(run_id: str, cancel: threading.Event) -> None:
         log.append(label)
         storage.write_json(storage.root / run_id, "status.json",
                            {"run_id": run_id, "status": "running", "label": label,
-                            "log": log[-12:]})
+                            "log": log[-50:]})
 
     try:
         config = _config_mapping(CONFIG)
         documents = None
         if _TARGET["openapi"]:
+            names = [Path(p).name for p in _TARGET["files"]]
+            progress(f"Артефакты: {len(names)} — {', '.join(names)}")
             if not _TARGET["profile_path"]:
-                progress("Создание профиля")
+                progress("Сборка профиля из артефактов…")
                 _TARGET["profile_path"] = _build_profile_from_target()
             profile = load_profile(_TARGET["profile_path"])
-            documents = [read_document(p) for p in _TARGET["files"] if p != _TARGET["openapi"]]
+            progress(f"Профиль собран: {profile.name}@{profile.version}")
+            doc_paths = [p for p in _TARGET["files"] if p != _TARGET["openapi"]]
+            documents = [read_document(p) for p in doc_paths]
+            if documents:
+                progress(f"Документы для генератора: {len(documents)} — "
+                         + ", ".join(Path(p).name for p in doc_paths))
         else:
             profile = load_profile(PROFILE_REF)  # демо без загрузки артефактов
+            progress(f"Профиль: {profile.name}@{profile.version} (демо-стенд)")
         budget = _agentic_budget(config, None)
         execute_agentic_campaign(profile, config, str(RUNS_ROOT), run_id,
                                  budget=budget, documents=documents,
-                                 should_stop=cancel.is_set, on_progress=progress)
+                                 should_stop=cancel.is_set, on_progress=progress,
+                                 only=scenario)
     except Exception as exc:  # noqa: BLE001
         storage.write_json(storage.root / run_id, "status.json",
                            {"run_id": run_id, "status": "failed", "error": str(exc)})
@@ -124,14 +141,16 @@ def target_reset() -> dict:
 
 
 @app.post("/api/run")
-def start_run() -> dict:
+def start_run(scenario: str | None = None) -> dict:
+    # scenario=None или "all" → все предикаты; иначе один сценарий по id
+    only = None if (not scenario or scenario == "all") else scenario
     run_id = new_run_id()
     RunStorage(RUNS_ROOT).write_json(RUNS_ROOT / run_id, "status.json",
                                      {"run_id": run_id, "status": "running",
                                       "label": "Подготовка", "log": []})
     cancel = threading.Event()
     _CANCEL[run_id] = cancel
-    threading.Thread(target=_bg, args=(run_id, cancel), daemon=True).start()
+    threading.Thread(target=_bg, args=(run_id, cancel, only), daemon=True).start()
     return {"run_id": run_id}
 
 
@@ -226,6 +245,10 @@ async def business_generate(run_id: str, audience: str = Form(""), note: str = F
         business = {}
     tmp = Path(tempfile.mkdtemp(prefix="morok-reg-"))
     regs = []
+    # технический отчёт прогона всегда прикрепляется как артефакт-источник
+    report_path = RUNS_ROOT / run_id / "report.md"
+    if report_path.exists():
+        regs.append("### Технический отчёт (report.md)\n" + report_path.read_text(encoding="utf-8"))
     for f in files or []:
         dest = tmp / (f.filename or "reg")
         dest.write_bytes(await f.read())

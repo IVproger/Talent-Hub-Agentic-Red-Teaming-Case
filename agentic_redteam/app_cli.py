@@ -711,7 +711,7 @@ def _agentic_report_md(result: dict) -> str:
 
 def execute_agentic_campaign(profile, config, output_root, run_id, *,
                              budget, documents=None, extra_phases=None,
-                             should_stop=None, on_progress=None) -> dict:
+                             should_stop=None, on_progress=None, only=None) -> dict:
     """Общее ядро агентного прогона: CLI и UI зовут его, не повторяя сборку.
 
     Генератор сейдит по одному сценарию на каждый distinct-предикат baseline —
@@ -731,22 +731,34 @@ def execute_agentic_campaign(profile, config, output_root, run_id, *,
     started = time.perf_counter()
     planned, _coverage = build_baseline(profile)
     scenarios = predicate_scenarios(planned)
-    phases.append({"name": "Компоновка сценариев", "seconds": round(time.perf_counter() - started, 3)})
+    if only:  # запуск одного сценария (id); неизвестный id → полный набор
+        picked = [s for s in scenarios if s.id == only]
+        scenarios = picked or scenarios
+    _sec = round(time.perf_counter() - started, 3)
+    phases.append({"name": "Компоновка сценариев", "seconds": _sec})
+    _progress(f"✓ Сценарии готовы: {len(scenarios)} за {_sec}s — "
+              + ", ".join(getattr(s, "id", "?") for s in scenarios))
     roles = list(profile.identities.get("roles", {})) or ["attacker"]
     agent = make_llm_client(role_configs_from_mapping(config.get("llm"))["attack_generator"])
     mode = next(iter(profile.modes), None)
     surface = surface_of(profile)
     surface["documents"] = documents or []
     started = time.perf_counter()
+    _seeded = 0
     for i, scenario in enumerate(scenarios):
         if should_stop and should_stop():
             break
-        _progress(f"Генерация атак · {i + 1}/{len(scenarios)}")
+        _progress(f"Генерация атак · {i + 1}/{len(scenarios)} — {scenario.id}")
         try:
             scenario.seed = generate(scenario, surface, 1, agent)[0]
+            _seeded += 1
+            _progress(f"  затравка готова: {scenario.id}")
         except PipelineConfigurationError:
             scenario.seed = None  # генератор не дал затравку — идём без неё
-    phases.append({"name": "Генерация атак", "seconds": round(time.perf_counter() - started, 3)})
+            _progress(f"  без затравки: {scenario.id} (идём с нуля)")
+    _sec = round(time.perf_counter() - started, 3)
+    phases.append({"name": "Генерация атак", "seconds": _sec})
+    _progress(f"✓ Затравки: {_seeded}/{len(scenarios)} за {_sec}s")
     with EvidenceBundle.from_profile(profile) as bundle:
         adapter = HttpChatAdapter.from_profile(profile)
         try:
@@ -755,7 +767,9 @@ def execute_agentic_campaign(profile, config, output_root, run_id, *,
                                           surface=surface, roles=roles,
                                           budget=budget, mode=mode, should_stop=should_stop,
                                           on_progress=on_progress)
-            phases.append({"name": "Атака (ReAct)", "seconds": round(time.perf_counter() - started, 3)})
+            _sec = round(time.perf_counter() - started, 3)
+            phases.append({"name": "Атака (ReAct)", "seconds": _sec})
+            _progress(f"✓ Атака (ReAct) завершена за {_sec}s")
         finally:
             adapter.close()
         try:

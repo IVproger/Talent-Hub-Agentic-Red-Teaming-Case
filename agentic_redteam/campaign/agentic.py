@@ -204,10 +204,16 @@ def run_agentic_campaign(agent, adapter, evidence, scenarios, *, surface,
             on_progress(f"Атака · {i + 1}/{total} — {getattr(scenario, 'id', '')}")
         on_step = None
         if on_progress:
-            def on_step(step, _i=i + 1):
+            _n = [0]
+            def on_step(step, _i=i + 1, _n=_n):
+                _n[0] += 1
+                content = (step.get("content") or "").replace("\n", " ")
+                if content:
+                    on_progress(f"[{_i}/{total}] шаг {_n[0]} · {step.get('role')}·"
+                                f"{step.get('action')} «{content[:60]}»")
                 v = step.get("verdict")
-                on_progress(f"[{_i}/{total}] {step.get('role')}·{step.get('action')} → "
-                            f"{step.get('target')} [{v}] {(step.get('detail') or '')[:70]}")
+                on_progress(f"[{_i}/{total}]   → {step.get('target')} [{v}] "
+                            f"{(step.get('detail') or '')[:70]}")
         started = time.perf_counter()
         result = run_agentic(
             agent, adapter, evidence, surface=surface,

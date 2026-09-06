@@ -22,3 +22,4 @@ knowledge.db
 
 # Local browser screenshots from UI verification
 .playwright-cli/
+webui/kit-ref/

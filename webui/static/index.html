@@ -1,0 +1,179 @@
+<!DOCTYPE html>
+<html lang="ru"><head><meta charset="utf-8"><title>MOROK</title>
+<meta name="viewport" content="width=1280">
+<link rel="stylesheet" href="/static/kit/css/tokens.css">
+<link rel="stylesheet" href="/static/kit/css/base.css">
+<link rel="stylesheet" href="/static/kit/css/components.css">
+<style>
+  /* hidden должен побеждать авторский display (у .mk-banner/.mk-card он flex) */
+  [hidden] { display: none !important; }
+  /* каждый экран — flex-колонка с тем же ритмом, что и .mk-content */
+  #content > section { flex: 1; min-height: 0; display: flex; flex-direction: column; gap: var(--mk-space-6); }
+</style>
+</head>
+<body><div class="mk-app">
+
+<header class="mk-header">
+  <div class="mk-header__brand">
+    <button class="mk-icon-btn" data-mk-toggle-sidebar title="Свернуть панель"><svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6"><rect x="1.5" y="2.5" width="13" height="11" rx="2.5"/><line x1="6" y1="2.5" x2="6" y2="13.5"/></svg></button>
+    <a class="mk-logo" href="/"><img src="/static/kit/assets/logo-eye-white.svg" width="44" height="30" alt="">MOROK</a>
+  </div>
+  <nav class="mk-header__nav"><div class="mk-steps" id="steps">
+    <button class="mk-step" data-step="1" aria-current="step"><span class="mk-step__n">1</span>Контекст</button>
+    <button class="mk-step" data-step="2"><span class="mk-step__n">2</span>Синхронизация</button>
+    <button class="mk-step" data-step="3"><span class="mk-step__n">3</span>Сценарии</button>
+    <button class="mk-step" data-step="4"><span class="mk-step__n">4</span>Прогон</button>
+    <button class="mk-step" data-step="5"><span class="mk-step__n">5</span>Отчёт</button>
+    <button class="mk-step" data-step="6"><span class="mk-step__n">6</span>Для бизнеса</button>
+  </div></nav>
+  <div class="mk-header__aside"><span class="mk-target-chip"><span class="mk-dot" id="targetDot"></span><span id="targetName">genai-invest-stand</span></span></div>
+</header>
+
+<div class="mk-body">
+<aside class="mk-sidebar mk-scroll">
+  <div class="mk-sidebar__section"><span class="mk-label">Цель аудита</span>
+    <div class="mk-panel" style="padding:14px;display:flex;flex-direction:column;gap:6px">
+      <span style="font-weight:600;font-size:14px">GenAI Invest Stand</span>
+      <span class="mk-meta" style="font-size:11px">genai-invest-stand@1.0.0</span>
+      <span class="mk-status" id="sbConn" style="font-size:12px;margin-top:4px">Не подключён</span></div></div>
+  <div class="mk-sidebar__section"><span class="mk-label">Подключение</span>
+    <div class="mk-stack" id="sbChecks">
+      <div class="mk-kv"><span class="mk-kv__k">Chat API</span><span class="mk-kv__v mk-text-secondary"><span class="mk-dot" style="width:6px;height:6px"></span>не проверено</span></div>
+      <div class="mk-kv"><span class="mk-kv__k">Трассы</span><span class="mk-kv__v mk-text-secondary"><span class="mk-dot" style="width:6px;height:6px"></span>—</span></div>
+      <div class="mk-kv"><span class="mk-kv__k">Память</span><span class="mk-kv__v mk-text-secondary"><span class="mk-dot" style="width:6px;height:6px"></span>—</span></div>
+      <div class="mk-kv"><span class="mk-kv__k">Reset</span><span class="mk-kv__v mk-text-secondary"><span class="mk-dot" style="width:6px;height:6px"></span>—</span></div></div></div>
+  <div class="mk-sidebar__section"><div class="mk-between"><span class="mk-label">Модели</span><span class="mk-meta" style="font-size:11px">config/target.yaml</span></div>
+    <div class="mk-stack mk-gap-2">
+      <div class="mk-stack" style="gap:2px"><span class="mk-caption" style="font-size:11px">Генератор атак</span><span class="mk-mono" style="font-size:12px">glm-5.3-flash</span></div>
+      <div class="mk-stack" style="gap:2px"><span class="mk-caption" style="font-size:11px">Целевой агент</span><span class="mk-mono" style="font-size:12px">qwen3-8b</span></div>
+      <div class="mk-stack" style="gap:2px"><span class="mk-caption" style="font-size:11px">Автор отчёта</span><span class="mk-mono" style="font-size:12px">glm-5.3-flash</span></div></div></div>
+  <div class="mk-sidebar__section"><span class="mk-label">История прогонов</span>
+    <div class="mk-stack mk-gap-2" id="sbHistory"><span class="mk-meta" style="font-size:11px">загрузка…</span></div></div>
+</aside>
+
+<main class="mk-main mk-scroll"><div class="mk-content" id="content">
+
+<!-- ЭКРАН 1 · Контекст -->
+<section data-screen="1">
+  <div class="mk-page-head"><span class="mk-meta">Шаг 1 из 6 · цель аудита</span><h1 class="mk-h1">Контекст цели</h1>
+    <p class="mk-lead">Загрузите артефакты стенда: OpenAPI (обязателен), архитектуру, system card, compose. По ним MOROK соберёт профиль цели и адаптирует сценарии.</p></div>
+  <div class="mk-grid mk-grid-1-1 mk-grow" style="grid-template-rows:1fr auto">
+    <div class="mk-card"><div class="mk-card__head"><h3 class="mk-h3">Архитектура решения</h3><span class="mk-meta">.mmd · .md</span></div>
+      <label class="mk-dropzone" id="archZone" style="cursor:pointer">
+        <span class="mk-dropzone__icon">mmd</span>
+        <span class="mk-stack" style="gap:2px;min-width:0"><span style="font-weight:600;font-size:14px" id="archName">Загрузить архитектуру</span><span class="mk-caption">Mermaid .mmd или .md со схемой</span></span>
+        <input id="archInput" type="file" hidden accept=".mmd,.mermaid,.md,.txt">
+      </label>
+      <textarea class="mk-textarea mk-textarea--mono mk-grow" id="archText" rows="6" style="font-size:13px" placeholder="Или вставьте описание архитектуры текстом…"></textarea></div>
+    <div class="mk-card"><div class="mk-card__head"><h3 class="mk-h3">Документация и контракты</h3><span class="mk-meta">OpenAPI обязателен</span></div>
+      <div class="mk-stack mk-gap-2 mk-grow" id="docFiles"><span class="mk-caption">Файлы не добавлены.</span></div>
+      <label class="mk-btn mk-btn--ghost-dashed" style="cursor:pointer">+ Добавить файл · OpenAPI, MCP manifest, system card, MD
+        <input id="docInput" type="file" multiple hidden accept=".json,.yaml,.yml,.md,.txt"></label></div>
+    <div class="mk-card mk-span-all"><div class="mk-card__head"><h3 class="mk-h3">Точки входа</h3><span class="mk-caption" style="font-size:13px">Прямые адреса, к которым MOROK подключится внутри контура</span></div>
+      <div class="mk-grid" style="grid-template-columns:repeat(2,minmax(0,1fr));gap:12px 16px">
+        <div class="mk-field"><label class="mk-field__label">Chat API агента</label><input class="mk-input mk-input--mono" id="epChat" value="http://localhost:8600/v1/chat/completions"></div>
+        <div class="mk-field"><label class="mk-field__label">Health check</label><input class="mk-input mk-input--mono" id="epHealth" value="http://localhost:8600/healthz"></div>
+        <div class="mk-field"><label class="mk-field__label">MCP-сервер</label><input class="mk-input mk-input--mono" id="epMcp" value="mcp://localhost:8100"></div>
+        <div class="mk-field"><label class="mk-field__label">Трассы (Langfuse)</label><input class="mk-input mk-input--mono" id="epTrace" value="http://localhost:3001"></div></div></div>
+  </div>
+  <div class="mk-page-nav"><button class="mk-btn mk-btn--secondary" id="resetTarget">Начать заново</button>
+    <span class="mk-row mk-gap-3" style="align-items:center"><span class="mk-caption" id="ctxHint" style="font-size:13px">Данные не покидают контур: локальные модели и трассы.</span>
+    <button class="mk-btn mk-btn--brand" id="connectBtn">Подключить стенд</button></span></div>
+</section>
+
+<!-- ЭКРАН 2 · Синхронизация -->
+<section data-screen="2" hidden>
+  <div class="mk-page-head"><span class="mk-meta">Шаг 2 из 6 · подключение</span><h1 class="mk-h1">Синхронизация со стендом</h1>
+    <p class="mk-lead">MOROK проверяет доступность цели и источников доказательств. Профиль подтверждён.</p></div>
+  <div class="mk-banner mk-banner--success" style="align-self:flex-start"><span class="mk-banner__icon">✓</span>
+    <span class="mk-stack" style="gap:2px"><span class="mk-banner__title">Стенд подключён</span><span class="mk-banner__sub">Профиль genai-invest-stand@1.0.0 · reset-провайдер доступен</span></span></div>
+  <div class="mk-card mk-span-all"><h3 class="mk-h3">Проверки источников</h3><div class="mk-stack mk-gap-2">
+    <div class="mk-kv"><span class="mk-kv__k">Chat API (цель)</span><span class="mk-kv__v"><span class="mk-badge mk-badge--not-proven">PASS</span></span></div>
+    <div class="mk-kv"><span class="mk-kv__k">Tool calls (лог)</span><span class="mk-kv__v"><span class="mk-badge mk-badge--not-proven">PASS</span></span></div>
+    <div class="mk-kv"><span class="mk-kv__k">State reset</span><span class="mk-kv__v"><span class="mk-badge mk-badge--not-proven">PASS</span></span></div></div></div>
+  <div class="mk-page-nav"><button class="mk-btn mk-btn--secondary" data-go="1">← Изменить контекст</button><button class="mk-btn mk-btn--dark" data-go="3">К сценариям атак →</button></div>
+</section>
+
+<!-- ЭКРАН 3 · Сценарии -->
+<section data-screen="3" hidden>
+  <div class="mk-page-head"><span class="mk-meta">Шаг 3 из 6 · выбор</span><h1 class="mk-h1">Сценарии атак</h1>
+    <p class="mk-lead">По одному сценарию на каждый предикат. Агент целится в предикат и доказывает его наблюдаемым состоянием.</p></div>
+  <div class="mk-grid mk-grid-2-5 mk-grow" style="grid-template-rows:1fr auto">
+    <div class="mk-scenarios mk-stack mk-gap-2" id="scnList"><span class="mk-meta">загрузка…</span></div>
+    <div class="mk-card" id="scnDetail"><span class="mk-meta">Выберите сценарий слева.</span></div>
+    <div class="mk-page-nav mk-span-all"><button class="mk-btn mk-btn--secondary" data-go="2">← Назад</button><button class="mk-btn mk-btn--brand" id="runBtn">Запустить сценарий</button></div>
+  </div>
+</section>
+
+<!-- ЭКРАН 4 · Прогон -->
+<section data-screen="4" hidden>
+  <div class="mk-page-head"><span class="mk-meta">Шаг 4 из 6 · прогон</span><h1 class="mk-h1" id="runTitle">Прогон по всем предикатам</h1>
+    <p class="mk-lead">Реальный ReAct-агент атакует цель. Вердикт — по наблюдаемому состоянию.</p></div>
+  <div class="mk-card"><div class="mk-between"><span class="mk-row mk-gap-2"><span class="mk-spinner" id="spin"></span><span style="font-weight:600;font-size:15px" id="runStatus">Ожидание запуска…</span></span>
+    <span class="mk-meta" style="font-size:13px;white-space:nowrap" id="counter">— / —</span></div>
+    <div class="mk-progress"><div class="mk-progress__fill" id="fill" style="width:0%"></div></div>
+    <div class="mk-row mk-gap-4 mk-caption" style="font-size:13px;flex-wrap:wrap"><span>Доказано: <b class="mk-mono mk-text-negative" id="cProven">—</b></span><span>Сценариев: <b class="mk-mono" id="cScored" style="color:var(--mk-color-text-primary)">—</b></span></div></div>
+  <div class="mk-grid mk-grid-2-3 mk-grow">
+    <div class="mk-card" style="gap:10px"><h3 class="mk-h3" style="font-size:15px">Атаки по предикатам</h3><div id="rows" class="mk-stack mk-gap-2"></div>
+      <div class="mk-push-bottom mk-row mk-gap-2"><button class="mk-btn mk-btn--secondary" id="cancelBtn" hidden>Отменить</button><button class="mk-btn mk-btn--dark" id="toReport" hidden>Открыть отчёт →</button></div></div>
+    <div class="mk-card mk-card--dark" style="gap:12px;min-height:380px"><div class="mk-between"><span style="font-weight:600;font-size:15px">Живой лог</span><span class="mk-meta" style="font-size:11px;color:var(--mk-color-text-on-dark-tertiary)">status.json · фазы</span></div>
+      <div class="mk-log" id="log"><span class="mk-log__cursor" id="cursor"></span></div></div></div>
+</section>
+
+<!-- ЭКРАН 5 · Отчёт -->
+<section data-screen="5" hidden data-mk-tabs-scope>
+  <div class="mk-page-head"><span class="mk-meta" id="repMeta">Шаг 5 из 6 · отчёт</span><h1 class="mk-h1">Технический отчёт</h1></div>
+  <div class="mk-verdict" id="verdict"></div>
+  <div class="mk-tabs" id="repTabs" style="align-self:flex-start"><button class="mk-tab" data-tab="find" aria-selected="true">Находки</button><button class="mk-tab" data-tab="report">Отчёт</button></div>
+  <div data-tab-panel="find"><div class="mk-card mk-grow"><div class="mk-table-wrap"><div class="mk-table" id="findTable" style="grid-template-columns:1.2fr 1fr .8fr .8fr .8fr"></div></div></div></div>
+  <div data-tab-panel="report" hidden><div class="mk-card mk-grow"><div class="mk-row mk-gap-2" style="margin-bottom:8px"><button class="mk-btn mk-btn--small mk-btn--secondary" id="dlReport">Скачать report.md</button></div><pre class="mk-mono" id="reportText" style="white-space:pre-wrap;font-size:13px;line-height:1.5">—</pre></div></div>
+  <div class="mk-page-nav"><button class="mk-btn mk-btn--secondary" data-go="4">← Прогон</button><button class="mk-btn mk-btn--dark" data-go="6">Материалы для бизнеса →</button></div>
+</section>
+
+<!-- ЭКРАН 6 · Для бизнеса -->
+<section data-screen="6" hidden>
+  <div class="mk-page-head"><span class="mk-meta">Шаг 6 из 6 · для бизнеса</span><h1 class="mk-h1">Документ для переговоров с бизнесом</h1>
+    <p class="mk-lead">Технические находки переводятся на язык риска и решений. Добавьте требования и укажите, что учесть.</p></div>
+  <div class="mk-grid mk-grid-1-1 mk-grow" style="grid-template-rows:1fr auto">
+    <!-- ЛЕВО -->
+    <div class="mk-stack mk-gap-3">
+      <div class="mk-card"><h3 class="mk-h3">Требования и регламенты</h3>
+        <label class="mk-dropzone" style="cursor:pointer"><span class="mk-dropzone__icon">+</span>
+          <span class="mk-stack" style="gap:2px"><span style="font-weight:600;font-size:14px">Перетащите файлы или нажмите для выбора</span><span class="mk-caption">Политики ИБ, требования регулятора, SLA агента · PDF, DOCX, MD</span></span>
+          <input id="reqInput" type="file" multiple hidden accept=".pdf,.docx,.md,.txt"></label>
+        <div class="mk-stack mk-gap-2" id="reqFiles"></div></div>
+      <div class="mk-card mk-grow"><h3 class="mk-h3">Что учесть в документе</h3>
+        <textarea class="mk-textarea mk-grow" id="bizNote" rows="4" placeholder="Свободная форма: аудитория, ограничения, ожидаемое решение"></textarea>
+        <div class="mk-stack" style="gap:6px"><span class="mk-field__label">Аудитория</span>
+          <div class="mk-row mk-gap-2" style="flex-wrap:wrap">
+            <button class="mk-chip" data-mk-chip aria-pressed="true">Риск-комитет</button>
+            <button class="mk-chip" data-mk-chip aria-pressed="true">Команда агента</button>
+            <button class="mk-chip" data-mk-chip aria-pressed="false">CISO</button>
+            <button class="mk-chip" data-mk-chip aria-pressed="false">Комплаенс</button></div></div></div>
+    </div>
+    <!-- ПРАВО -->
+    <div class="mk-stack mk-gap-3">
+      <div class="mk-card"><div class="mk-card__head"><h3 class="mk-h3">Структура документа</h3><span class="mk-meta" id="bizKind">business-brief</span></div>
+        <div class="mk-stack mk-gap-2">
+          <div class="mk-file-row"><span class="mk-file-row__kind">01</span><span class="mk-stack" style="gap:2px"><span class="mk-file-row__name">Резюме для принятия решения</span><span class="mk-file-row__meta" id="bizS1">Вердикт, ASR и cross-user эффект из отчёта</span></span></div>
+          <div class="mk-file-row"><span class="mk-file-row__kind">02</span><span class="mk-stack" style="gap:2px"><span class="mk-file-row__name">Что произошло и почему это риск</span><span class="mk-file-row__meta">След находки языком бизнеса, без терминов</span></span></div>
+          <div class="mk-file-row"><span class="mk-file-row__kind">03</span><span class="mk-stack" style="gap:2px"><span class="mk-file-row__name">Соответствие требованиям</span><span class="mk-file-row__meta" id="bizS3">Загруженные политики и регламенты</span></span></div>
+          <div class="mk-file-row"><span class="mk-file-row__kind">04</span><span class="mk-stack" style="gap:2px"><span class="mk-file-row__name">Варианты решения и стоимость</span><span class="mk-file-row__meta">Исправить · ограничить функцию · принять риск владельцем</span></span></div>
+          <div class="mk-file-row"><span class="mk-file-row__kind">05</span><span class="mk-stack" style="gap:2px"><span class="mk-file-row__name">Критерий закрытия</span><span class="mk-file-row__meta">Повторный прогон в режиме protected · ASR 0%</span></span></div>
+          <div class="mk-file-row"><span class="mk-file-row__kind">06</span><span class="mk-stack" style="gap:2px"><span class="mk-file-row__name">Приложения</span><span class="mk-file-row__meta">Технический отчёт, findings.json, регрессионные сценарии</span></span></div></div></div>
+      <div class="mk-panel mk-grow" style="padding:16px 18px;display:flex;flex-direction:column;gap:6px">
+        <span class="mk-label">Ключевой тезис</span>
+        <p style="font-size:14px;line-height:1.55" id="bizThesis">Сформируйте документ по выбранному прогону.</p></div>
+      <div class="mk-row mk-gap-2"><button class="mk-btn mk-btn--brand" id="bizBtn">Сформировать документ</button><button class="mk-btn mk-btn--small mk-btn--secondary" id="bizDl" hidden>Скачать PDF</button></div>
+      <div class="mk-banner mk-banner--success" id="bizBanner" hidden><span class="mk-banner__icon">✓</span><span class="mk-stack" style="gap:2px"><span class="mk-banner__title">Документ сформирован</span><span class="mk-banner__sub" id="bizBannerSub">business-report.md готов к скачиванию</span></span></div>
+    </div>
+    <div class="mk-card mk-span-all" id="bizDocCard" hidden><div class="mk-card__head"><h3 class="mk-h3">Документ для бизнеса</h3><button class="mk-btn mk-btn--small mk-btn--secondary" id="bizDl2">Скачать PDF</button></div>
+      <div class="mk-mono" id="bizDoc" style="white-space:pre-wrap;font-size:13px;line-height:1.6"></div></div>
+  </div>
+  <div class="mk-page-nav"><button class="mk-btn mk-btn--secondary" data-go="5">← К отчёту</button></div>
+</section>
+
+</div></main></div></div>
+<script src="/static/kit/js/components.js"></script>
+<script src="/static/app.js"></script>
+</body></html>

@@ -1,3 +1,10 @@
 pyyaml
 langfuse>=4.8.1,<5
 streamlit>=1.63,<2
+
+# web UI (design-kit frontend)
+fastapi>=0.110
+uvicorn[standard]>=0.27
+python-multipart>=0.0.9
+pypdf>=5
+fpdf2>=2.8

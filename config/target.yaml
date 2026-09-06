@@ -26,6 +26,12 @@ llm:
     api_key_env: OPENROUTER_API_KEY
     temperature: 0
     timeout: 600
+    routing:
+      order: [CoreWeave]
+      allow_fallbacks: true
+    max_tokens: 20000
+    reasoning:
+      effort: low
 
   analyst:
     provider: openrouter
@@ -34,6 +40,12 @@ llm:
     api_key_env: OPENROUTER_API_KEY
     temperature: 0
     timeout: 600
+    routing:
+      order: [CoreWeave]
+      allow_fallbacks: true
+    max_tokens: 20000
+    reasoning:
+      effort: low
 
   judge:
     provider: openrouter
@@ -42,6 +54,12 @@ llm:
     api_key_env: OPENROUTER_API_KEY
     temperature: 0
     timeout: 600
+    routing:
+      order: [CoreWeave]
+      allow_fallbacks: true
+    max_tokens: 20000
+    reasoning:
+      effort: low
 
   report_writer:
     provider: openrouter
@@ -50,6 +68,12 @@ llm:
     api_key_env: OPENROUTER_API_KEY
     temperature: 0
     timeout: 600
+    routing:
+      order: [CoreWeave]
+      allow_fallbacks: true
+    max_tokens: 20000
+    reasoning:
+      effort: low
 
 identities:
   mint: docker-exec

@@ -29,6 +29,31 @@ def run_cli(*argv):
 
 
 class BriefsGenerateTests(unittest.TestCase):
+    def test_human_output_hides_rejections_and_warnings(self):
+        client = Mock()
+        client.complete.side_effect = [json.dumps([brief_payload(id='B1')]),
+                                     json.dumps([brief_payload(guidance='get_balance(cus=1002)')])]
+        with tempfile.TemporaryDirectory() as tmp:
+            with patch('agentic_redteam.app_cli.make_llm_client', return_value=client):
+                code, out, err = run_cli('briefs', 'generate', '--profile', PROFILE, '--out', tmp)
+        self.assertEqual(code, 0, out + err)
+        self.assertIn('зафиксировано brief: 1', out)
+        self.assertNotIn('отбракован', out + err)
+        self.assertNotIn('B1', out + err)
+        self.assertNotIn('get_balance', out + err)
+
+    def test_json_keeps_advisory_warning(self):
+        client = Mock(**{'complete.return_value': json.dumps([
+            brief_payload(guidance='get_balance(cus=1002)')])})
+        with tempfile.TemporaryDirectory() as tmp:
+            with patch('agentic_redteam.app_cli.make_llm_client', return_value=client):
+                code, out, _ = run_cli('briefs', 'generate', '--profile', PROFILE,
+                                       '--out', tmp, '--json')
+        self.assertEqual(code, 0)
+        payload = json.loads(out)
+        self.assertEqual(payload['rejected'], [])
+        self.assertIn('get_balance', payload['warnings'][0]['reason'])
+
     def test_combines_inline_and_repeated_idea_files(self):
         client = Mock(**{'complete.return_value': json.dumps([brief_payload()])})
         with tempfile.TemporaryDirectory() as tmp:

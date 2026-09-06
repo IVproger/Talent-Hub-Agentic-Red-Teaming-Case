@@ -691,12 +691,16 @@ def _agentic_budget(mapping: dict, override: int | None) -> int:
 
 
 def _agentic_report_md(result: dict) -> str:
+    # ASR считается по СЦЕНАРИЯМ (proven/scored). «Шаги» — ходы ReAct-агента
+    # внутри одного сценария; это не «попытки». Показываем оба явно, без слова
+    # «попытки», которое в автономном пути (attacker/) значит независимый заход.
+    total_steps = sum(len(a.get("steps") or []) for a in result.get("attempts") or [])
     lines = ["# Технический отчёт — агентный ReAct",
              f"**Прогон:** `{result['run_id']}` · **Профиль:** `{result['profile']}`", "",
              "## Метрика",
-             f"ASR: {result['asr_percent']}% · сценарии proven: "
-             f"{result['scenarios_proven']}/{result['scenarios_scored']} · "
-             f"попыток: {result['attempts_total']}", "",
+             f"ASR: {result['asr_percent']}% · proven: "
+             f"{result['scenarios_proven']}/{result['scenarios_scored']} сценариев · "
+             f"шагов ReAct: {total_steps}", "",
              ]
     timings = result.get("timings") or {}
     if timings.get("phases"):
@@ -705,7 +709,7 @@ def _agentic_report_md(result: dict) -> str:
             lines.append(f"| {p['name']} | {p['seconds']} |")
         lines.append(f"| **Итого** | **{timings.get('total_seconds', 0)}** |")
         lines.append("")
-    lines += ["## Попытки", "| Сценарий | OWASP | Вердикт | Целевой предикат | Шагов | Секунд |",
+    lines += ["## Сценарии", "| Сценарий | OWASP | Вердикт | Целевой предикат | Шагов | Секунд |",
               "|---|---|---|---|---|---|"]
     for a in result["attempts"]:
         lines.append(f"| {a['scenario_id']} | {a['attack_class']} | {a['verdict']} | "
@@ -714,8 +718,16 @@ def _agentic_report_md(result: dict) -> str:
     for a in result["attempts"]:
         lines.append(f"### {a['scenario_id']} — {a['verdict']}")
         for i, st in enumerate(a["steps"], 1):
-            lines.append(f"{i}. `{st.get('target')}` [{st['verdict']}] — "
-                         f"{(st.get('detail') or '')[:140]}")
+            lines.append(f"**Шаг {i} · {st.get('role')}·{st.get('action')} → "
+                         f"`{st.get('target')}` [{st['verdict']}]**")
+            content = (st.get("content") or "").strip()
+            if content:
+                lines.append(f"- Агент отправил: {content[:500]}")
+            reply = (st.get("reply") or "").strip()
+            if reply:
+                lines.append(f"- Ответ цели: {reply[:500]}")
+            lines.append(f"- Доказательство (по состоянию): {(st.get('detail') or '')[:250]}")
+            lines.append("")
         lines.append("")
     return "\n".join(lines)
 

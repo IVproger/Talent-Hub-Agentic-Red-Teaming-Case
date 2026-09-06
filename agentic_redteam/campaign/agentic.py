@@ -172,6 +172,7 @@ def run_agentic(agent, adapter, evidence, *, surface, predicate_menu, roles,
             "action": action.get("type", "message"),
             "target": target,
             "content": action.get("content"),
+            "reply": reply,
             "verdict": step_verdict,
             "detail": outcome.detail if outcome else "предикат вне меню",
         }

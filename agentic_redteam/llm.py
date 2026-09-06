@@ -1,6 +1,6 @@
 """Provider-neutral LLM configuration and HTTP clients.
 
-The red-team pipeline has three distinct LLM roles.  Keeping their configuration
+The red-team pipeline has four distinct LLM roles.  Keeping their configuration
 separate makes mixed experiments explicit and prevents a model choice in one stage
 from leaking into another one.
 """
@@ -16,7 +16,7 @@ from dataclasses import asdict, dataclass
 from typing import Callable, Mapping, Protocol
 
 
-ROLE_NAMES = ("attack_generator", "report_writer", "analyst")
+ROLE_NAMES = ("attack_generator", "report_writer", "analyst", "judge")
 PROVIDERS = ("ollama", "openrouter")
 SECRET_TOKEN_PATTERN = re.compile(
     r"(?<![A-Za-z0-9_])sk-[A-Za-z0-9_-]{12,}(?![A-Za-z0-9_-])"
@@ -220,7 +220,7 @@ def apply_role_overrides(
 
 
 class LLMClient(Protocol):
-    def complete(self, prompt: str) -> str: ...
+    def complete(self, prompt: str, *, system: str | None = None) -> str: ...
 
 
 Transport = Callable[[urllib.request.Request, int], dict]
@@ -263,11 +263,15 @@ class HTTPChatClient:
         self._transport = transport or _default_transport
         self.last_usage: dict[str, int] | None = None
 
-    def complete(self, prompt: str) -> str:
+    def complete(self, prompt: str, *, system: str | None = None) -> str:
+        messages = []
+        if system:
+            messages.append({"role": "system", "content": system})
+        messages.append({"role": "user", "content": prompt})
         if self.config.provider == "ollama":
             payload = {
                 "model": self.config.model,
-                "messages": [{"role": "user", "content": prompt}],
+                "messages": messages,
                 "stream": False,
                 "options": {"temperature": self.config.temperature},
             }
@@ -276,7 +280,7 @@ class HTTPChatClient:
         else:
             payload = {
                 "model": self.config.model,
-                "messages": [{"role": "user", "content": prompt}],
+                "messages": messages,
                 "temperature": self.config.temperature,
             }
             url = _endpoint(

@@ -16,7 +16,7 @@ class FakeLLM:
         self._outputs = list(outputs)
         self._index = 0
 
-    def complete(self, prompt: str) -> str:
+    def complete(self, prompt: str, *, system: str | None = None) -> str:
         output = self._outputs[self._index]
         self._index += 1
         return output

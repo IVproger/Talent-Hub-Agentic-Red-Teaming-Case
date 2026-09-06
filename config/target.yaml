@@ -43,6 +43,14 @@ llm:
     temperature: 0
     timeout: 600
 
+  judge:
+    provider: openrouter
+    model: z-ai/glm-5.3-flash
+    base_url: https://openrouter.ai/api/v1
+    api_key_env: OPENROUTER_API_KEY
+    temperature: 0
+    timeout: 600
+
 identities:
   mint: docker-exec
   roles:

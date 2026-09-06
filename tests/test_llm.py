@@ -42,10 +42,16 @@ class LLMConfigurationTests(unittest.TestCase):
         roles = role_configs_from_mapping(
             {"analyst": {"provider": "openrouter", "model": "openai/test"}}
         )
-        self.assertEqual(set(roles), {"attack_generator", "report_writer", "analyst"})
+        self.assertEqual(set(roles), {"attack_generator", "report_writer", "analyst", "judge"})
         validate_role_configs(roles, environ={})
         with self.assertRaises(LLMConfigurationError):
             validate_role_configs(roles, environ={}, credential_roles=("analyst",))
+
+    def test_judge_is_an_independent_llm_role(self):
+        roles = role_configs_from_mapping(
+            {"judge": {"provider": "openrouter", "model": "openai/judge"}}
+        )
+        self.assertEqual(roles["judge"].model, "openai/judge")
 
     def test_target_is_not_an_engine_role(self):
         with self.assertRaises(LLMConfigurationError):
@@ -90,6 +96,20 @@ class LLMConfigurationTests(unittest.TestCase):
         self.assertTrue(requests[1][0].full_url.endswith("/chat/completions"))
         self.assertEqual(requests[1][0].get_header("Authorization"), "Bearer sk-test-SENTINEL")
         self.assertNotIn("sk-test-SENTINEL", str(router.config.safe_dict()))
+
+    def test_system_prompt_is_sent_in_a_separate_message(self):
+        requests = []
+
+        def transport(request, timeout):
+            requests.append(json.loads(request.data))
+            return {"message": {"content": "YES"}}
+
+        client = make_llm_client(LLMRoleConfig(), environ={}, transport=transport)
+        self.assertEqual(client.complete("context", system="judge rules"), "YES")
+        self.assertEqual(requests[0]["messages"], [
+            {"role": "system", "content": "judge rules"},
+            {"role": "user", "content": "context"},
+        ])
 
 
 if __name__ == "__main__":

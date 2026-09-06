@@ -50,3 +50,14 @@ class DbQueryTests(unittest.TestCase):
     def test_unsupported_driver_fails_explicitly(self):
         with self.assertRaises(NotImplementedError):
             DbQueryProvider({**self.config, "driver": "postgres"})
+
+    def test_driver_registry_names_supported_drivers(self):
+        from agentic_redteam.evidence.providers.db_query import SUPPORTED_DRIVERS
+        self.assertIn("mongo", SUPPORTED_DRIVERS)
+        with self.assertRaises(NotImplementedError) as cm:
+            DbQueryProvider({**self.config, "driver": "postgres"}, FakeRunner([]))
+        # error must name both the unsupported request and what is available
+        self.assertIn("postgres", str(cm.exception))
+        self.assertIn("mongo", str(cm.exception))
+
+

@@ -1,4 +1,11 @@
-"""Read-only Mongo snapshots through mongosh, locally or inside Compose."""
+"""Read-only DB snapshots for memory evidence.
+
+Drivers live in a registry: ``mongo`` (via ``mongosh``, locally or inside
+Compose) is implemented and verified.  Adding a store — postgres, mysql, … — is
+a new backend ``(config, environ, runner) -> (documents, raw)`` registered in
+``_DRIVERS``; no other layer changes, and the engine advertises only the drivers
+it truly supports through ``SUPPORTED_DRIVERS``.
+"""
 from __future__ import annotations
 
 import copy
@@ -12,6 +19,50 @@ from ...normalize.projection import dotted
 from ..base import CalibrationResult, EvidenceKind, Marker, Observation
 
 
+def _mongo_snapshot(config, environ, runner):
+    """Read a collection through ``mongosh`` and return ``(documents, raw)``."""
+    env = dict(environ)
+    connection = "db"
+    if config.get("uri_env"):
+        uri = environ.get(config["uri_env"])
+        if not uri:
+            raise RuntimeError("Не задана переменная окружения uri_env для Mongo.")
+        env["MOROK_MONGO_URI"] = uri
+        connection = "new Mongo(process.env.MOROK_MONGO_URI)"
+        target = f"{connection}.getDB({json.dumps(config['db'])})"
+    else:
+        target = f"db.getSiblingDB({json.dumps(config['db'])})"
+    script = (f"const target = {target};\n"
+              f"print(JSON.stringify(target.getCollection({json.dumps(config['collection'])})"
+              f".find({json.dumps(config.get('query', {}))}).toArray()));\n")
+    command = []
+    if config.get("compose_file"):
+        command = ["docker", "compose", "-f", config["compose_file"], "exec", "-T"]
+        if config.get("uri_env"):
+            command += ["-e", "MOROK_MONGO_URI"]
+        command += [config.get("service", "mongo")]
+    command += [config.get("executable", "mongosh"), "--quiet", "--file", "/dev/stdin"]
+    try:
+        result = runner(command, input=script, env=env, capture_output=True,
+                        text=True, check=True, timeout=config.get("timeout", 30))
+        if result.returncode:
+            raise ValueError
+        raw = result.stdout.strip().splitlines()[-1]
+        data = json.loads(raw)
+        if isinstance(data, dict):
+            data = data[config["collection"]]
+        if not isinstance(data, list) or any(not isinstance(item, dict) for item in data):
+            raise ValueError
+        return data, raw
+    except (OSError, subprocess.SubprocessError, ValueError, KeyError, IndexError):
+        raise RuntimeError("Не удалось прочитать корректный снимок Mongo.") from None
+
+
+# driver name -> backend(config, environ, runner) -> (documents, raw)
+_DRIVERS = {"mongo": _mongo_snapshot}
+SUPPORTED_DRIVERS = tuple(sorted(_DRIVERS))
+
+
 class DbQueryProvider:
     kind = EvidenceKind.MEMORY_SNAPSHOT
 
@@ -20,8 +71,13 @@ class DbQueryProvider:
         self.runner = runner
         self.environ = os.environ if environ is None else environ
         self._marker = Marker(uuid4().hex)
-        if config.get("driver", "mongo") != "mongo":
-            raise NotImplementedError("db_query: реализован только driver=mongo.")
+        driver = config.get("driver", "mongo")
+        if driver not in _DRIVERS:
+            raise NotImplementedError(
+                f"db_query: драйвер '{driver}' не поддержан. "
+                f"Доступны: {', '.join(SUPPORTED_DRIVERS)}."
+            )
+        self._backend = _DRIVERS[driver]
         for name in ("db", "collection"):
             if not isinstance(config.get(name), str) or not config[name]:
                 raise PipelineConfigurationError(f"db_query требует {name}.")
@@ -34,42 +90,7 @@ class DbQueryProvider:
         return read_target_view(self.config, principal, session_id, self.runner)
 
     def _query(self):
-        config = self.config
-        env = dict(self.environ)
-        connection = "db"
-        if config.get("uri_env"):
-            uri = self.environ.get(config["uri_env"])
-            if not uri:
-                raise RuntimeError("Не задана переменная окружения uri_env для Mongo.")
-            env["MOROK_MONGO_URI"] = uri
-            connection = "new Mongo(process.env.MOROK_MONGO_URI)"
-            target = f"{connection}.getDB({json.dumps(config['db'])})"
-        else:
-            target = f"db.getSiblingDB({json.dumps(config['db'])})"
-        script = (f"const target = {target};\n"
-                  f"print(JSON.stringify(target.getCollection({json.dumps(config['collection'])})"
-                  f".find({json.dumps(config.get('query', {}))}).toArray()));\n")
-        command = []
-        if config.get("compose_file"):
-            command = ["docker", "compose", "-f", config["compose_file"], "exec", "-T"]
-            if config.get("uri_env"):
-                command += ["-e", "MOROK_MONGO_URI"]
-            command += [config.get("service", "mongo")]
-        command += [config.get("executable", "mongosh"), "--quiet", "--file", "/dev/stdin"]
-        try:
-            result = self.runner(command, input=script, env=env, capture_output=True,
-                                 text=True, check=True, timeout=config.get("timeout", 30))
-            if result.returncode:
-                raise ValueError
-            raw = result.stdout.strip().splitlines()[-1]
-            data = json.loads(raw)
-            if isinstance(data, dict):
-                data = data[config["collection"]]
-            if not isinstance(data, list) or any(not isinstance(item, dict) for item in data):
-                raise ValueError
-            return data, raw
-        except (OSError, subprocess.SubprocessError, ValueError, KeyError, IndexError):
-            raise RuntimeError("Не удалось прочитать корректный снимок Mongo.") from None
+        return self._backend(self.config, self.environ, self.runner)
 
     def collect(self, since):
         if since != self._marker:

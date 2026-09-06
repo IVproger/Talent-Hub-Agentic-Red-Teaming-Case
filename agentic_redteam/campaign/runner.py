@@ -87,6 +87,9 @@ class StepEvidence:
     request: str | None = None
     response: str | None = None
     error: str | None = None
+    observation_id: str | None = None
+    trace_id: str | None = None
+    memory_diffs: list[dict] = field(default_factory=list)
 
 
 @dataclass
@@ -103,6 +106,8 @@ class AttemptResult:
     evidence_refs: list[str] = field(default_factory=list)
     steps: list[StepEvidence] = field(default_factory=list)
     verification: dict = field(default_factory=dict)
+    observation_id: str | None = None
+    trace_id: str | None = None
 
 
 @dataclass
@@ -134,13 +139,34 @@ class _Guarded:
         return False
 
 
-def _obs(telemetry, name):
+def _obs(telemetry, name, **values):
     if telemetry is None:
         return nullcontext()
     try:
-        return _Guarded(telemetry.observation(name))
+        return _Guarded(telemetry.observation(name, **values))
     except Exception:
         return nullcontext()
+
+
+def _observation_ids(observation) -> tuple[str | None, str | None]:
+    if observation is None:
+        return None, None
+    observation_id = getattr(observation, "id", None)
+    trace_id = getattr(observation, "trace_id", None)
+    return (
+        str(observation_id) if observation_id else None,
+        str(trace_id) if trace_id else None,
+    )
+
+
+def _update_observation(observation, **values) -> None:
+    update = getattr(observation, "update", None)
+    if update is None:
+        return
+    try:
+        update(**values)
+    except Exception:
+        pass
 
 
 def _aggregate(steps):
@@ -325,26 +351,47 @@ def _run_chain(steps, payload, mode, deps, index, run_id, evidence, reset_policy
                 step.actor, f"{run_id}-{index}-{step.actor}", mode or "vulnerable")
         session = sessions[step.actor]
         current = StepEvidence(step.name, step.actor, session.principal.value, session.session_id)
+        current.request = None if step.commit_memory else (payload if step.payload else step.message)
         evidence.append(current)
-        try:
-            marker = deps.evidence.mark()
-            if step.commit_memory:
-                session.commit_memory()
-            else:
-                current.request = payload if step.payload else step.message
-                current.response = session.send(current.request)
-            current.facts = deepcopy(deps.evidence.collect_facts(marker))
-            current.observations = deepcopy(getattr(deps.evidence, "last_observations", {}))
-        except Exception as exc:
-            current.error = f"{type(exc).__name__}: {exc}"
-            raise
+        with _obs(
+            deps.telemetry,
+            f"campaign.step.{step.name}",
+            input={"request": current.request, "commit_memory": step.commit_memory},
+            metadata={"step": step.name, "role": step.actor,
+                      "principal": session.principal.value, "mode": mode},
+        ) as observation:
+            current.observation_id, current.trace_id = _observation_ids(observation)
+            try:
+                marker = deps.evidence.mark()
+                if step.commit_memory:
+                    session.commit_memory()
+                else:
+                    current.response = session.send(current.request)
+                current.facts = deepcopy(deps.evidence.collect_facts(marker))
+                current.observations = deepcopy(getattr(deps.evidence, "last_observations", {}))
+                current.memory_diffs = deepcopy(getattr(deps.evidence, "last_memory_diffs", []))
+                _update_observation(observation, output={
+                    "response": current.response,
+                    "tool_calls": _judge_tool_calls(current.facts),
+                    "memory_diff": current.memory_diffs,
+                })
+            except Exception as exc:
+                current.error = f"{type(exc).__name__}: {exc}"
+                _update_observation(observation, output={"error": current.error})
+                raise
 
 
 def _run_attempt(
     index, payload, actor, mode, goal, deps, reset_policy, run_id, steps=(),
     verification: VerificationSpec | None = None, description: str = "",
 ) -> AttemptResult:
-    with _obs(deps.telemetry, "campaign.attempt"):
+    with _obs(
+        deps.telemetry,
+        "campaign.attempt",
+        input={"payload": payload, "actor": actor, "mode": mode, "attempt": index},
+        metadata={"attempt": index, "actor": actor, "mode": mode},
+    ) as attempt_observation:
+        attempt_observation_id, attempt_trace_id = _observation_ids(attempt_observation)
         evidence = []
         verification = verification or VerificationSpec()
         verification_record = {"type": "deterministic"}
@@ -365,26 +412,38 @@ def _run_attempt(
                 outcomes = _evaluate_goal(goal, facts, evidence, actor, implicit=not steps)
         except KeyboardInterrupt as exc:
             facts, observations = _aggregate(evidence)
+            _update_observation(attempt_observation, output={"verdict": "error", "error": "Прервано пользователем"})
             exc.attempt = AttemptResult(index, payload, actor, mode, "error", [], "Прервано пользователем",
                 facts=facts if any(s.facts is not None for s in evidence) else None,
-                observations=observations, steps=evidence)
+                observations=observations, steps=evidence,
+                observation_id=attempt_observation_id, trace_id=attempt_trace_id)
             raise
         except Exception as exc:  # incomplete execution/evidence is always error
             facts, observations = _aggregate(evidence)
             error = str(exc) if isinstance(exc, TargetUnavailable) else f"{type(exc).__name__}: {exc}"
+            _update_observation(attempt_observation, output={"verdict": "error", "error": error})
             return AttemptResult(index, payload, actor, mode, "error", [], error,
                                  facts=facts if any(s.facts is not None for s in evidence) else None,
                                  observations=observations, steps=evidence,
-                                 verification=verification_record)
+                                 verification=verification_record,
+                                 observation_id=attempt_observation_id,
+                                 trace_id=attempt_trace_id)
         required_outcomes = (
             outcomes
             if verification.type == "llm_judge"
             else [o for a, o in zip(goal, outcomes) if not a.get("optional", False)]
         )
+        attempt_verdict = verdict(required_outcomes)
+        _update_observation(attempt_observation, output={
+            "verdict": attempt_verdict,
+            "checks": [{"passed": item.passed, "grade": str(item.grade),
+                        "detail": item.detail} for item in outcomes],
+        })
         return AttemptResult(
-            index, payload, actor, mode, verdict(required_outcomes), outcomes,
+            index, payload, actor, mode, attempt_verdict, outcomes,
             error=verification_error, facts=facts, observations=observations,
             steps=evidence, verification=verification_record,
+            observation_id=attempt_observation_id, trace_id=attempt_trace_id,
         )
 
 
@@ -430,6 +489,11 @@ def run_scenario(
                         on_attempt(exc.attempt)
                     raise
                 attempts.append(attempt)
+                try:
+                    if deps.telemetry is not None:
+                        deps.telemetry.score_attempt(attempt.observation_id, attempt.verdict)
+                except Exception:
+                    pass
                 if on_attempt:
                     on_attempt(attempt)
                 emit(on_event, RunEvent(

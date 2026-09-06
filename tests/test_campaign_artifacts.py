@@ -112,6 +112,7 @@ class CampaignArtifactTests(unittest.TestCase):
         self.assertIn(refs[0], report)
         self.assertIn("p1", report)
         self.assertIn("tool `get_portfolio`", report)
+        self.assertTrue((self.run_dir / "business-report.md").exists())
 
     def test_transcript_records_the_error_that_ended_an_attempt(self):
         root = Path(tempfile.mkdtemp())

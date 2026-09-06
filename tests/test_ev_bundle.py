@@ -40,6 +40,8 @@ class BundleTests(unittest.TestCase):
         facts = bundle.collect_all(bundle.mark_all())
         self.assertEqual({item.content for item in facts.memory_writes}, {"poison", "new"})
         self.assertEqual({item.store_id for item in facts.memory_writes}, {"store"})
+        self.assertEqual(bundle.last_memory_diffs[0]["before"][0]["content"], "old")
+        self.assertEqual(bundle.last_memory_diffs[0]["after"][0]["content"], "poison")
         self.assertFalse(bundle.supports([{"type": "memory_write"}])[0])
 
     def test_callbacks_are_normalized_and_markers_are_single_use(self):

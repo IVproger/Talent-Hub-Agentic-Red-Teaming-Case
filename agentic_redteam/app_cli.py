@@ -21,6 +21,10 @@ from . import __version__
 from .adapters.base import AdapterFeature
 from .adapters.http_chat import HttpChatAdapter
 from .assertions.registry import required_kinds
+from .attacker.application import execute_attack_campaign, limits_from_config
+from .attacker.brief_generator import generate_briefs
+from .attacker.briefs import load_briefs, save_briefs
+from .attacker.standards import standard_items
 from .campaign.orchestrator import PlannedScenario, run_campaign
 from .campaign.agentic import (
     run_agentic, run_agentic_campaign, predicate_scenarios)
@@ -155,6 +159,19 @@ def build_parser() -> argparse.ArgumentParser:
         help="скомпоновать применимые шаблоны стандартов под профиль цели",
     )
     run.add_argument(
+        "--briefs", metavar="DIR",
+        help="автономная кампания по зафиксированным AttackBrief "
+             "(каталог с YAML-файлами brief)",
+    )
+    run.add_argument(
+        "--strategy", choices=("independent", "adaptive"), default="independent",
+        help="стратегия попыток run --briefs: независимые или с накоплением опыта",
+    )
+    run.add_argument(
+        "--stop-on-success", action="store_true",
+        help="в adaptive-кампании не делать следующие попытки brief после YES",
+    )
+    run.add_argument(
         "--smoke", action="store_true", help="добавить проверку штатной работы"
     )
     run.add_argument(
@@ -171,6 +188,30 @@ def build_parser() -> argparse.ArgumentParser:
     run.add_argument("--arch", help="документ архитектуры для генерации")
     run.add_argument("--system-card", help="system card для генерации")
     run.add_argument("--json", action="store_true", help="вывести один JSON-результат в stdout")
+
+    briefs_cmd = commands.add_parser(
+        "briefs", help="AttackBrief для автономной атаки (OWASP + профиль)"
+    )
+    briefs_commands = briefs_cmd.add_subparsers(dest="briefs_command", required=True)
+    briefs_generate = briefs_commands.add_parser(
+        "generate", help="сгенерировать и зафиксировать brief по профилю цели"
+    )
+    _add_config_path(briefs_generate)
+    briefs_generate.add_argument(
+        "--profile", required=True, help="name@version из реестра или путь к YAML"
+    )
+    briefs_generate.add_argument(
+        "--out", required=True, help="каталог для фиксации brief YAML (должен быть пуст)"
+    )
+    briefs_generate.add_argument(
+        "--count", type=int, default=5, help="сколько brief генерировать (по умолчанию 5)"
+    )
+    briefs_generate.add_argument(
+        "--sources", default="owasp-llm,owasp-agentic",
+        help="источники идей через запятую: owasp-llm, owasp-agentic, atlas",
+    )
+    briefs_generate.add_argument("--json", action="store_true",
+                                 help="вывести один JSON-результат в stdout")
 
     profile_cmd = commands.add_parser("profile", help="работа с профилями цели")
     profile_commands = profile_cmd.add_subparsers(dest="profile_command", required=True)
@@ -333,6 +374,8 @@ def main(argv: list[str] | None = None) -> int:
             return _doctor(args)
         if args.command == "run":
             return _run_scenarios(args)
+        if args.command == "briefs":
+            return _briefs(args)
         if args.command == "profile":
             return _profile(args)
         if args.command == "report":
@@ -426,6 +469,12 @@ def _run_scenarios(args) -> int:
         raise PipelineConfigurationError(
             "Укажите --profile name@version|path.yaml (или --from runs/<id> для повтора)."
         )
+    if args.briefs:
+        return _run_briefs_campaign(args)
+    if args.strategy != "independent" or args.stop_on_success:
+        raise PipelineConfigurationError(
+            "--strategy/--stop-on-success используются только с --briefs."
+        )
     if args.save_plan and not args.dry_run:
         raise PipelineConfigurationError("--save-plan используется вместе с --dry-run.")
     if args.dry_run:
@@ -496,6 +545,9 @@ def _reject_conflicting_sources(args) -> None:
         or args.trials != 1
         or args.arch
         or args.system_card
+        or getattr(args, "briefs", None)
+        or getattr(args, "strategy", "independent") != "independent"
+        or getattr(args, "stop_on_success", False)
     )
     if args.from_run and overrides:
         raise PipelineConfigurationError(
@@ -841,6 +893,128 @@ def _execute_campaign(args) -> int:
         for note in skipped:
             print(f"пропущено: {note}")
     return 0 if summary["status"] == "completed" else EXIT_PIPELINE
+
+
+def _briefs(args) -> int:
+    if args.briefs_command != "generate":
+        raise PipelineConfigurationError("briefs: неизвестная подкоманда.")
+    return _generate_briefs_cmd(args)
+
+
+def _generate_briefs_cmd(args) -> int:
+    """OWASP + профиль → зафиксированные AttackBrief YAML."""
+    if not 1 <= args.count <= 30:
+        raise PipelineConfigurationError("--count должен быть от 1 до 30.")
+    sources = tuple(
+        source.strip() for source in args.sources.split(",") if source.strip()
+    )
+    try:
+        standard_items(sources)
+    except ValueError as exc:
+        raise PipelineConfigurationError(str(exc)) from exc
+    profile = load_profile(args.profile)
+    llm = make_llm_client(_role_configs_at(args.config)["attack_generator"])
+    result = generate_briefs(profile, llm, count=args.count, sources=sources)
+    paths = save_briefs(args.out, result.briefs)
+    payload = {
+        "ok": True,
+        "briefs_dir": str(Path(args.out).expanduser().resolve()),
+        "briefs": [brief.to_mapping() for brief in result.briefs],
+        "files": [str(path) for path in paths],
+        "rejected": result.rejected,
+    }
+    if args.json:
+        print(json.dumps(payload, ensure_ascii=False))
+    else:
+        print(f"зафиксировано brief: {len(result.briefs)} → {args.out}")
+        for brief in result.briefs:
+            refs = ", ".join(brief.standard_refs)
+            print(f"  {brief.id} [{refs}]: {brief.objective}")
+        for row in result.rejected:
+            print(f"  отбракован: {row['reason']}")
+    return 0
+
+
+def _run_briefs_campaign(args) -> int:
+    """Автономная кампания: зафиксированные brief → атакующий → judge → ASR."""
+    conflicts = (
+        args.from_run or args.scenario or args.generate or args.baseline
+        or args.smoke or args.dry_run or args.save_plan or args.arch
+        or args.system_card
+    )
+    if conflicts:
+        raise PipelineConfigurationError(
+            "--briefs не сочетается с параметрами сценарного пути "
+            "(--from/--scenario/--generate/--baseline/--smoke/--dry-run)."
+        )
+    if not args.profile:
+        raise PipelineConfigurationError("--briefs требует --profile.")
+    profile = load_profile(args.profile)
+    briefs = load_briefs(args.briefs)
+    modes = [mode.strip() for mode in (args.mode or "").split(",") if mode.strip()]
+    config = _config_mapping(args.config)
+    # Гейт авторизации общий для обоих путей запуска (US-34).
+    authorization = authorization_from_mapping(config).as_record()
+    roles = role_configs_from_mapping(config.get("llm"))
+    attacker_llm = make_llm_client(roles["attack_generator"])
+    judge = _judge_from_config(config)
+    telemetry = telemetry_from_config(args.config)
+    run_id = new_run_id()
+    if not args.json:
+        print(
+            f"прогон {run_id}: {len(briefs)} brief · режимы "
+            f"{', '.join(modes) or 'по умолчанию'}",
+            file=sys.stderr,
+        )
+
+    def progress(event) -> None:
+        if not args.json:
+            print(f"[{event.stage}] {event.message}", file=sys.stderr)
+
+    record = execute_attack_campaign(
+        profile,
+        briefs,
+        attacker_llm,
+        judge,
+        RunStorage(args.output),
+        run_id,
+        modes=modes or None,
+        trials=args.trials,
+        limits=limits_from_config(config),
+        config=config,
+        authorization=authorization,
+        telemetry=telemetry,
+        on_event=progress,
+        metadata={
+            "briefs_dir": str(Path(args.briefs).expanduser().resolve()),
+        },
+        strategy=args.strategy,
+        stop_on_success=args.stop_on_success,
+    )
+    overall = record["asr"]["overall"]
+    summary = {
+        "run_id": run_id,
+        "status": record["status"],
+        "run_dir": str(Path(args.output).expanduser().resolve() / run_id),
+        "asr": record["asr"],
+        "attempts_total": len(record["attempts"]),
+        "error": record["error"],
+    }
+    if args.json:
+        print(json.dumps({"ok": record["status"] == "completed", "run": summary},
+                         ensure_ascii=False))
+    else:
+        print(f"{run_id}: ASR {overall['asr_display']} · YES {overall['yes']} · "
+              f"NO {overall['no']} · ошибок {overall['errors']} · {summary['run_dir']}")
+        adaptive = record["asr"].get("adaptive")
+        if adaptive is not None:
+            value = adaptive["success_within_budget_percent"]
+            display = f"{value:g}%" if value is not None else "нет данных"
+            print(
+                f"adaptive discovery: {adaptive['groups_succeeded']}/"
+                f"{adaptive['groups_total']} · {display}"
+            )
+    return 0 if record["status"] == "completed" else EXIT_PIPELINE
 
 
 def _gate_scenarios(bundle, planned) -> tuple[list, list[str]]:

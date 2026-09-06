@@ -14,6 +14,19 @@
 
 Диаграммы: `docs/blueprint/diagrams/` (0-overview* — верхнеуровнево).
 
+Два пути атаки:
+- **Сценарный** (`campaign/`): фиксированные YAML-сценарии + детерминированные
+  предикаты/llm_judge. Используется replay (`run --from`), регрессией и базой
+  знаний — удаляется только когда автономный путь заменит их целиком.
+- **Автономный** (`attacker/`): `briefs generate` (OWASP+профиль →
+  зафиксированные AttackBrief) → автономный атакующий агент (`chat` /
+  `commit_memory` / `submit_attack`, deadline) → бинарный LLM Judge → ASR.
+  Попытки либо независимы, либо adaptive: `learning` и наблюдённые
+  harness-факты передаются только следующей попытке того же `brief+mode`.
+  Для adaptive главная метрика — discovery within K, не iid-ASR. ASR
+  `YES/(YES+NO)` с ошибками вне знаменателя. Артефакты в
+  `runs/<id>/attempts/NNNN/`.
+
 ## Инварианты (не нарушать)
 
 - **Вердикт только из состояния.** Предикат на тексте ответа → градация `TEXT`, потолок `indirect`. (US-23)
@@ -26,7 +39,7 @@
 
 ## Как работать
 
-- **Тесты:** `python -m unittest discover -s tests` (используй `.venv/bin/python`). На границе каждой задачи набор зелёный — все 441. Если `stand.observability` падает, venv отстал от `requirements.txt`: `.venv/bin/pip install -r requirements.txt` (нужен langfuse 4.x, он тянет opentelemetry).
+- **Тесты:** `python -m unittest discover -s tests` (используй `.venv/bin/python`). На границе каждой задачи набор зелёный — все 615. Если `stand.observability` падает, venv отстал от `requirements.txt`: `.venv/bin/pip install -r requirements.txt` (нужен langfuse 4.x, он тянет opentelemetry).
 - **TDD:** падающий тест → fail → минимальная реализация → pass → мелкий коммит (формат: `feat(scope): …`, wrap 72). **Без** `Claude-Session`-трейлера.
 - **Big-bang миграция:** старый код (`client.py`, `tracer.py`, `state.py`, `scorers.py`, `target_runtime.py`, `pipeline.py`) переписывается на месте и удаляется, только когда новый путь (runner+CLI) заменит его целиком.
 - **Язык:** доки/интерфейс — русский; код/идентификаторы — английский.

@@ -23,6 +23,7 @@ from .adapters.http_chat import HttpChatAdapter
 from .assertions.registry import required_kinds
 from .attacker.application import execute_attack_campaign, limits_from_config
 from .attacker.brief_generator import generate_briefs, normalize_ideas
+from .attacker.idea_sources import load_idea_files
 from .attacker.briefs import load_briefs, save_briefs
 from .attacker.standards import standard_items
 from .campaign.orchestrator import PlannedScenario, run_campaign
@@ -216,6 +217,11 @@ def build_parser() -> argparse.ArgumentParser:
         "--idea", action="append", default=[], metavar="TEXT",
         help="идея для генерации; можно повторять, порядок задаёт приоритет; "
              "--count — общий бюджет brief",
+    )
+    briefs_generate.add_argument(
+        "--ideas-file", action="append", default=[], metavar="PATH",
+        help="идеи из UTF-8 файла .txt/.md (целиком) или .yaml/.yml (список строк "
+             "либо ideas: [...]); до 64 КиБ; можно повторять; добавляются после --idea",
     )
     briefs_generate.add_argument(
         "--sources", default="owasp-llm,owasp-agentic",
@@ -943,6 +949,7 @@ def _generate_briefs_cmd(args) -> int:
     if not 1 <= args.count <= 30:
         raise PipelineConfigurationError("--count должен быть от 1 до 30.")
     ideas = normalize_ideas(getattr(args, "idea", None))
+    ideas.extend(load_idea_files(getattr(args, "ideas_file", None) or []))
     sources = tuple(
         source.strip() for source in args.sources.split(",") if source.strip()
     )

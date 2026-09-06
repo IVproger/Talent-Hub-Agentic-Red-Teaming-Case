@@ -29,6 +29,37 @@ def run_cli(*argv):
 
 
 class BriefsGenerateTests(unittest.TestCase):
+    def test_combines_inline_and_repeated_idea_files(self):
+        client = Mock(**{'complete.return_value': json.dumps([brief_payload()])})
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            text = root / 'ideas.md'
+            text.write_text('# Контекст\n\nПроверить сессии', encoding='utf-8')
+            structured = root / 'ideas.yaml'
+            structured.write_text('ideas: [Подмена cus, Другой клиент]', encoding='utf-8')
+            with patch('agentic_redteam.app_cli.make_llm_client', return_value=client):
+                code, out, err = run_cli(
+                    'briefs', 'generate', '--profile', PROFILE, '--out', str(root / 'out'),
+                    '--ideas-file', str(text), '--idea', 'Приоритет',
+                    '--ideas-file', str(structured), '--json',
+                )
+            self.assertEqual(code, 0, out + err)
+            ideas = ['Приоритет', '# Контекст\n\nПроверить сессии', 'Подмена cus', 'Другой клиент']
+            self.assertEqual(json.loads(out)['ideas'], ideas)
+            self.assertIn(json.dumps(ideas, ensure_ascii=False), client.complete.call_args.args[0])
+
+    def test_missing_idea_file_fails_before_provider_call(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            with patch('agentic_redteam.app_cli.make_llm_client') as client:
+                code, out, _ = run_cli(
+                    'briefs', 'generate', '--profile', PROFILE, '--out', str(Path(tmp) / 'out'),
+                    '--ideas-file', str(Path(tmp) / 'missing.txt'), '--json',
+                )
+            self.assertEqual(code, 2)
+            self.assertIn('--ideas-file', json.loads(out)['error'])
+            client.assert_not_called()
+            self.assertFalse((Path(tmp) / 'out').exists())
+
     def test_repairs_ids_before_writing_yaml(self):
         client = Mock()
         client.complete.side_effect = [

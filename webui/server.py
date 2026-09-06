@@ -18,7 +18,10 @@ for _bin in ("/usr/local/bin", "/opt/homebrew/bin"):
     if _bin not in os.environ.get("PATH", "").split(os.pathsep):
         os.environ["PATH"] = _bin + os.pathsep + os.environ.get("PATH", "")
 
+import json
 import re
+import subprocess
+import urllib.request
 
 import yaml
 from fastapi import FastAPI, File, Form, HTTPException, UploadFile
@@ -343,6 +346,51 @@ def scenarios() -> list:
         "goal": [g.get("type") for g in s.goal],
         "boundary": s.boundary,
     } for s in predicate_scenarios(planned)]
+
+
+def _http_ok(url: str, timeout: float = 4.0) -> bool:
+    try:
+        with urllib.request.urlopen(url, timeout=timeout) as r:  # noqa: S310
+            return 200 <= getattr(r, "status", 200) < 500
+    except Exception:  # noqa: BLE001
+        return False
+
+
+def _mongo_ping(evidence) -> bool | None:
+    # read-only пинг Mongo из reset-конфига профиля (best-effort, короткий таймаут)
+    reset = next((e for e in (evidence or []) if e.get("provider") == "state-reset"), None)
+    cfg = (reset or {}).get("config", {}) or {}
+    mongo = cfg.get("mongo") or {}
+    if not (cfg.get("compose_file") and mongo.get("service") and mongo.get("db")):
+        return None
+    project = cfg.get("project")
+    cmd = (["docker", "compose"] + (["-p", project] if project else [])
+           + ["-f", cfg["compose_file"], "exec", "-T", mongo["service"],
+              "mongosh", "--quiet", "--eval",
+              f"db.getSiblingDB({json.dumps(mongo['db'])}).stats().ok"])
+    try:
+        r = subprocess.run(cmd, capture_output=True, text=True, timeout=12)
+        return r.returncode == 0 and "1" in (r.stdout or "")
+    except Exception:  # noqa: BLE001
+        return None
+
+
+@app.get("/api/preflight")
+def preflight() -> dict:
+    """Живая проверка окружения стенда для сайдбара: цель, трассы, память, reset."""
+    profile = load_profile(PROFILE_REF)
+    ep = profile.entrypoint or {}
+    base = ep.get("base_url", "")
+    health = base + (ep.get("preflight") or {}).get("path", "/healthz")
+    ev = profile.evidence or []
+    has_reset = any(e.get("provider") == "state-reset" for e in ev)
+    return {
+        "chat": {"ok": _http_ok(health)},
+        "trace": {"ok": _http_ok("http://localhost:3001")},
+        "memory": {"ok": _mongo_ping(ev)},
+        "reset": {"ok": bool(has_reset) if has_reset else None,
+                  "note": "провайдер настроен" if has_reset else "не настроен"},
+    }
 
 
 app.mount("/static", StaticFiles(directory=str(STATIC)), name="static")

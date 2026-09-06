@@ -483,6 +483,8 @@ python -m agentic_redteam serve
 ```
 
 `serve` запускает интерфейс из `webui/` тем же Python, которым вызван CLI.
+Команды от установки до генерации brief, прогона и отчётов:
+[Гайд по CLI](docs/cli-guide.md).
 Перед первым запуском установите зависимости: `.venv/bin/python -m pip install -r requirements.txt`.
 Адрес и порт можно изменить: `python -m agentic_redteam serve --port 8503`.
 Разрешена только локальная привязка (`127.0.0.1` или `localhost`).

@@ -360,13 +360,15 @@
     j('/api/runs/' + runId + '/findings').then((f) => {
       const asr = f.asr_percent || 0;
       const compromised = (f.scenarios_proven || 0) > 0;
+      // «шаги» — ходы ReAct внутри сценария, а не «попытки»; показываем их сумму
+      const steps = (f.attempts || []).reduce((n, a) => n + (a.steps ? a.steps.length : 0), 0);
       $('#verdict').innerHTML =
         '<div class="mk-stack" style="gap:2px"><span class="mk-label">Итог</span>' +
         '<span class="mk-mono" style="font-size:28px;font-weight:700;color:var(--mk-color-' + (compromised ? 'negative' : 'positive') + ')">' +
         (compromised ? 'COMPROMISED' : 'CLEAN') + '</span></div>' +
         '<div class="mk-metrics" style="margin-left:auto">' +
-        metric('ASR', asr + '%') + metric('Proven', (f.scenarios_proven || 0) + '/' + (f.scenarios_scored || 0)) +
-        metric('Попыток', f.attempts_total || 0) + metric('Время, с', (f.timings && f.timings.total_seconds) || '—') + '</div>';
+        metric('ASR', asr + '%') + metric('Proven, сцен.', (f.scenarios_proven || 0) + '/' + (f.scenarios_scored || 0)) +
+        metric('Шагов ReAct', steps) + metric('Время, с', (f.timings && f.timings.total_seconds) || '—') + '</div>';
       const t = $('#findTable');
       t.innerHTML = th('Сценарий') + th('Предикат') + th('Вердикт') + th('Шагов') + th('Сек');
       (f.attempts || []).forEach((a) => {
@@ -422,7 +424,7 @@
   function renderBiz() {
     updateKind();
     renderReq();  // показать авто-приложенный техотчёт
-    $('#bizBanner').hidden = true; $('#bizDl').hidden = true;
+    $('#bizBanner').hidden = true;
     if (!openRunId) { $('#bizThesis').textContent = 'Сначала выполните или откройте прогон (шаги 3–5).'; return; }
     j('/api/runs/' + openRunId + '/findings').then((f) => {
       const proven = f.scenarios_proven || 0, scored = f.scenarios_scored || 0, asr = f.asr_percent || 0;
@@ -448,9 +450,12 @@
       $('#bizBannerSub').textContent = 'PDF · аудитория: ' + (res.audiences.join(', ') || '—') +
         ' · регламентов учтено: ' + res.regs;
       $('#bizBanner').hidden = false;
-      const dl = () => window.open('/api/runs/' + openRunId + '/business.pdf', '_blank');
-      $('#bizDl').hidden = false; $('#bizDl').onclick = dl; $('#bizDl2').onclick = dl;
-      btn.textContent = 'Пересобрать документ'; btn.disabled = false;
+      // PDF скачивается сразу по завершении (attachment на бэкенде); без ручных кнопок
+      const a = document.createElement('a');
+      a.href = '/api/runs/' + openRunId + '/business.pdf';
+      a.download = 'business-' + openRunId + '.pdf';
+      document.body.appendChild(a); a.click(); a.remove();
+      btn.textContent = 'Сформировать снова'; btn.disabled = false;
     }).catch(() => { btn.textContent = 'Сформировать документ'; btn.disabled = false; });
   });
 

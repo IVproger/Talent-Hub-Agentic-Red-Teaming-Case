@@ -32,9 +32,8 @@ from agentic_redteam.app_cli import (
     execute_agentic_campaign, load_profile, make_llm_client, new_run_id,
 )
 from agentic_redteam.campaign.agentic import predicate_scenarios
-from agentic_redteam.profile.ingest import build_draft, read_document
+from agentic_redteam.profile.ingest import read_document
 from agentic_redteam.reporting.business import build_business_report
-from agentic_redteam.profile.schema import TargetProfile
 from agentic_redteam.storage.runs import RunStorage
 
 REPO = Path(__file__).resolve().parents[1]
@@ -42,7 +41,6 @@ RUNS_ROOT = REPO / "runs"
 CONFIG = str(REPO / "config" / "target.yaml")
 STATIC = Path(__file__).resolve().parent / "static"
 PROFILE_REF = "genai-invest-stand@1.0.0"  # fallback-профиль (демо без загрузки)
-STAND_URL = "http://localhost:8600"
 
 app = FastAPI(title="MOROK")
 _CANCEL: dict[str, threading.Event] = {}
@@ -61,28 +59,6 @@ def _find_openapi(paths):
     return None
 
 
-def _build_profile_from_target() -> str:
-    op = _TARGET["openapi"]
-    docs = [p for p in _TARGET["files"] if p != op]
-    roles = _role_configs_at(CONFIG)
-    analyst = make_llm_client(roles["analyst"])
-    judge = make_llm_client(roles["judge"])
-    # Механизм аутентификации/минтинга — знание оператора, не выводимое из
-    # артефактов: берём его из верифицированного профиля стенда (провайдер,
-    # config, credential, principal), роли/entrypoint/surface выводит LLM.
-    op_ident = load_profile(PROFILE_REF).identities
-    operator_identities = {k: op_ident[k] for k in
-                           ("provider", "config", "credential", "principal")
-                           if k in op_ident}
-    draft = build_draft(op, STAND_URL, "target-" + Path(op).stem,
-                        documents=docs, analyst=analyst, judge=judge,
-                        identities=operator_identities)
-    TargetProfile.from_mapping(draft)
-    out = Path(op).parent / "profile.yaml"
-    out.write_text(yaml.safe_dump(draft, allow_unicode=True, sort_keys=False), encoding="utf-8")
-    return str(out)
-
-
 def _bg(run_id: str, cancel: threading.Event, scenario: str | None = None) -> None:
     storage = RunStorage(RUNS_ROOT)
     log: list[str] = []
@@ -95,22 +71,20 @@ def _bg(run_id: str, cancel: threading.Event, scenario: str | None = None) -> No
 
     try:
         config = _config_mapping(CONFIG)
+        # Известный стенд: рантайм — из верифицированного профиля (детерминирован,
+        # со всеми предикатами вкл. межпринципальный вызов; entrypoint/identities/
+        # evidence выверены). Загруженные артефакты кормят ГЕНЕРАТОР атак как
+        # документы — затравки адаптируются под контекст цели, а профиль стабилен
+        # и совпадает со списком на шаге «Сценарии».
+        profile = load_profile(PROFILE_REF)
         documents = None
-        if _TARGET["openapi"]:
+        if _TARGET["files"]:
             names = [Path(p).name for p in _TARGET["files"]]
             progress(f"Артефакты: {len(names)} — {', '.join(names)}")
-            if not _TARGET["profile_path"]:
-                progress("Сборка профиля из артефактов…")
-                _TARGET["profile_path"] = _build_profile_from_target()
-            profile = load_profile(_TARGET["profile_path"])
-            progress(f"Профиль собран: {profile.name}@{profile.version}")
-            doc_paths = [p for p in _TARGET["files"] if p != _TARGET["openapi"]]
-            documents = [read_document(p) for p in doc_paths]
-            if documents:
-                progress(f"Документы для генератора: {len(documents)} — "
-                         + ", ".join(Path(p).name for p in doc_paths))
+            progress(f"Профиль (верифицированный): {profile.name}@{profile.version}")
+            documents = [read_document(p) for p in _TARGET["files"]]
+            progress(f"Документы для генератора: {len(documents)} — {', '.join(names)}")
         else:
-            profile = load_profile(PROFILE_REF)  # демо без загрузки артефактов
             progress(f"Профиль: {profile.name}@{profile.version} (демо-стенд)")
         budget = _agentic_budget(config, None)
         execute_agentic_campaign(profile, config, str(RUNS_ROOT), run_id,
@@ -222,6 +196,16 @@ def _business_prompt(findings, business, audiences, note, regs_text) -> str:
         "без технического жаргона. НЕ копируй технический отчёт — это отдельный деловой документ.",
         "Строго эти разделы Markdown: «1. Резюме для принятия решения», «2. Что произошло и почему это риск»,",
         "«3. Соответствие требованиям», «4. Варианты решения и стоимость», «5. Критерий закрытия», «6. Приложения».",
+        "",
+        "Оформление (документ уходит в PDF — сделай аккуратно и читабельно):",
+        "- Начни с заголовка первого уровня «# <ёмкое название документа>», а под ним — строкой-подзаголовком",
+        "  аудиторию и гриф «Конфиденциально · по итогам авторизованного ред-тиминга».",
+        "- Сразу после заголовка вынеси одну строку «**Ключевой вывод:** …» — суть одним предложением.",
+        "- Каждый раздел — заголовок второго уровня «## N. …»; вложенные подпункты — «### …».",
+        "- Перечисления оформляй маркированными списками; абзацы короткие (2–4 предложения), без «простыней».",
+        "- Раздел «4. Варианты решения и стоимость» оформи Markdown-таблицей с колонками:",
+        "  Вариант | Что делаем | Срок | Относительная стоимость.",
+        "- Не используй код-блоки, ссылки-URL и эмодзи; заголовки — без нумерации Markdown-списком.",
         "",
         "Данные прогона (опирайся ТОЛЬКО на них; ничего не выдумывай, финансовый ущерб не оценивай):",
         f"- Профиль: {findings.get('profile')}",

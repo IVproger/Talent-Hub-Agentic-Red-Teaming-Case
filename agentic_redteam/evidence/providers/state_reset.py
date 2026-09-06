@@ -31,7 +31,9 @@ class StateResetProvider:
             raise PipelineConfigurationError("Не задан mongo.db.")
 
     def _run(self, service, *args, script=None):
-        command = ["docker", "compose", "-f", self.config["compose_file"], "exec", "-T", service, *args]
+        project = self.config.get("project")
+        command = ["docker", "compose"] + (["-p", project] if project else []) + \
+            ["-f", self.config["compose_file"], "exec", "-T", service, *args]
         try:
             result = self.runner(command, input=script, capture_output=True, text=True,
                                  check=True, timeout=self.config.get("timeout", 30))

@@ -27,7 +27,9 @@ def read_target_view(config, principal, session_id, runner=subprocess.run):
         settings["member"] = declaration.get("member", "")
         settings["arguments"] = [value.format_map(context) if isinstance(value, str) else value
                                  for value in declaration.get("arguments", [])]
-        command = ["docker", "compose", "-f", declaration["compose_file"], "exec", "-T",
+        project = declaration.get("project")
+        command = ["docker", "compose"] + (["-p", project] if project else []) + \
+            ["-f", declaration["compose_file"], "exec", "-T",
                    declaration["service"], "python", "-c", _READ_VIEW]
         result = runner(command, input=json.dumps(settings), capture_output=True,
                         text=True, check=True, timeout=declaration.get("timeout", 30))

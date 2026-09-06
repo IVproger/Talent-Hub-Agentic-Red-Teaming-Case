@@ -37,7 +37,9 @@ def _mongo_snapshot(config, environ, runner):
               f".find({json.dumps(config.get('query', {}))}).toArray()));\n")
     command = []
     if config.get("compose_file"):
-        command = ["docker", "compose", "-f", config["compose_file"], "exec", "-T"]
+        project = config.get("project")
+        command = ["docker", "compose"] + (["-p", project] if project else []) + \
+            ["-f", config["compose_file"], "exec", "-T"]
         if config.get("uri_env"):
             command += ["-e", "MOROK_MONGO_URI"]
         command += [config.get("service", "mongo")]

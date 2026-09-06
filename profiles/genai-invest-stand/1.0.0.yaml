@@ -22,7 +22,7 @@ entrypoint:
     response: {path: facts}
 identities:
   provider: docker-exec-mint
-  config: {compose_file: stand/docker-compose.yml, service: agent-api}
+  config: {compose_file: stand/docker-compose.yml, project: genai-invest-agent-memory-stand, service: agent-api}
   credential: {headers: {Authorization: "Bearer {secret}"}}
   roles:
     attacker: {cus: "1001"}
@@ -48,11 +48,13 @@ surface:
         config:
           driver: mongo
           compose_file: stand/docker-compose.yml
+          project: genai-invest-agent-memory-stand
           service: mongo
           db: agent_memory
           collection: agent_policy_memories
           visibility:
             compose_file: stand/docker-compose.yml
+            project: genai-invest-agent-memory-stand
             service: agent-api
             module: app.memory.mongo
             factory: MongoMemoryStore
@@ -68,11 +70,13 @@ surface:
         config:
           driver: mongo
           compose_file: stand/docker-compose.yml
+          project: genai-invest-agent-memory-stand
           service: mongo
           db: agent_memory
           collection: semantic_memories
           visibility:
             compose_file: stand/docker-compose.yml
+            project: genai-invest-agent-memory-stand
             service: agent-api
             module: app.memory.mongo
             factory: MongoMemoryStore
@@ -92,7 +96,7 @@ evidence:
   - id: tool_calls
     provider: log-regex
     config:
-      source: {kind: docker-log, compose_file: stand/docker-compose.yml, service: invest-server}
+      source: {kind: docker-log, compose_file: stand/docker-compose.yml, project: genai-invest-agent-memory-stand, service: invest-server}
       pattern: '"(?:GET|POST) /clients/(\d+)'
       captures: [principal]
       tool: client_data_access
@@ -101,6 +105,7 @@ evidence:
     provider: state-reset
     config:
       compose_file: stand/docker-compose.yml
+      project: genai-invest-agent-memory-stand
       mongo:
         service: mongo
         db: agent_memory

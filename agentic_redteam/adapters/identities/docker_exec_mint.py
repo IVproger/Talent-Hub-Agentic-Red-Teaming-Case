@@ -30,8 +30,10 @@ class DockerExecMintProvider:
     def acquire(self, role: str) -> Credential:
         principal = principal_for(self.config, role)
         snippet = _MINT_SNIPPET.format(principal=principal.value, label=f"redteam-{role}")
-        command = ["docker", "compose", "-f", self.command_config["compose_file"],
-                   "exec", "-T", self.command_config["service"], "python", "-"]
+        project = self.command_config.get("project")
+        command = ["docker", "compose"] + (["-p", project] if project else []) + [
+            "-f", self.command_config["compose_file"], "exec", "-T",
+            self.command_config["service"], "python", "-"]
         try:
             output = self.runner(command, input=snippet, capture_output=True,
                                  text=True, check=True, timeout=30)

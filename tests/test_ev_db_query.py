@@ -60,4 +60,13 @@ class DbQueryTests(unittest.TestCase):
         self.assertIn("postgres", str(cm.exception))
         self.assertIn("mongo", str(cm.exception))
 
+    def test_compose_project_from_config_not_global_env(self):
+        raw = json.dumps({"facts": [{"_id": "1", "text": "fact"}]})
+        runner = Mock(wraps=FakeRunner([raw]))
+        provider = DbQueryProvider({**self.config, "project": "stand-b"}, runner)
+        provider.collect(provider.mark())
+        command = runner.call_args.args[0]
+        self.assertIn("-p", command)
+        self.assertIn("stand-b", command)
+        self.assertLess(command.index("-p"), command.index("exec"))
 

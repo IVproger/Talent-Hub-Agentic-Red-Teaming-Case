@@ -44,6 +44,9 @@ class LogRegexProvider:
                 return Path(source["path"]).read_text(encoding="utf-8").splitlines()
             if source["kind"] == "docker-log":
                 command = ["docker", "compose"]
+                project = source.get("project", self.config.get("project"))
+                if project:
+                    command += ["-p", project]
                 compose = source.get("compose_file", self.config.get("compose_file"))
                 if compose:
                     command += ["-f", compose]

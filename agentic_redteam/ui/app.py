@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import io
 import json
+import re
 import sys
 import tempfile
 import threading
@@ -480,6 +481,26 @@ def _render_results(run_dir: Path, findings: dict, key: str = "run") -> None:
             st.info("Отчёт появится после запуска.")
 
 
+def _report_preview(markdown: str) -> str:
+    """Adapt portable Markdown to Streamlit without enabling untrusted HTML."""
+    lines = []
+    fenced = False
+    for line in markdown.splitlines():
+        if line.startswith('```'):
+            fenced = not fenced
+        if not fenced:
+            if re.match(r'^\s*(<!-- run_id:|</?details>|<summary>)', line):
+                continue
+            line = re.sub(
+                r'\[([^\]]+)\]\(([^)]+)\)',
+                lambda match: match.group(0) if match.group(2).startswith(
+                    ('https://', 'http://', '#')) else f"{match.group(1)} (во вкладке ФАЙЛЫ)",
+                line,
+            )
+        lines.append(line)
+    return '\n'.join(lines)
+
+
 def _render_autonomous_results(run_dir: Path, report: dict,
                                key: str = "run") -> None:
     """Render the AttackBrief read model without requiring findings.json."""
@@ -554,7 +575,14 @@ def _render_autonomous_results(run_dir: Path, report: dict,
             "Вид отчёта", ("Технический", "Бизнес"), default="Технический",
             key=f"report-kind-{key}-{run_dir.name}", label_visibility="collapsed",
         ) or "Технический"
-        st.markdown(technical if selected == "Технический" else business)
+        content = technical if selected == "Технический" else business
+        overview, marker, details = content.partition("## Детали попыток")
+        st.markdown(_report_preview(overview))
+        if marker:
+            with st.expander("Полный журнал, рефлексия и условия воспроизведения"):
+                st.markdown(_report_preview(marker + details))
+        st.caption("Представление построено из сохранённых фактов. Исходные отчёты "
+                   "и полный evidence bundle доступны во вкладке ФАЙЛЫ.")
     with files_tab:
         for label, name, content in (
             ("технический отчёт", "report.md", technical),
@@ -565,6 +593,22 @@ def _render_autonomous_results(run_dir: Path, report: dict,
                 mime="text/markdown", width="stretch",
                 key=f"dl-{key}-{run_dir.name}-{name}",
             )
+            saved = run_dir / name
+            if saved.is_file():
+                st.download_button(
+                    f"Скачать исходный {label} (как сохранён при запуске)",
+                    saved.read_bytes(), file_name=f"original-{name}", mime="text/markdown",
+                    key=f"original-{key}-{run_dir.name}-{name}",
+                )
+        if attempts:
+            number = st.selectbox("Файлы попытки", [row['attempt'] for row in attempts],
+                                  key=f"artifact-attempt-{key}-{run_dir.name}")
+            for name in ('brief.yaml', 'result.json', 'judge.json', 'evidence.json', 'actions.json'):
+                path = run_dir / 'attempts' / f'{number:04d}' / name
+                if path.is_file() and not path.is_symlink():
+                    st.download_button(f"Попытка {number}: {name}", path.read_bytes(),
+                                       file_name=f"attempt-{number:04d}-{name}",
+                                       key=f"artifact-{key}-{run_dir.name}-{number}-{name}")
         for name in ("summary.json", "campaign.json", "experience.json",
                      "transcript.jsonl"):
             path = run_dir / name

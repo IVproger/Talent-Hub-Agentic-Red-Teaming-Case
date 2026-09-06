@@ -9,6 +9,7 @@ complete, tolerant read model.
 from __future__ import annotations
 
 import json
+import shlex
 from pathlib import Path
 from typing import Any
 
@@ -162,11 +163,6 @@ def build_autonomous_report(report: dict, reporter_llm=None) -> str:
     unscored = int(overall.get("errors") or 0)
     total = len(attempts)
     evaluation_rate = round(100 * scored / total, 1) if total else 0.0
-    quality = (
-        "высокое" if total and unscored == 0
-        else "приемлемое" if total and evaluation_rate >= 80
-        else "ограниченное"
-    )
     if successful:
         conclusion = (
             f"Подтверждён обход контроля: {len(successful)} успешных "
@@ -203,8 +199,10 @@ def build_autonomous_report(report: dict, reporter_llm=None) -> str:
         "",
         f"> **{conclusion}**",
         "",
-        f"Качество прогона: **{quality}** — оценено {scored}/{total} "
+        f"Полнота оценки: оценено {scored}/{total} "
         f"попыток ({evaluation_rate:g}%), не оценено {unscored}.",
+        "ASR этой выборки не является оценкой вероятности успешной атаки в эксплуатации. "
+        "Полнота оценки не означает высокую достоверность доказательств.",
         "",
     ]
     if unscored:
@@ -214,6 +212,12 @@ def build_autonomous_report(report: dict, reporter_llm=None) -> str:
             "по оценённым попыткам и не описывает весь запланированный объём.",
             "",
         ]
+    lines += ["", "## Подтверждённые атаки", ""]
+    if successful:
+        for row in successful:
+            lines += _finding_section(row, observability)
+    else:
+        lines += ["_Judge не подтвердил ни одной успешной атаки._", ""]
     lines += [
         "### Метрика",
         "",
@@ -295,6 +299,7 @@ def build_autonomous_report(report: dict, reporter_llm=None) -> str:
         f"Brief: {len(briefs)} · режимов: {len(modes) or 1} · "
         f"запланировано попыток: {len(briefs) * (len(modes) or 1) * int(campaign.get('trials') or 1)} · "
         f"сохранено: {len(attempts)}.",
+        _budget_summary(report),
         f"Пункты стандартов: {', '.join(refs) or '—'}.",
         "",
         "### Бюджеты попытки",
@@ -319,28 +324,16 @@ def build_autonomous_report(report: dict, reporter_llm=None) -> str:
             "полные" if row.get("artifact_complete") else "неполные",
         )) + " |")
 
-    lines += ["", "## Подтверждённые атаки"]
-    if successful:
-        for row in successful:
-            lines += [
-                "",
-                f"- **Попытка {row.get('attempt')} · `{row.get('brief_id')}` · "
-                f"{row.get('mode') or 'default'}:** "
-                f"{_inline(row.get('claim_summary') or 'judge вернул YES')}",
-                f"  Evidence: {_artifact_links(row)}.",
-            ]
-    else:
-        lines += ["", "_Judge не подтвердил ни одной успешной атаки._"]
-
-    recommendations = _experience_recommendations(report)
     lines += [
         "",
         "## Рекомендации для следующего прогона",
         "",
-        *([f"- {item}" for item in recommendations] or [
-            "- Увеличить разнообразие подходов и повторить тот же brief после "
-            "устранения технических ошибок прогона."
-        ]),
+        "- Для каждого YES проверить связку principal → аргументы инструмента → результат "
+        "по evidence; локализовать нарушенный контроль на стороне сервиса.",
+        "- После исправления повторить тот же brief и проверить разрешённый пользовательский "
+        "сценарий. Критерий приёмки: запрет выполняется, полезная функция сохраняется.",
+        "- Неоценённые попытки повторить после устранения технической причины. "
+        "Гипотезы атакующего находятся в деталях и не являются проверенными рекомендациями.",
         "",
         "## Детали попыток",
         "",
@@ -358,7 +351,7 @@ def build_autonomous_report(report: dict, reporter_llm=None) -> str:
     profile = campaign.get("profile") or report.get("profile") or "<profile>"
     mode_arg = ",".join(str(mode) for mode in campaign.get("modes") or [] if mode)
     command = (
-        f"python -m agentic_redteam run --profile {profile} --briefs {briefs_source} "
+        f"python -m agentic_redteam run --profile {shlex.quote(str(profile))} --briefs {shlex.quote(str(briefs_source))} "
         f"--strategy {report.get('strategy') or 'independent'} "
         f"--trials {campaign.get('trials') or 1}"
     )
@@ -414,8 +407,8 @@ def build_autonomous_business_report(report: dict, reporter_llm=None) -> str:
         decision = "Есть подтверждённый риск: требуется исправление контроля и retest."
     elif scored:
         decision = (
-            "Нарушение не подтверждено на оценённой выборке; закрывать риск рано, "
-            "пока не устранены пробелы исполнения."
+            "Нарушение не подтверждено на оценённой выборке. "
+            "Это не доказывает отсутствие риска за пределами проверенных сценариев."
         )
     else:
         decision = "Результат непригоден для решения о риске: нет оценённых попыток."
@@ -446,8 +439,6 @@ def build_autonomous_business_report(report: dict, reporter_llm=None) -> str:
         "",
         "## Риск / результат / следующий шаг",
         "",
-        "| Brief | Режим | Результат | Оценено | Не оценено | Бизнес-запрет | Последствие | Evidence | Следующий шаг |",
-        "|---|---|---|---:|---:|---|---|---|---|",
     ]
     for (_brief_id, _mode), grouped in groups.items():
         row = min(grouped, key=lambda item: item.get("attempt", 0))
@@ -474,18 +465,35 @@ def build_autonomous_business_report(report: dict, reporter_llm=None) -> str:
             if group_errors else
             "сохранить контроль; расширить варианты атаки"
         )
-        lines.append("| " + " | ".join(_cell(value) for value in (
-            brief.get("id") or row.get("brief_id"), row.get("mode") or "default",
-            result, group_scored, group_errors, statement,
-            consequence, _artifact_links(evidence_row), next_step,
-        )) + " |")
+        lines += [
+            f"### `{_inline(row.get('brief_id'))}` · {_inline(row.get('mode') or 'default')}",
+            "",
+            f"**Результат:** {result} (LLM-judge). Оценено: {group_scored}; не оценено: {group_errors}.",
+            "",
+            f"**Проверяемый сценарий:** {_inline(brief.get('objective'))}",
+            "",
+            f"**Возможный бизнес-контекст:** {_inline(statement)}.",
+            f"Последствие из профиля, если связь подтверждена владельцем: {_inline(consequence)}.",
+            "",
+            f"**Следующий шаг:** {next_step}. Владелец контроля должен подтвердить "
+            "связь находки с бизнес-запретом и назначить приоритет.",
+            "",
+            f"**Доказательства, попытка {evidence_row.get('attempt')}:** {_artifact_links(evidence_row)}.",
+            "",
+        ]
+        for action in evidence_row.get("actions") or []:
+            link = observation_url(trace_url, action.get("observation_id"))
+            if link:
+                lines += [f"[Langfuse: попытка {evidence_row.get('attempt')}, "
+                          f"ход {action.get('turn')}]({link})", ""]
+                break
     if not groups:
         lines.append("| Нет выполненных попыток | — | — | 0 | 0 | — | — | — | повторить прогон |")
     lines += [
         "",
         "## Приоритетные действия",
         "",
-        *([f"- **P0 — подтверждённый обход:** `{row.get('brief_id')}` в режиме "
+        *([f"- **Разобрать YES:** `{row.get('brief_id')}` в режиме "
            f"`{row.get('mode') or 'default'}`; локализовать контроль по evidence, "
            "исправить и выполнить retest."
            for row in successes[:5]] or []),
@@ -493,8 +501,8 @@ def build_autonomous_business_report(report: dict, reporter_llm=None) -> str:
            f"{_attempt_word(unscored)}. "
            "Устранить таймауты/сбои до интерпретации ASR."
            ] if unscored else []),
-        "- **P2 — контроль:** повторить те же brief в protected и vulnerable "
-        "режимах на одном зафиксированном наборе критериев.",
+        "- **Контроль исправления:** повторить те же brief в доступных режимах профиля "
+        "на одном зафиксированном наборе критериев; проверить легитимный сценарий.",
         "",
         "## Полезные эффекты функции",
         "",
@@ -510,8 +518,8 @@ def build_autonomous_business_report(report: dict, reporter_llm=None) -> str:
         "и неоценённые попытки показаны отдельно и не скрываются.",
         "- Severity не вычисляется: автономный brief пока не содержит "
         "детерминированной привязки к boundary и бизнес-запрету.",
-        "- Сопоставление с запретом считается явным только при пересечении "
-        "`standard_refs`; остальные последствия не выводятся автоматически.",
+        "- Пересечение `standard_refs` — только тематическое совпадение, "
+        "а не доказательство нарушения конкретного бизнес-запрета.",
         "- Финансовый ущерб не рассчитывается без входных данных владельца риска.",
     ]
     skeleton = redact_secrets("\n".join(lines) + "\n")
@@ -590,6 +598,61 @@ def _artifact_links(row: dict) -> str:
         f"[evidence]({directory}/evidence.json) · "
         f"[actions]({directory}/actions.json)"
     )
+
+
+def _budget_summary(report: dict) -> str:
+    campaign = report.get("campaign") or {}
+    attempts = report.get("attempts") or []
+    trials = int(campaign.get("trials") or 1)
+    groups = {(row.get("brief_id"), row.get("mode")) for row in attempts
+              if row.get("judge_verdict") == "YES"}
+    skipped = sum(max(0, trials - sum(
+        (row.get("brief_id"), row.get("mode")) == group for row in attempts
+    )) for group in groups) if campaign.get("stop_on_success") else 0
+    return (f"Не запускались после успеха (--stop-on-success): {skipped}. "
+            "Это сэкономленный бюджет, не технические ошибки.") if skipped else ""
+
+
+def _finding_section(row: dict, observability: dict) -> list[str]:
+    """Keep verdict, observed signals and attacker interpretation separate."""
+    brief = row.get("brief") or {}
+    lines = [
+        f"### Попытка {row.get('attempt')} · `{_inline(row.get('brief_id'))}` · "
+        f"{_inline(row.get('mode') or 'default')}",
+        "",
+        f"**Проверяли:** {_inline(brief.get('objective'))}",
+        f"**Критерий:** {_inline(brief.get('success_criteria'))}",
+        "",
+        "**Решение:** LLM-judge — YES. Ниже наблюдаемые сигналы, не пересказ атакующего.",
+        "",
+    ]
+    candidates = [action for action in row.get("actions") or []
+                  if (action.get("facts") or {}).get("tool_calls")
+                  or action.get("memory_diffs")]
+    if not candidates:
+        lines += ["В журнале действий нет инструментальных сигналов. "
+                  "Для проверки решения судьи требуется ручной разбор evidence.", ""]
+    for action in candidates[-3:]:
+        lines += [f"**Окно наблюдения: ход {action.get('turn')}**, "
+                  f"principal `{_inline(action.get('principal'))}`."]
+        for call in ((action.get("facts") or {}).get("tool_calls") or [])[:6]:
+            arguments = (
+                _inline(json.dumps(call.get('args', call.get('arguments')),
+                                   ensure_ascii=False), 350)
+                if 'args' in call or 'arguments' in call else 'не сохранены'
+            )
+            lines.append(f"- `{_inline(call.get('tool'))}` → principal "
+                         f"`{_inline(call.get('principal'))}`; аргументы: "
+                         f"`{arguments}`")
+        link = observation_url(observability.get("trace_url"), action.get("observation_id"))
+        if link:
+            lines += [f"[Открыть span хода {action.get('turn')}]({link})"]
+        lines += ["", "Запрос (фрагмент):", "", _fence(_inline(action.get("request"), 450)),
+                  "", "Ответ цели (фрагмент):", "", _fence(_inline(action.get("response"), 650)), ""]
+    lines += ["Сигналы окна могут включать несколько вызовов; точную причинную связь "
+              "проверяйте по трассе и полному журналу.", "",
+              f"**Артефакты:** {_artifact_links(row)}.", ""]
+    return lines
 
 
 def _attempt_word(value: int) -> str:
@@ -721,6 +784,8 @@ def _attempt_section(row: dict, observability: dict) -> list[str]:
     for action in actions:
         if action.get("request") is None and action.get("response") is None:
             continue
+        if action.get("action") == "submit_attack":
+            continue  # Claim and learning are already shown above, not target output.
         lines += [
             "",
             f"##### Ход {action.get('turn')} · `{action.get('action')}`",
@@ -770,9 +835,9 @@ def _business_action(brief: dict, prohibited: list[dict]) -> tuple[dict | None, 
     matched = [item for item in prohibited
                if refs & set(item.get("standard_refs") or [])]
     if len(matched) == 1:
-        return matched[0], "явная привязка по standard_refs"
+        return matched[0], "тематическое совпадение по standard_refs; требует проверки"
     if len(matched) > 1:
-        return matched[0], "несколько явных совпадений; показано первое"
+        return None, "несколько тематических совпадений; требуется выбор владельца"
     return None, "нет явной привязки"
 
 

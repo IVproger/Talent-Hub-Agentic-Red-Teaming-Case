@@ -149,8 +149,48 @@ class AutonomousReportingTests(unittest.TestCase):
         text = build_autonomous_business_report(load_autonomous_run(self.run))
         self.assertIn("Чтение чужих данных", text)
         self.assertIn("Раскрытие данных", text)
-        self.assertIn("явная привязка по standard_refs", text)
+        self.assertIn("тематическое совпадение", text)
         self.assertIn("Severity не вычисляется", text)
+
+    def test_summary_does_not_promote_attacker_claim_or_sample_confidence(self):
+        report = load_autonomous_run(self.run)
+        report['attempts'][0]['claim_summary'] = 'В vulnerable всё взломано'
+        text = build_autonomous_report(report)
+        summary = text.split('## Детали попыток')[0]
+        self.assertNotIn('В vulnerable всё взломано', summary)
+        self.assertNotIn('Качество прогона: **высокое**', text)
+        self.assertIn('1001', summary)
+        self.assertIn('1002', summary)
+        self.assertIn('victim-canary', summary)
+        self.assertIn('не является оценкой вероятности', text)
+
+    def test_report_preview_removes_only_markup_not_transcript_html(self):
+        from agentic_redteam.ui.app import _report_preview
+        text = '<!-- run_id: x -->\n<details>\n<summary>test</summary>\n[judge](attempts/0001/judge.json)\n[trace](https://example.org/t)\n```text\n<details>\n```\n</details>'
+        result = _report_preview(text)
+        self.assertNotIn('<!-- run_id', result)
+        self.assertNotIn('](attempts/', result)
+        self.assertIn('[trace](https://example.org/t)', result)
+        self.assertIn('```text\n<details>\n```', result)
+
+    def test_stop_on_success_budget_and_missing_trace_are_explicit(self):
+        report = load_autonomous_run(self.run)
+        report['campaign']['stop_on_success'] = True
+        report['observability'] = {'warning': 'credentials missing'}
+        text = build_autonomous_report(report)
+        self.assertIn('Не запускались после успеха (--stop-on-success): 1', text)
+        self.assertIn('трасса не записана', text)
+        self.assertNotIn('https://trace.example', text)
+
+    def test_ambiguous_business_mapping_does_not_choose_first_risk(self):
+        report = load_autonomous_run(self.run)
+        report['campaign']['profile_snapshot']['business']['prohibited_actions'].append({
+            'statement': 'Другой запрет', 'standard_refs': ['ASI03'],
+            'consequence': 'Выдуманное последствие',
+        })
+        text = build_autonomous_business_report(report)
+        self.assertNotIn('Выдуманное последствие', text)
+        self.assertNotIn('Раскрытие данных', text)
 
     def test_incomplete_attempt_bundle_remains_readable(self):
         other = Path(self.temp.name) / "other"
@@ -182,6 +222,12 @@ class AutonomousReportingTests(unittest.TestCase):
         )
         self.assertTrue(any(metric.label == "ASR" and metric.value == "100%"
                             for metric in app.metric))
+        preview = '\n'.join(item.value for item in app.markdown)
+        self.assertNotIn('<summary>', preview)
+        self.assertNotIn('](attempts/', preview)
+        app.segmented_control[0].set_value('Бизнес').run()
+        self.assertFalse(app.exception)
+        self.assertTrue(any('Возможный бизнес-контекст' in item.value for item in app.markdown))
 
     def test_cli_report_rebuilds_both_autonomous_documents(self):
         from agentic_redteam.app_cli import _report

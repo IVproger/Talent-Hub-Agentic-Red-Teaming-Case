@@ -127,6 +127,19 @@ class BriefDirectoryTests(unittest.TestCase):
                 save_briefs(tmp, [AttackBrief.from_mapping(brief())])
             self.assertEqual((Path(tmp) / "keep.txt").read_text(), "existing")
 
+    def test_load_accepts_one_yaml_file(self):
+        item = AttackBrief.from_mapping(brief())
+        with tempfile.TemporaryDirectory() as tmp:
+            path = item.save(Path(tmp) / "one.yml")
+            self.assertEqual(load_briefs(path), [item])
+
+    def test_load_rejects_non_yaml_file_with_actionable_error(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp) / "brief.txt"
+            path.write_text("not yaml", encoding="utf-8")
+            with self.assertRaisesRegex(PipelineConfigurationError, r"\.yaml или \.yml"):
+                load_briefs(path)
+
 
 if __name__ == "__main__":
     unittest.main()

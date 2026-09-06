@@ -178,18 +178,27 @@ def save_briefs(directory: str | Path, briefs: list[AttackBrief]) -> list[Path]:
     return [brief.save(target) for brief, target in targets]
 
 
-def load_briefs(directory: str | Path) -> list[AttackBrief]:
-    root = Path(directory)
+def load_briefs(source: str | Path) -> list[AttackBrief]:
+    """Load one brief YAML file or every brief YAML in a directory."""
+    root = Path(source)
+    if root.is_file():
+        if root.suffix.lower() not in {".yaml", ".yml"}:
+            _invalid(f"файл brief должен иметь расширение .yaml или .yml: {root}")
+        return [AttackBrief.load(root)]
     if not root.is_dir():
-        _invalid(f"каталог brief не найден: {root}")
+        _invalid(f"файл или каталог brief не найден: {root}")
     briefs: list[AttackBrief] = []
     seen: set[str] = set()
-    for path in sorted(root.glob("*.yaml")):
+    paths = sorted(
+        path for path in root.iterdir()
+        if path.is_file() and path.suffix.lower() in {".yaml", ".yml"}
+    )
+    for path in paths:
         brief = AttackBrief.load(path)
         if brief.id in seen:
             _invalid(f"дублирующийся id '{brief.id}'")
         seen.add(brief.id)
         briefs.append(brief)
     if not briefs:
-        _invalid(f"в каталоге нет ни одного brief: {root}")
+        _invalid(f"в каталоге нет ни одного brief YAML: {root}")
     return briefs

@@ -1,10 +1,12 @@
 # Runtime architecture
 
-## Supported path
+## Supported paths
 
-CLI и Streamlit-UI зовут один и тот же `campaign.orchestrator.run_campaign`.
-Старый `pipeline.run_pipeline` удалён: адаптер и evidence собираются из
-профиля цели, а не из target-специфичных дефолтов.
+CLI поддерживает два явных пути исполнения: сценарный через
+`campaign.orchestrator.run_campaign` и автономный через
+`attacker.application.execute_attack_campaign`. Оба собирают адаптер и evidence
+из профиля цели, используют общий storage и сохраняют самодостаточные
+артефакты. Streamlit запускает сценарный путь, а отчёты читает для обоих.
 
 ```text
 profiles/<name>/<version>.yaml
@@ -22,6 +24,20 @@ profiles/<name>/<version>.yaml
                                         провайдеров и адаптера)
                                    покрытие, источник сброса, фичи адаптера
                                         (по поднятым провайдерам)
+
+fixed AttackBrief YAML
+        |
+        +--> CLI --> execute_attack_campaign --> attacker loop --> LLM judge
+                                              |        |
+                                              |        +--> post-budget submit_attack
+                                              |             (summary + learning)
+                                                        |
+                                                        +--> attempts/NNNN/
+                                                        +--> summary.json
+                                                        +--> report.md
+                                                        +--> business-report.md
+
+runs/<run-id>/ --> reporting read model --> CLI report / Streamlit preview
 ```
 
 `config/target.yaml` держит настройки движка (LLM-роли, наблюдаемость,
@@ -32,6 +48,17 @@ profiles/<name>/<version>.yaml
 поэтому всё, что должно действовать на оба входа, живёт в нём, а не в разборе
 аргументов. Это не стилистика: пока гейт авторизации стоял на пути CLI, UI
 запускал кампании вообще без рамки.
+
+**Отчёт автономной кампании — производный read model.** Он объединяет
+`campaign.json`, `summary.json`, `experience.json` и доступные файлы каждого
+`attempts/NNNN/`. Отсутствие необязательного или частично записанного artifact
+не делает весь завершённый объём нечитаемым; неполнота маркируется в отчёте.
+Сценарный `findings.json` при этом не синтезируется: семантика LLM-judge
+`YES/NO` не маскируется под детерминированный state-verdict `proven`.
+Финальный отчёт строится после закрытия/flush корневой Langfuse trace, поэтому
+`observability.json` и кликабельные trace/span-ссылки уже доступны renderer-у.
+Краткая LLM-записка опциональна и надстраивается над детерминированным
+evidence-first скелетом, не меняя scoring.
 
 ## Рамки прогона
 
@@ -70,11 +97,17 @@ Runner создаёт корневую трассу и наблюдение на
 необязательна и fail-open: значения редактируются и ограничиваются до экспорта,
 отказ экспорта не меняет ни вердикт, ни остальные артефакты.
 
-Стенд умеет продолжать W3C-контекст, если запрос приходит с `traceparent`, —
-это проверено на живом прогоне. Адаптер его сейчас **не пробрасывает**, поэтому
-сквозной трассы «наш прогон → ReAct-цикл и tool calls внутри цели» нет: в трассе
-видны попытки кампании, не внутренности цели. Не хватает только отправляющей
-стороны.
+Стенд умеет продолжать W3C-контекст, а адаптер пробрасывает `traceparent`; это
+проверено на живом прогоне. Сценарный и автономный application-слои открывают
+корневую trace до первого действия и после завершения сохраняют manifest в
+`observability.json`. Отчёты ссылаются на полную trace и, когда сохранён
+observation ID действия, на точный дочерний span.
+
+После `deadline`, `max_turns` или таймаута решения атакующего attack loop
+закрыт для действий против цели. Отдельная bounded-фаза разрешает только
+`submit_attack` и собирает summary/learning для следующего adaptive trial. Если
+этот вызов тоже не удался, harness формирует помеченный fallback только из
+сохранённых фактов; опыт не теряется и не выдаётся за рефлексию модели.
 
 Отдельная ловушка: клиент Langfuse у нас и у стенда написан под API v4
 (`base_url=`, `start_as_current_observation`). На langfuse 2.x этих вызовов нет,

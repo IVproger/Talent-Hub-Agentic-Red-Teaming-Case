@@ -1,0 +1,311 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>MOROK — Demo Day · final final v2</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Golos+Text:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root{--paper:#F6F5F3;--ink:#121213;--red:#EF3124;--white:#fff;--muted:rgba(4,4,19,.56);--line:#E3E1DD;--soft:#EDECEA;--ghost:rgba(238,238,251,.58)}
+  *{box-sizing:border-box}
+  html,body{margin:0;padding:0;background:#858589}
+  body{width:1920px;display:flex;flex-direction:column;gap:96px;padding:96px 0;font-family:'Golos Text',system-ui,sans-serif}
+  .slide{width:1920px;height:1080px;overflow:hidden;position:relative;flex:none;background:var(--paper);padding:64px;display:flex;flex-direction:column;gap:28px}
+  .ink{background:var(--ink);color:var(--white)}
+  .head{display:flex;align-items:flex-end;justify-content:space-between;padding:0 24px;gap:40px;flex:none}
+  .headcopy{display:flex;flex-direction:column;gap:14px;max-width:1590px}
+  .kicker{font:500 24px/1 'JetBrains Mono',monospace;letter-spacing:2px;text-transform:uppercase;color:var(--red)}
+  .title{margin:0;font:600 56px/1.16 'Golos Text',sans-serif;color:var(--ink);text-wrap:balance}
+  .ink .title{color:rgba(255,255,255,.95)}
+  .num{font:500 24px/1 'JetBrains Mono',monospace;letter-spacing:2px;color:rgba(5,8,29,.38)}
+  .ink .num{color:rgba(233,233,250,.38)}
+  .body{font:400 30px/1.42 'Golos Text',sans-serif;color:var(--muted);text-wrap:pretty}
+  .body strong{color:var(--ink)}
+  .ink .body,.dark .body,.red .body{color:var(--ghost)}.ink .body strong,.dark .body strong,.red .body strong{color:var(--white)}
+  .mono{font-family:'JetBrains Mono',monospace}
+  .panel{background:#fff;border-radius:30px;padding:38px 42px}
+  .panel.dark{background:var(--ink);color:#fff}
+  .panel.red{background:var(--red);color:#fff}
+  .tag{display:inline-flex;align-items:center;width:max-content;border-radius:999px;padding:10px 16px;font:600 18px/1 'JetBrains Mono',monospace;letter-spacing:1px;text-transform:uppercase;background:var(--soft);color:var(--ink)}
+  .tag.red{background:var(--red);color:#fff}.tag.dark{background:var(--ink);color:#fff}.tag.ghost{background:rgba(214,214,229,.09);color:rgba(255,255,255,.75)}
+  .metric{font:700 132px/.92 'Golos Text',sans-serif;letter-spacing:-6px;color:var(--red)}
+  .rule{height:2px;background:var(--line);flex:none}.rule.dark{background:rgba(231,231,248,.18)}
+  .source{font:400 21px/1.35 'Golos Text',sans-serif;color:rgba(4,4,19,.48);text-wrap:pretty}
+  .source strong{color:var(--ink)}
+  .footer{display:flex;justify-content:space-between;align-items:flex-end;gap:32px;padding:0 24px;font:400 20px/1.3 'JetBrains Mono',monospace;color:rgba(5,8,29,.38)}
+  .eye{width:60px;height:60px;flex:none}
+  .brand{display:flex;align-items:center;gap:22px}.wordmark{font:700 44px/1 'Golos Text',sans-serif;letter-spacing:7px;color:#fff}
+  .arrow{font:500 34px/1 'JetBrains Mono',monospace;color:rgba(5,8,29,.28);align-self:center}
+  .ink .arrow{color:rgba(255,255,255,.32)}
+  .label{font:500 20px/1.1 'JetBrains Mono',monospace;letter-spacing:1px;text-transform:uppercase;color:rgba(5,8,29,.4)}
+  .ink .label,.dark .label{color:rgba(233,233,250,.5)}
+  .bigline{font:600 38px/1.25 'Golos Text',sans-serif;color:var(--ink);text-wrap:balance}
+  .dark .bigline,.red .bigline{color:#fff}
+  .small{font:400 24px/1.38 'Golos Text',sans-serif;color:var(--muted);text-wrap:pretty}
+  .dark .small,.red .small{color:rgba(255,255,255,.7)}
+  .dark .panel:not(.dark):not(.red) .bigline{color:var(--ink)}
+  .dark .panel:not(.dark):not(.red) .small,.dark .panel:not(.dark):not(.red) .body{color:var(--muted)}
+  .dark .panel:not(.dark):not(.red) .body strong{color:var(--ink)}
+  #A3\ Конкуренты .small{font-size:20px;line-height:1.22}
+  #A3\ Конкуренты .bigline{font-size:27px;line-height:1.08}
+  #A3\ Конкуренты [style*="padding:18px"]{padding:12px!important}
+  @page{size:20in 11.25in;margin:0}
+  @media print{html,body{width:1920px;padding:0;gap:0;background:#fff}.slide{break-after:page;page-break-after:always}}
+</style>
+</head>
+<body>
+
+<!-- MAIN 01 · 0:00–0:30 -->
+<section class="slide" id="01 Титул" data-name="01 Титул">
+  <div style="background:var(--ink);border-radius:32px;flex:1;padding:76px 80px;display:flex;flex-direction:column;justify-content:space-between;position:relative;overflow:hidden">
+    <div style="position:absolute;right:-180px;top:-210px;width:820px;height:820px;border:1.5px solid rgba(239,49,36,.28);border-radius:50%"></div>
+    <div style="position:absolute;right:80px;top:70px;width:360px;height:360px;border:1.5px solid rgba(239,49,36,.5);border-radius:50%"></div>
+    <div style="display:flex;justify-content:space-between;align-items:flex-start;position:relative">
+      <div class="brand">
+        <svg class="eye" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M1.5 12C4.5 6 8 3.5 12 3.5S19.5 6 22.5 12C19.5 18 16 20.5 12 20.5S4.5 18 1.5 12Z" stroke="#fff" stroke-width="1.5"/><circle cx="12" cy="12" r="4" stroke="#fff" stroke-width="1.5"/><circle cx="12" cy="12" r="1.9" fill="#EF3124"/></svg>
+        <div class="wordmark">MOROK</div>
+      </div>
+      <div class="num">07.09.2026</div>
+    </div>
+    <div style="display:flex;flex-direction:column;gap:28px;position:relative;max-width:1480px">
+      <div class="kicker">ON-PREM TOOL FOR AGENTIC RED TEAMING</div>
+      <h1 style="margin:0;font:600 66px/1.13 'Golos Text',sans-serif;color:rgba(255,255,255,.95);text-wrap:balance">Комплексно проводим аудит безопасности agentic-систем — внутри контура и до выхода в прод</h1>
+      <div style="font:400 30px/1.4 'Golos Text',sans-serif;color:rgba(238,238,251,.62);max-width:1390px">MOROK проверяет безопасность компонентов agentic-системы, подтверждает находки изменениями наблюдаемого состояния и выявляет ключевые риски до релиза.</div>
+    </div>
+  </div>
+  <div style="display:grid;grid-template-columns:1.75fr 1fr;gap:20px">
+    <div class="panel" style="padding:30px 42px;display:flex;align-items:center"><div class="body"><strong>Для команд AI Security и MLSecOps</strong> в банках, юридических компаниях, госкорпорациях и других организациях с высокими требованиями к безопасности, хранению и работе с данными.</div></div>
+    <div class="panel" style="padding:30px 42px;display:flex;align-items:center"><div style="font:600 40px/1.28 'Golos Text',sans-serif;color:var(--ink)">МÓРОК наведём —<br>уязвимости найдём.</div></div>
+  </div>
+</section>
+
+<!-- MAIN 02 · 0:30–0:55 -->
+<section class="slide" id="02 Проблема" data-name="02 Проблема и текущий рынок">
+  <div class="head"><div class="headcopy"><div class="kicker">Проблема · 2026</div><h2 class="title" style="font-size:50px;line-height:1.12">Сегодня разработке и внедрению agentic-приложений уделяют больше внимания, чем обеспечению безопасности этих систем</h2></div><div class="num">02</div></div>
+  <div style="flex:1;display:grid;grid-template-columns:repeat(3,1fr);gap:20px;min-height:0">
+    <div class="panel" style="display:flex;flex-direction:column;gap:18px"><div class="label">01 · Взрыв внедрения</div><div class="bigline" style="font-size:35px">Agentic-системы входят в ключевые процессы</div><div class="body" style="font-size:27px">Платежи, клиентский сервис, продажи, HR и бэк-офис. Команды ускоряют внедрение, а безопасность остаётся вторым приоритетом.</div><div style="flex:1"></div><div style="display:flex;gap:10px;flex-wrap:wrap"><div class="tag">больше релизов</div><div class="tag">меньше времени</div></div></div>
+    <div class="panel dark" style="display:flex;flex-direction:column;gap:18px"><div class="label">02 · LLM вышла из чата</div><div class="bigline" style="font-size:35px">Теперь это автономная система, которая меняет состояние</div><div class="body" style="font-size:27px">Контекст, память, роли, инструменты и предыдущие действия влияют на следующее решение. Один вход не гарантирует один маршрут.</div><div style="flex:1"></div><div style="display:flex;gap:10px;flex-wrap:wrap"><div class="tag red">память</div><div class="tag ghost">права</div><div class="tag ghost">инструменты</div><div class="tag red">действия</div></div></div>
+    <div class="panel" style="display:flex;flex-direction:column;gap:18px"><div class="label">03 · Аудит сегодня</div><div class="bigline" style="font-size:35px">Безопасность таких систем по-прежнему доказывают вручную</div><div class="body" style="font-size:27px">Статические методы и анализаторы проверяют только заранее заданные условия; фиксированный сценарий — только знакомый путь. Эксперту приходится адаптивно исследовать систему вручную — <strong>2–3 дня на одну проверку</strong>.</div><div style="flex:1"></div><div style="display:flex;gap:10px;flex-wrap:wrap"><div class="tag">вручную</div><div class="tag">дорого</div><div class="tag">не успевает</div></div></div>
+  </div>
+  <div class="panel dark" style="padding:25px 36px;display:grid;grid-template-columns:210px 1fr;align-items:center;gap:28px"><div class="tag red">Ключевая проблема</div><div style="font:600 31px/1.3 'Golos Text',sans-serif;color:#fff">Безопасность agentic-систем нельзя доказать статическими методами и анализаторами. Нужны адаптивные методы, которые изучают и проверяют систему в динамике.</div></div>
+</section>
+
+<!-- MAIN 03 · 0:55–1:10 -->
+<section class="slide" id="03 Ценность" data-name="03 Ценность продукта">
+  <div class="head"><div class="headcopy"><div class="kicker">Ценность · контролируемая среда</div><h2 class="title">Для критичных данных нужен адаптивный аудит в контролируемой среде</h2></div><div class="num">03</div></div>
+  <div style="flex:1;display:grid;grid-template-columns:.78fr 1.42fr;gap:20px;min-height:0">
+    <div style="display:flex;flex-direction:column;gap:16px;min-height:0">
+      <div class="panel" style="flex:1.18;padding:24px 28px;display:flex;flex-direction:column;gap:12px"><div class="label">Baseline 1 · ручной аудит</div><div class="bigline" style="font-size:33px">Редкая экспертиза не масштабируется</div><div style="display:grid;grid-template-columns:1fr 1fr;gap:10px"><div style="background:var(--soft);border-radius:15px;padding:13px 15px"><div style="font:700 29px/1 'Golos Text',sans-serif;color:var(--ink)">300–400 тыс. ₽</div><div class="small" style="font-size:17px;margin-top:5px">специалист MLSecOps / мес.</div></div><div style="background:var(--soft);border-radius:15px;padding:13px 15px"><div style="font:700 29px/1 'Golos Text',sans-serif;color:var(--ink)">600–800 тыс. ₽</div><div class="small" style="font-size:17px;margin-top:5px">внешний аудит / проект</div></div><div style="background:var(--ink);border-radius:15px;padding:13px 15px"><div style="font:700 29px/1 'Golos Text',sans-serif;color:#fff">2–3 дня</div><div class="small" style="font-size:17px;margin-top:5px;color:rgba(255,255,255,.65)">техническая проверка одной системы</div></div><div style="background:var(--red);border-radius:15px;padding:13px 15px"><div style="font:700 29px/1 'Golos Text',sans-serif;color:#fff">36–66 тыс. ₽</div><div class="small" style="font-size:17px;margin-top:5px;color:rgba(255,255,255,.72)">себестоимость техпроверки своими силами</div></div></div></div>
+      <div class="panel" style="flex:.82;padding:24px 28px;display:flex;flex-direction:column;gap:11px;position:relative;overflow:hidden"><div class="label" style="font-size:16px;letter-spacing:.7px;white-space:nowrap">Baseline 2 · фундаментальная модель + harness</div><div style="display:flex;justify-content:space-between;gap:18px;align-items:flex-start"><div><div class="bigline" style="font-size:31px">OpenAI Codex / Claude Code</div><div class="small" style="font-size:20px;margin-top:6px">Адаптивно исследует систему</div></div><div style="font:700 39px/1 'Golos Text',sans-serif;color:var(--red);white-space:nowrap">$100–200</div></div><div class="small" style="font-size:20px"><strong>в месяц на исследователя</strong> + переменный API usage. Архитектура и контекст уходят во внешний сервис — для критичных данных это не рабочий вариант.</div><div aria-hidden="true" style="position:absolute;left:-6%;top:50%;width:112%;height:6px;border-radius:99px;background:rgba(239,49,36,.78);transform:rotate(25deg);z-index:3"></div><div aria-hidden="true" style="position:absolute;left:-6%;top:50%;width:112%;height:6px;border-radius:99px;background:rgba(239,49,36,.78);transform:rotate(-25deg);z-index:3"></div></div>
+    </div>
+    <div class="panel dark" style="padding:26px 30px;display:flex;flex-direction:column;gap:16px"><div style="display:flex;align-items:flex-start;justify-content:space-between;gap:20px"><div><div class="label">MOROK · adaptive audit</div><div class="bigline" style="font-size:36px;margin-top:8px">Данные не покидают контролируемую среду</div></div><div class="tag red">On-prem · локальные модели</div></div>
+      <div style="flex:1;display:grid;grid-template-columns:repeat(3,1fr);gap:12px;min-height:0"><div class="panel" style="padding:22px 20px;display:flex;flex-direction:column;gap:10px;border-radius:20px"><div class="label" style="color:var(--muted)">Проверок в год</div><div class="metric" style="font-size:74px">×5</div><div class="bigline" style="font-size:29px">300 → 1 500</div><div class="small" style="font-size:20px">Та же команда из трёх специалистов проверяет в пять раз больше систем.</div></div><div class="panel" style="padding:22px 20px;display:flex;flex-direction:column;gap:10px;border-radius:20px"><div class="label" style="color:var(--muted)">Себестоимость техпроверки</div><div class="metric" style="font-size:74px">−80%</div><div class="bigline" style="font-size:27px">36–66 → 5–13 тыс. ₽</div><div class="small" style="font-size:20px">MOROK ведёт кампанию; эксперт работает с подтверждёнными находками.</div></div><div class="panel red" style="padding:22px 20px;display:flex;flex-direction:column;gap:10px;border-radius:20px"><div class="label" style="color:rgba(255,255,255,.7)">Повтор после релиза</div><div style="font:700 68px/.95 'Golos Text',sans-serif;color:#fff">до ×30</div><div class="bigline" style="font-size:29px;color:#fff">недели → минуты</div><div class="small" style="font-size:20px;color:rgba(255,255,255,.75)">Доказанная атака сохраняется как regression-тест и повторяется после изменений.</div></div></div>
+      <div style="border-top:1.5px solid rgba(255,255,255,.16);padding-top:14px;font:500 22px/1.25 'Golos Text',sans-serif;color:rgba(255,255,255,.72)">Адаптивные сценарии · проверка состояния · локальные модели · быстрый retest</div>
+    </div>
+  </div>
+</section>
+
+<!-- MAIN 04 · 1:10–3:10 -->
+<section class="slide ink" id="04 Демо" data-name="04 Live demo">
+  <div style="display:flex;justify-content:space-between;align-items:flex-start;position:relative;z-index:2"><div class="brand"><svg class="eye" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M1.5 12C4.5 6 8 3.5 12 3.5S19.5 6 22.5 12C19.5 18 16 20.5 12 20.5S4.5 18 1.5 12Z" stroke="#fff" stroke-width="1.5"/><circle cx="12" cy="12" r="4" stroke="#fff" stroke-width="1.5"/><circle cx="12" cy="12" r="1.9" fill="#EF3124"/></svg><div class="wordmark">MOROK</div></div><div class="num">04 · 2:10</div></div>
+  <div style="position:absolute;right:-140px;top:-140px;width:760px;height:760px;border-radius:50%;border:1.5px solid rgba(239,49,36,.28)"></div>
+  <div style="position:absolute;right:90px;top:90px;width:300px;height:300px;border-radius:50%;border:1.5px solid rgba(239,49,36,.55)"></div>
+  <div style="flex:1;display:flex;flex-direction:column;justify-content:center;gap:34px;position:relative;z-index:2;max-width:1620px">
+    <div class="kicker">Live demo · один аудит целиком</div>
+    <h2 style="margin:0;font:600 82px/1.08 'Golos Text',sans-serif;color:#fff;text-wrap:balance">От архитектуры agentic-системы — до доказанной находки и повторного теста</h2>
+    <div style="display:flex;align-items:center;gap:18px;flex-wrap:nowrap;margin-top:12px">
+      <div class="tag ghost" style="font-size:21px;padding:16px 20px">Артефакты цели</div><div class="arrow">→</div>
+      <div class="tag ghost" style="font-size:21px;padding:16px 20px">Профиль</div><div class="arrow">→</div>
+      <div class="tag red" style="font-size:21px;padding:16px 20px">Кампания атак</div><div class="arrow">→</div>
+      <div class="tag ghost" style="font-size:21px;padding:16px 20px">Evidence</div><div class="arrow">→</div>
+      <div class="tag ghost" style="font-size:21px;padding:16px 20px">Отчёт + retest</div>
+    </div>
+  </div>
+  <div style="background:var(--red);border-radius:24px;padding:34px 44px;display:flex;justify-content:space-between;align-items:center;position:relative;z-index:2"><div style="font:600 38px/1.25 'Golos Text',sans-serif;color:#fff">Не экскурсия по вкладкам — путь специалиста к решению о риске.</div><div class="kicker" style="color:rgba(255,255,255,.82)">Переходим в продукт →</div></div>
+</section>
+
+<!-- MAIN 05 · 3:10–4:00 -->
+<section class="slide" id="05 Архитектура" data-name="05 Как работает MOROK">
+  <div class="head"><div class="headcopy"><div class="kicker">Техническая минута</div><h2 class="title">MOROK превращает описание системы в доказанный риск и готовый retest</h2></div><div class="num">05</div></div>
+  <div style="flex:1;min-height:0;background:#fff;border:2px solid var(--line);border-radius:30px;padding:28px 30px 24px;display:flex;flex-direction:column;gap:18px">
+    <div style="display:flex;justify-content:space-between;align-items:center;gap:24px"><div class="tag red">On-prem · внутри контура заказчика</div><div class="small" style="font-size:20px">Документация, данные проверок и отчёты не покидают периметр</div></div>
+
+    <div style="flex:1;display:grid;grid-template-columns:250px 34px minmax(0,1fr) 34px 270px;gap:12px;align-items:stretch;min-height:0">
+      <div class="panel dark" style="padding:24px 24px;display:flex;flex-direction:column;gap:14px;justify-content:center;border-radius:22px">
+        <div class="label">Вход</div><div class="bigline" style="font-size:29px">Контекст системы</div>
+        <div class="small" style="font-size:20px">Архитектура и system card<br>OpenAPI / README<br>Роли и границы доступа<br>Авторизованный тестовый контур</div>
+      </div>
+      <div style="display:flex;align-items:center;justify-content:center;font:600 34px/1 'JetBrains Mono',monospace;color:var(--red)">→</div>
+
+      <div style="display:flex;flex-direction:column;gap:14px;min-width:0">
+        <div style="flex:1.25;display:grid;grid-template-columns:1fr 32px 1fr 32px 1fr 32px 1fr;gap:8px;align-items:stretch">
+          <div style="background:var(--soft);border-radius:20px;padding:20px 18px;display:flex;flex-direction:column;gap:9px"><div class="label" style="color:var(--red)">01 · Понять</div><div class="bigline" style="font-size:26px">Карта поверхности</div><div class="small" style="font-size:18px">Память · инструменты · роли · точки входа · границы изоляции</div></div>
+          <div style="display:flex;align-items:center;justify-content:center;font:600 30px/1 'JetBrains Mono',monospace;color:var(--red)">→</div>
+          <div style="border:2px solid var(--line);border-radius:20px;padding:18px 16px;display:flex;flex-direction:column;gap:9px"><div class="label" style="color:var(--red)">02 · Спроектировать</div><div class="bigline" style="font-size:26px">Сценарии проверок</div><div class="small" style="font-size:18px">OWASP / ATLAS × профиль цели. Локальные модели варьируют сценарии.</div></div>
+          <div style="display:flex;align-items:center;justify-content:center;font:600 30px/1 'JetBrains Mono',monospace;color:var(--red)">→</div>
+          <div style="background:var(--red);border-radius:20px;padding:20px 18px;display:flex;flex-direction:column;gap:9px"><div class="label" style="color:rgba(255,255,255,.72)">03 · Проверить</div><div class="bigline" style="font-size:26px;color:#fff">Кампания аудита</div><div class="small" style="font-size:18px;color:rgba(255,255,255,.78)">Управляемые многошаговые проверки в подготовленном контуре.</div></div>
+          <div style="display:flex;align-items:center;justify-content:center;font:600 30px/1 'JetBrains Mono',monospace;color:var(--red)">→</div>
+          <div style="background:var(--ink);border-radius:20px;padding:20px 18px;display:flex;flex-direction:column;gap:9px"><div class="label" style="color:rgba(255,255,255,.52)">04 · Доказать</div><div class="bigline" style="font-size:26px;color:#fff">Проверка состояния</div><div class="small" style="font-size:18px;color:rgba(255,255,255,.7)">Факт риска — по изменению данных, прав, памяти или вызовов инструментов.</div></div>
+        </div>
+
+        <div style="flex:.65;display:grid;grid-template-columns:1fr 1.55fr;gap:14px;min-height:0">
+          <div style="border:2px solid var(--line);border-radius:18px;padding:15px 18px;display:flex;flex-direction:column;gap:7px;justify-content:center"><div class="label">Локальные модели ↑ к сценариям</div><div style="font:600 21px/1.25 'Golos Text',sans-serif;color:var(--ink)">Qwen 27B · DeepSeek V4 Flash · GLM 5.3 Flash</div></div>
+          <div style="border:2px solid rgba(239,49,36,.45);border-radius:18px;padding:14px 18px;display:flex;flex-direction:column;gap:9px;justify-content:center"><div style="display:flex;align-items:center;justify-content:space-between;gap:12px"><div class="label" style="color:var(--red)">↕ Авторизованная целевая agentic-система</div><div class="small" style="font-size:17px">проверка ↔ факт</div></div><div style="display:flex;gap:8px;flex-wrap:wrap"><span class="tag" style="font-size:15px;padding:8px 11px">Память</span><span class="tag" style="font-size:15px;padding:8px 11px">Инструменты / API</span><span class="tag" style="font-size:15px;padding:8px 11px">Роли и права</span><span class="tag" style="font-size:15px;padding:8px 11px">Бизнес-данные</span></div></div>
+        </div>
+      </div>
+
+      <div style="display:flex;align-items:center;justify-content:center;font:600 34px/1 'JetBrains Mono',monospace;color:var(--red)">→</div>
+      <div class="panel" style="padding:24px 22px;display:flex;flex-direction:column;gap:13px;justify-content:center;border-radius:22px;background:var(--soft)">
+        <div class="label">Выход</div><div class="bigline" style="font-size:29px">Решение о риске</div>
+        <div class="small" style="font-size:20px"><strong>Подтверждённые находки</strong><br>Технический отчёт<br>Бизнес-отчёт о рисках<br>База знаний<br><strong>Regression-тест для retest</strong></div>
+      </div>
+    </div>
+
+    <div style="background:var(--ink);border-radius:18px;padding:17px 24px;display:flex;align-items:center;justify-content:center;gap:16px;color:#fff;font:600 23px/1.2 'Golos Text',sans-serif;text-align:center"><span style="color:var(--red)">Ценность</span><span>Разрозненные артефакты</span><span style="color:var(--red)">→</span><span>реальная поверхность</span><span style="color:var(--red)">→</span><span>доказанный риск</span><span style="color:var(--red)">→</span><span>повторяемый контроль</span></div>
+  </div>
+</section>
+
+<!-- MAIN 06 · 4:00–4:20 -->
+<section class="slide" id="06 Доказательства" data-name="06 Готовность и метрики">
+  <div class="head"><div class="headcopy"><div class="kicker">Готовность и границы</div><h2 class="title">Продуктовый контур собран; экономику подтверждаем на пилоте</h2></div><div class="num">06</div></div>
+  <div style="flex:1;display:grid;grid-template-columns:1.15fr .85fr;gap:20px;min-height:0">
+    <div class="panel dark" style="display:grid;grid-template-columns:1fr 1fr;gap:26px 34px;align-content:center">
+      <div><div class="tag red">Сделано</div><div class="bigline" style="margin-top:18px">Полный workflow</div><div class="body" style="font-size:27px;margin-top:10px">Профиль → surface map → генерация → кампания → evidence → два отчёта → replay.</div></div>
+      <div><div class="tag ghost">Инженерная база</div><div class="bigline" style="margin-top:18px">493 теста · OK</div><div class="body" style="font-size:27px;margin-top:10px">Последний подтверждённый snapshot проекта от 05.09.2026.</div></div>
+      <div><div class="tag ghost">Проверено</div><div class="bigline" style="margin-top:18px">4 / 4 BAC</div><div class="body" style="font-size:27px;margin-top:10px">ASR 100% на одном намеренно уязвимом учебном стенде и одном классе атак.</div></div>
+      <div><div class="tag ghost">Наблюдаемость</div><div class="bigline" style="margin-top:18px">19 spans</div><div class="body" style="font-size:27px;margin-top:10px">Живой W3C trace от запуска кампании до вызова инструмента.</div></div>
+    </div>
+    <div style="display:flex;flex-direction:column;gap:20px">
+      <div class="panel" style="flex:1;display:flex;flex-direction:column;justify-content:center;gap:14px"><div class="tag">На пилоте измеряем</div><div class="body"><strong>Время аудита</strong> от профиля до evidence-отчёта<br><strong>Релевантность</strong> и false positives<br><strong>Принятие finding</strong> командой продукта<br><strong>Стоимость retest</strong> после релиза</div></div>
+      <div class="panel red" style="padding:30px 36px"><div class="label" style="color:rgba(255,255,255,.7)">Вклад команды</div><div style="font:600 31px/1.35 'Golos Text',sans-serif;color:#fff;margin-top:12px">Иван — продукт · Даниил — ядро и кампании · Тамерлан — evidence, regression и отчётность</div></div>
+    </div>
+  </div>
+  <div class="footer"><span>Доказательства готовности ≠ подтверждённая экономика продукта.</span><span>ограничение названо явно</span></div>
+</section>
+
+<!-- MAIN 07 · 4:20–4:50 -->
+<section class="slide ink" id="07 Финал" data-name="07 Следующий шаг">
+  <div style="display:flex;justify-content:space-between;align-items:flex-start"><div class="brand"><svg class="eye" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M1.5 12C4.5 6 8 3.5 12 3.5S19.5 6 22.5 12C19.5 18 16 20.5 12 20.5S4.5 18 1.5 12Z" stroke="#fff" stroke-width="1.5"/><circle cx="12" cy="12" r="4" stroke="#fff" stroke-width="1.5"/><circle cx="12" cy="12" r="1.9" fill="#EF3124"/></svg><div class="wordmark">MOROK</div></div><div class="num">07</div></div>
+  <div style="flex:1;display:grid;grid-template-columns:.92fr 1.08fr;gap:28px;align-items:stretch;min-height:0">
+    <div style="display:flex;flex-direction:column;justify-content:center;gap:28px"><div class="kicker">Следующий шаг · 4 недели</div><h2 style="margin:0;font:600 72px/1.08 'Golos Text',sans-serif;color:#fff;text-wrap:balance">Нужен design partner с реальной agentic-системой и авторизованным контуром</h2><div class="body">Цель пилота — заменить расчётную модель измеренным временем аудита, качеством evidence и стоимостью повторной проверки.</div></div>
+    <div style="display:flex;flex-direction:column;gap:16px;justify-content:center">
+      <div class="panel" style="padding:26px 32px;display:grid;grid-template-columns:150px 1fr;gap:24px;align-items:center"><div class="tag">Сделано</div><div class="bigline">Рабочий end-to-end workflow</div></div>
+      <div class="panel" style="padding:26px 32px;display:grid;grid-template-columns:150px 1fr;gap:24px;align-items:center"><div class="tag">Проверено</div><div class="bigline">State evidence и воспроизводимый запуск</div></div>
+      <div class="panel red" style="padding:26px 32px;display:grid;grid-template-columns:150px 1fr;gap:24px;align-items:center"><div class="tag" style="background:rgba(0,0,0,.18);color:#fff">Дальше</div><div class="bigline">Первый evidence-отчёт по реальной agentic-системе</div></div>
+    </div>
+  </div>
+  <div style="background:var(--red);border-radius:24px;padding:34px 42px;display:flex;flex-direction:column;gap:10px"><div class="label" style="color:rgba(255,255,255,.72)">Финальная фраза · 10–15 секунд</div><div style="font:600 35px/1.35 'Golos Text',sans-serif;color:#fff">MOROK превращает разовый ручной аудит в повторяемый on-prem процесс: больше проверенных agentic-систем, ниже себестоимость, быстрый retest. Рабочий контур уже собран; следующий шаг — четырёхнедельный пилот с design partner.</div></div>
+</section>
+
+<!-- APPENDIX -->
+<section class="slide" id="A1 Сегменты" data-name="A1 Все продуктовые сегменты">
+  <div class="head"><div class="headcopy"><div class="kicker">Appendix · сегменты</div><h2 class="title">Три сегмента требуют одной технологии, но разной упаковки продукта</h2></div><div class="num">A1</div></div>
+  <div style="flex:1;display:grid;grid-template-columns:repeat(3,1fr);gap:20px;min-height:0">
+    <div class="panel dark" style="display:flex;flex-direction:column;gap:18px;border:2px solid rgba(239,49,36,.72)"><div style="display:flex;justify-content:space-between;align-items:center"><div class="label">Сегмент 1</div><div class="tag red">выбран</div></div><div class="bigline">Банки и организации с повышенными требованиями к ИБ</div><div class="body" style="font-size:27px">Покупатель: CISO / ДКБ. Пользователь: AI Security и MLSecOps. Нужны закрытый контур, доказательства для риск-комитета и регулярный retest.</div><div style="flex:1"></div><div class="panel red" style="padding:20px 24px"><div class="label" style="color:rgba(255,255,255,.7)">Формат</div><div class="bigline" style="font-size:28px;margin-top:8px">On-prem инструмент во внутренней инфраструктуре</div></div></div>
+    <div class="panel" style="display:flex;flex-direction:column;gap:18px"><div class="label">Сегмент 2</div><div class="bigline">Кибербез-компании, Red Team и интеграторы</div><div class="body" style="font-size:27px">Покупатель: руководитель практики. Пользователь: пентестер. Ценность — больше проектов, единая методология и повторная проверка для клиентов.</div><div style="flex:1"></div><div style="background:var(--soft);border-radius:20px;padding:20px 24px"><div class="label">Формат</div><div class="bigline" style="font-size:28px;margin-top:8px">White-label / on-prem модуль для переиспользования и продажи</div></div></div>
+    <div class="panel" style="display:flex;flex-direction:column;gap:18px"><div class="label">Сегмент 3</div><div class="bigline">Компании, создающие agentic-системы для своих процессов</div><div class="body" style="font-size:27px">Ритейл, e-commerce, телеком и B2B без зрелой AI Security-функции. Нужен понятный цикл проверки перед релизом.</div><div style="flex:1"></div><div style="background:var(--soft);border-radius:20px;padding:20px 24px"><div class="label">Формат</div><div class="bigline" style="font-size:28px;margin-top:8px">Managed-сервис: аудит, triage и retest после исправлений</div></div></div>
+  </div>
+</section>
+
+<section class="slide" id="A2 Гипотезы" data-name="A2 Продуктовые гипотезы">
+  <div class="head"><div class="headcopy"><div class="kicker">Appendix · продуктовые гипотезы</div><h2 class="title">Discovery превратился в три проверяемые гипотезы продукта</h2></div><div class="num">A2</div></div>
+  <div style="flex:1;display:flex;flex-direction:column;gap:18px;min-height:0">
+    <div class="panel dark" style="flex:1;display:grid;grid-template-columns:130px 1.35fr 1fr;gap:28px;align-items:center"><div style="font:700 70px/1 'JetBrains Mono',monospace;color:var(--red)">H1</div><div><div class="bigline">Автоматизация цикла увеличит ёмкость и снизит себестоимость аудита</div><div class="small" style="margin-top:8px">Профиль → атаки → evidence → отчёт → retest.</div></div><div><div class="tag ghost">Проверяем</div><div class="small" style="margin-top:12px">Время до отчёта, проверок на специалиста, стоимость triage и retest.</div></div></div>
+    <div class="panel red" style="flex:1;display:grid;grid-template-columns:130px 1.35fr 1fr;gap:28px;align-items:center"><div style="font:700 70px/1 'JetBrains Mono',monospace;color:#fff">H2</div><div><div class="bigline">State evidence повысит доверие к находке</div><div class="small" style="margin-top:8px">Успех подтверждается изменением состояния, а не формулировкой ответа.</div></div><div><div class="tag" style="background:rgba(0,0,0,.18);color:#fff">Проверяем</div><div class="small" style="margin-top:12px">Долю принятых findings, false positives и запуск исправления командой системы.</div></div></div>
+    <div class="panel" style="flex:1;display:grid;grid-template-columns:130px 1.35fr 1fr;gap:28px;align-items:center"><div style="font:700 70px/1 'JetBrains Mono',monospace;color:var(--red)">H3</div><div><div class="bigline">Один отчёт поможет согласовать безопасность и полезность системы</div><div class="small" style="margin-top:8px">Технический evidence связывается с бизнес-эффектом и ограничениями.</div></div><div><div class="tag">Проверяем</div><div class="small" style="margin-top:12px">Достаточность отчёта для решения: исправить, ограничить или принять риск.</div></div></div>
+  </div>
+  <div class="footer"><span>Основа: 3 CustDev — Альфа-Банк, AI Security Lab ИТМО, Raft.</span><span>гипотеза ≠ измеренный результат</span></div>
+</section>
+
+<section class="slide" id="A3 Конкуренты" data-name="A3 Конкурентная позиция">
+  <div class="head"><div class="headcopy"><div class="kicker">Appendix · конкуренты</div><h2 class="title">MOROK соединяет on-prem, полный agentic-контур, state evidence и retest</h2></div><div class="num">A3</div></div>
+  <div style="flex:1;display:grid;grid-template-columns:220px repeat(5,1fr);grid-template-rows:76px repeat(5,1fr);gap:2px;background:var(--line);border-radius:26px;overflow:hidden;min-height:0">
+    <div style="background:var(--soft);padding:18px" class="label">Критерий</div>
+    <div style="background:var(--red);padding:16px;color:#fff;display:flex;align-items:center;justify-content:center" class="bigline">MOROK</div>
+    <div style="background:#fff;padding:16px;text-align:center" class="bigline">HiveTrace Red</div>
+    <div style="background:#fff;padding:16px;text-align:center" class="bigline">Кредо-С</div>
+    <div style="background:#fff;padding:16px;text-align:center" class="bigline">PT / BI.ZONE</div>
+    <div style="background:#fff;padding:16px;text-align:center" class="bigline">Pillar · Straiker · SPLX</div>
+
+    <div style="background:var(--soft);padding:18px" class="small">Формат</div><div style="background:#fff;padding:18px" class="small"><strong>Инструмент для эксперта</strong></div><div style="background:#fff;padding:18px" class="small">LLM / GenAI scanner</div><div style="background:#fff;padding:18px" class="small">Аудит как услуга</div><div style="background:#fff;padding:18px" class="small">Red Team как услуга</div><div style="background:#fff;padding:18px" class="small">Agentic security platform</div>
+    <div style="background:var(--soft);padding:18px" class="small">On-prem в РФ</div><div style="background:#fff;padding:18px" class="small"><strong>Да</strong></div><div style="background:#fff;padding:18px" class="small">Частично / Enterprise</div><div style="background:#fff;padding:18px" class="small">Да</div><div style="background:#fff;padding:18px" class="small">Да, в проекте</div><div style="background:#fff;padding:18px" class="small">Ограниченно или custom</div>
+    <div style="background:var(--soft);padding:18px" class="small">Agentic-поверхность</div><div style="background:#fff;padding:18px" class="small"><strong>Память, роли, tools, cross-session</strong></div><div style="background:#fff;padding:18px" class="small">Модель и диалог; память публично не раскрыта</div><div style="background:#fff;padding:18px" class="small">Агенты и function calling вручную</div><div style="background:#fff;padding:18px" class="small">Широкий ручной scope</div><div style="background:#fff;padding:18px" class="small">Сильное agentic-покрытие</div>
+    <div style="background:var(--soft);padding:18px" class="small">State evidence</div><div style="background:#fff;padding:18px" class="small"><strong>Детерминированные проверки состояния</strong></div><div style="background:#fff;padding:18px" class="small">Не раскрыто для memory/tool state</div><div style="background:#fff;padding:18px" class="small">Экспертные доказательства</div><div style="background:#fff;padding:18px" class="small">Экспертные доказательства</div><div style="background:#fff;padding:18px" class="small">Есть у части платформ</div>
+    <div style="background:var(--soft);padding:18px" class="small">Replay / retest</div><div style="background:#fff;padding:18px" class="small"><strong>Находка → regression-тест</strong></div><div style="background:#fff;padding:18px" class="small">Частично</div><div style="background:#fff;padding:18px" class="small">Retest в рамках проекта</div><div style="background:#fff;padding:18px" class="small">Повторный проект</div><div style="background:#fff;padding:18px" class="small">Есть у части платформ</div>
+    <div style="background:var(--soft);padding:18px" class="small">Сильная сторона / ограничение</div><div style="background:#fff;padding:18px" class="small"><strong>Полный цикл; зрелость подтверждаем пилотом</strong></div><div style="background:#fff;padding:18px" class="small">91 атака, RU-модели; фокус на LLM</div><div style="background:#fff;padding:18px" class="small">ФСТЭК и прозрачный прайс; не продукт</div><div style="background:#fff;padding:18px" class="small">Экспертиза и банки; низкая повторяемость</div><div style="background:#fff;padding:18px" class="small">Зрелые платформы; доступность контура</div>
+  </div>
+  <div class="footer"><span>Детальный анализ: 14 российских и 25+ зарубежных игроков.</span><span>Источник: CompetitorResearch.md · 02.09.2026</span></div>
+</section>
+
+<section class="slide" id="A4 Методология" data-name="A4 Методология атак">
+  <div class="head"><div class="headcopy"><div class="kicker">Appendix · методология</div><h2 class="title">Сценарии связывают стандарт, поверхность цели, доказательство и retest</h2></div><div class="num">A4</div></div>
+  <div style="flex:1;display:grid;grid-template-columns:1fr 1fr;gap:20px;min-height:0">
+    <div class="panel dark" style="display:flex;flex-direction:column;gap:14px"><div class="label">Каталог</div>
+      <div class="panel" style="padding:18px 22px"><div class="bigline" style="font-size:29px">Память: policy-conformant poisoning</div><div class="small">ASI06 · memory write · cross-user</div></div>
+      <div class="panel" style="padding:18px 22px"><div class="bigline" style="font-size:29px">Память: cross-session effect</div><div class="small">inject → persist → activate</div></div>
+      <div class="panel red" style="padding:18px 22px"><div class="bigline" style="font-size:29px">Память → чужой tool call</div><div class="small">ASI06 → ASI03 · principal mismatch</div></div>
+      <div class="panel" style="padding:18px 22px"><div class="bigline" style="font-size:29px">Обход доступа через tool arguments</div><div class="small">BAC · фактический аргумент вызова</div></div>
+      <div class="panel" style="padding:18px 22px"><div class="bigline" style="font-size:29px">Разведка системного промпта</div><div class="small">текстовый сигнал · потолок indirect</div></div>
+    </div>
+    <div style="display:flex;flex-direction:column;justify-content:center;gap:12px">
+      <div class="panel" style="display:grid;grid-template-columns:96px 1fr;gap:18px;align-items:center;padding:20px 28px"><div class="metric" style="font-size:54px;letter-spacing:-2px">01</div><div><div class="bigline" style="font-size:30px">Композиция</div><div class="small">шаблон × профиль цели</div></div></div><div class="arrow">↓</div>
+      <div class="panel" style="display:grid;grid-template-columns:96px 1fr;gap:18px;align-items:center;padding:20px 28px"><div class="metric" style="font-size:54px;letter-spacing:-2px">02</div><div><div class="bigline" style="font-size:30px">Генерация payload</div><div class="small">варианты доставки и многошаговые цепочки</div></div></div><div class="arrow">↓</div>
+      <div class="panel dark" style="display:grid;grid-template-columns:96px 1fr;gap:18px;align-items:center;padding:20px 28px"><div class="metric" style="font-size:54px;letter-spacing:-2px">03</div><div><div class="bigline" style="font-size:30px">Прогон + traces</div><div class="small">ответы, tool calls, память, snapshots</div></div></div><div class="arrow">↓</div>
+      <div class="panel red" style="display:grid;grid-template-columns:96px 1fr;gap:18px;align-items:center;padding:20px 28px"><div style="font:700 54px/1 'Golos Text',sans-serif;color:#fff">04</div><div><div class="bigline" style="font-size:30px">State evidence</div><div class="small">детерминированный verdict</div></div></div><div class="arrow">↓</div>
+      <div class="panel" style="display:grid;grid-template-columns:96px 1fr;gap:18px;align-items:center;padding:20px 28px"><div class="metric" style="font-size:54px;letter-spacing:-2px">05</div><div><div class="bigline" style="font-size:30px">Regression</div><div class="small">та же атака после исправления</div></div></div>
+    </div>
+  </div>
+</section>
+
+<section class="slide" id="A5 Команда" data-name="A5 Команда и процесс">
+  <div class="head"><div class="headcopy"><div class="kicker">Appendix · команда</div><h2 class="title">Три владельца закрыли продукт, campaign engine и evidence lifecycle</h2></div><div class="num">A5</div></div>
+  <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:20px">
+    <div class="panel"><div class="tag red">Продукт</div><div class="bigline" style="margin-top:18px">Иван</div><div class="body" style="margin-top:12px;font-size:27px">Discovery, сегменты, ценность, UX и защита продукта.</div></div>
+    <div class="panel"><div class="tag dark">Инженерия</div><div class="bigline" style="margin-top:18px">Даниил</div><div class="body" style="margin-top:12px;font-size:27px">Ядро атак, оркестрация кампаний, генерация и интеграция с целью.</div></div>
+    <div class="panel"><div class="tag dark">Инженерия</div><div class="bigline" style="margin-top:18px">Тамерлан</div><div class="body" style="margin-top:12px;font-size:27px">State oracle, evidence, traces, regression и отчётность.</div></div>
+  </div>
+  <div style="flex:1;display:grid;grid-template-columns:1fr 1fr;gap:20px;min-height:0">
+    <div class="panel dark" style="display:flex;flex-direction:column;justify-content:center;gap:24px"><div class="label">Как проектируем</div><div class="bigline">Spec-driven development</div><div class="body">Сначала сценарий, доказательство и границы — потом код. Каждая задача имеет владельца и критерий готовности.</div><div class="rule dark"></div><div class="bigline">Факт важнее мнения модели</div><div class="body">LLM расширяет поиск атак; код подтверждает результат; человек интерпретирует риск.</div></div>
+    <div class="panel" style="display:flex;flex-direction:column;justify-content:center;gap:24px"><div class="label">Что сделала команда</div><div class="body"><strong>Единый campaign runner</strong> для CLI и UI<br><br><strong>Профильная архитектура</strong> без target-specific кода в ядре<br><br><strong>Evidence и lifecycle</strong> от finding до closed/reopened<br><br><strong>Два отчёта</strong> — технический и бизнесовый</div></div>
+  </div>
+</section>
+
+<section class="slide" id="A6 Экономика" data-name="A6 Модель ценности">
+  <div class="head"><div class="headcopy"><div class="kicker">Appendix · экономика</div><h2 class="title">Даже пессимистичный сценарий увеличивает ёмкость команды в 2,5 раза</h2></div><div class="num">A6</div></div>
+  <div style="flex:1;display:grid;grid-template-columns:360px repeat(4,1fr);grid-template-rows:100px repeat(4,1fr);gap:2px;background:var(--line);border-radius:28px;overflow:hidden;min-height:0">
+    <div style="background:var(--soft);padding:24px" class="label">Сценарий</div><div style="background:var(--soft);padding:24px" class="label">Часов / система</div><div style="background:var(--soft);padding:24px" class="label">Проверок / год</div><div style="background:var(--soft);padding:24px" class="label">Рост ёмкости</div><div style="background:var(--soft);padding:24px" class="label">Себестоимость</div>
+    <div style="background:#fff;padding:26px" class="bigline">AS-IS</div><div style="background:#fff;padding:26px" class="body">20 ч</div><div style="background:#fff;padding:26px" class="body">300</div><div style="background:#fff;padding:26px" class="body">—</div><div style="background:#fff;padding:26px" class="body">36–66 тыс. ₽</div>
+    <div style="background:#fff;padding:26px" class="bigline">Пессимистично</div><div style="background:#fff;padding:26px" class="body">8 ч</div><div style="background:#fff;padding:26px" class="body">750</div><div style="background:#fff;padding:26px" class="body"><strong>×2,5</strong></div><div style="background:#fff;padding:26px" class="body">18–22 тыс. ₽</div>
+    <div style="background:var(--red);padding:26px;color:#fff" class="bigline">База</div><div style="background:var(--red);padding:26px;color:#fff" class="body">4 ч</div><div style="background:var(--red);padding:26px;color:#fff" class="body"><strong style="color:#fff">1 500</strong></div><div style="background:var(--red);padding:26px;color:#fff" class="body"><strong style="color:#fff">×5</strong></div><div style="background:var(--red);padding:26px;color:#fff" class="body"><strong style="color:#fff">9–11 тыс. ₽</strong></div>
+    <div style="background:#fff;padding:26px" class="bigline">Оптимистично</div><div style="background:#fff;padding:26px" class="body">2 ч</div><div style="background:#fff;padding:26px" class="body">3 000</div><div style="background:#fff;padding:26px" class="body"><strong>×10</strong></div><div style="background:#fff;padding:26px" class="body">5–6 тыс. ₽</div>
+  </div>
+  <div class="footer"><span>Допущение: 250 рабочих дней; 3 специалиста; 18–22 тыс. ₽/человеко-день.</span><span>все TO-BE значения измеряем в пилоте</span></div>
+</section>
+
+<section class="slide" id="A7 Q&A" data-name="A7 Вопросы комиссии">
+  <div class="head"><div class="headcopy"><div class="kicker">Appendix · Q&amp;A</div><h2 class="title">Шесть вопросов, на которые отвечаем за 30 секунд</h2></div><div class="num">A7</div></div>
+  <div style="flex:1;display:grid;grid-template-columns:1fr 1fr;gap:18px;min-height:0">
+    <div class="panel" style="padding:24px 30px"><div class="tag red">Почему не готовое решение?</div><div class="body" style="font-size:26px;margin-top:14px">Prompt-scanners не видят полный lifecycle памяти и tool arguments; зарубежный SaaS не подходит закрытому контуру; услуга плохо повторяется после каждого релиза.</div></div>
+    <div class="panel" style="padding:24px 30px"><div class="tag">Сколько стоит?</div><div class="body" style="font-size:26px;margin-top:14px">Цену MOROK не называем до пилота. Сначала измеряем compute, поддержку профиля и время triage. 400–800 тыс. ₽ — якорь ручной альтернативы, не наш прайс.</div></div>
+    <div class="panel dark" style="padding:24px 30px"><div class="tag ghost">Что с данными?</div><div class="body" style="font-size:26px;margin-top:14px">On-prem: документация, traces и отчёты остаются внутри компании. Активные атаки идут только на авторизованный подготовленный контур с синтетическими данными.</div></div>
+    <div class="panel" style="padding:24px 30px"><div class="tag">Кто поддерживает?</div><div class="body" style="font-size:26px;margin-top:14px">MOROK поддерживает ядро и каталог; команда заказчика владеет профилем цели и принимает решение по риску. Новый класс цели может потребовать адаптер.</div></div>
+    <div class="panel" style="padding:24px 30px"><div class="tag">Что если метрика упадёт?</div><div class="body" style="font-size:26px;margin-top:14px">ASR не оцениваем отдельно: смотрим покрытие, разнообразие, ошибки и штатный сценарий. Падение может означать исправление, деградацию генератора или потерю evidence — причины разделены.</div></div>
+    <div class="panel red" style="padding:24px 30px"><div class="tag" style="background:rgba(0,0,0,.18);color:#fff">Кто за что отвечает?</div><div class="body" style="font-size:26px;margin-top:14px;color:rgba(255,255,255,.82)"><strong style="color:#fff">Иван</strong> — продукт и экономика. <strong style="color:#fff">Даниил</strong> — campaign engine и интеграция. <strong style="color:#fff">Тамерлан</strong> — evidence, regression и отчёт.</div></div>
+  </div>
+</section>
+
+<script type="application/json" id="speaker-notes">
+[
+  {"slide":1,"time":"0:00–0:30","note":"MOROK комплексно проводит аудит безопасности agentic-систем внутри контура и до выхода в прод. Наш пользователь — команды AI Security и MLSecOps в банках, юридических компаниях, госкорпорациях и других организациях с высокими требованиями к безопасности, хранению и работе с данными."},
+  {"slide":2,"time":"0:30–0:55","note":"Сегодня разработке и внедрению agentic-приложений уделяют больше внимания, чем обеспечению безопасности этих систем. LLM вышла из чата и стала автономной системой: память, права, инструменты и предыдущие действия меняют следующий шаг и состояние. Статические методы и анализаторы проверяют только заранее заданные условия, фиксированный сценарий — только знакомый маршрут, поэтому аудит всё ещё проводят вручную — два-три дня на проверку. Безопасность agentic-систем нельзя доказать статическими методами и анализаторами: нужен адаптивный аудит, который изучает и проверяет систему в динамике."},
+  {"slide":3,"time":"0:55–1:10","note":"Сегодня внутренняя проверка держится на редком MLSecOps-специалисте стоимостью 300–400 тысяч рублей в месяц, а внешний аудит стоит 600–800 тысяч за проект. Использование фундаментальной модели с harness на Codex или Claude Code стоит 100–200 долларов на исследователя плюс usage, но выводит архитектуру и контекст во внешний сервис. MOROK работает в контролируемой среде: та же команда из трёх специалистов проводит 1 500 вместо 300 проверок в год, себестоимость техпроверки снижается с 36–66 до 5–13 тысяч рублей, а повтор после релиза ускоряется с недель до минут."},
+  {"slide":4,"time":"1:10–3:10","note":"Демо показывает один понятный путь: выбрать профиль целевой agentic-системы; показать карту её компонентов; запустить одну кампанию; открыть подтверждённую находку; показать технический и бизнес-отчёт, а также retest. Стенд здесь только демонстрирует принцип работы, а не ограничивает ценность продукта."},
+  {"slide":5,"time":"3:10–4:00","note":"Вся архитектура работает внутри контура заказчика. На входе — архитектура, API, роли, границы доступа и авторизованный тестовый контур. MOROK собирает карту поверхности, сопоставляет её с OWASP и ATLAS, готовит сценарии и запускает управляемую кампанию. Ключевая часть — вердикт не по тексту ответа, а по фактическому изменению данных, прав, памяти или вызовов инструментов. На выходе команда получает подтверждённую находку, два отчёта и готовый regression-тест для retest. Для вариации сценариев можно использовать локальные Qwen 27B, DeepSeek V4 Flash и GLM 5.3 Flash."},
+  {"slide":6,"time":"4:00–4:20","note":"Рабочий workflow уже собран: профиль, карта поверхности, генерация, кампания, подтверждение состоянием, два отчёта и replay. На учебном стенде доказаны четыре из четырёх BAC-атак; последний подтверждённый snapshot — 493 теста. Это инженерная готовность; продуктовые метрики валидируем на пилоте."},
+  {"slide":7,"time":"4:20–4:50","note":"MOROK превращает разовый ручной аудит в повторяемый on-prem процесс: больше проверенных agentic-систем, ниже себестоимость, быстрый retest. Рабочий контур уже собран; следующий шаг — четырёхнедельный пилот с design partner."}
+]
+</script>
+</body>
+</html>

@@ -4,8 +4,9 @@ import json
 import tempfile
 import unittest
 from pathlib import Path
+from unittest.mock import patch
 
-from agentic_redteam.attacker.agent import AttackerDeps, AttackerLimits
+from agentic_redteam.attacker.agent import AttackerAttempt, AttackerDeps, AttackerLimits
 from agentic_redteam.attacker.briefs import AttackBrief
 from agentic_redteam.attacker.campaign import (
     asr_row,
@@ -179,6 +180,7 @@ class RunAttackCampaignTests(unittest.TestCase):
         )
         # Первая попытка роняется транспортом, вторая (submit без действий) — NO.
         self.assertEqual(record["asr"]["overall"]["errors"], 1)
+        self.assertEqual(record["attempts"][0]["unscored_reason"], "attempt_failure")
         scored = record["asr"]["overall"]["yes"] + record["asr"]["overall"]["no"]
         self.assertEqual(scored, 1)
         self.assertEqual(record["asr"]["overall"]["asr_percent"], 0.0)
@@ -261,8 +263,36 @@ class RunAttackCampaignTests(unittest.TestCase):
         row = record["attempts"][0]
         self.assertEqual(row["status"], "error")
         self.assertIsNone(row["judge_verdict"])
+        self.assertEqual(row["unscored_reason"], "judge_failure")
         self.assertEqual(record["asr"]["overall"]["errors"], 1)
         self.assertEqual(record["asr"]["overall"]["asr_display"], "нет данных")
+
+    def test_progress_calls_timeout_unscored_not_error(self):
+        events = []
+        timed_out = AttackerAttempt(
+            test_brief().id, "vulnerable", 1,
+            stop_reason="turn_timeout",
+            error="Решение атакующего не уложилось в turn_timeout (40s)",
+        )
+        storage = RunStorage(self.tmp.name)
+        deps = AttackerDeps(
+            adapter=ScriptableAdapter(), evidence=SequencedEvidence(),
+            llm=FakeLLM([]), roles=("attacker",),
+        )
+        with patch(
+            "agentic_redteam.attacker.campaign.run_attacker_attempt",
+            return_value=timed_out,
+        ):
+            run_attack_campaign(
+                [test_brief()], deps, LLMJudge(ScriptedJudgeClient([])),
+                storage, "timeout-label", modes=["vulnerable"],
+                limits=AttackerLimits(attempt_timeout=100, evidence_timeout=5),
+                on_event=events.append,
+            )
+        self.assertIn(
+            "попытка 1/1: НЕ ОЦЕНЕНО · таймаут решения атакующего",
+            [event.message for event in events],
+        )
 
     def test_adaptive_attempt_receives_prior_learning_and_observed_outcome(self):
         learning = {
@@ -299,6 +329,38 @@ class RunAttackCampaignTests(unittest.TestCase):
             (Path(self.tmp.name) / "adaptive" / "experience.json").read_text()
         )
         self.assertEqual(len(saved["by_brief_mode"]["cross-client-portfolio-access::vulnerable"]), 2)
+
+    def test_adaptive_attempt_inherits_forced_post_budget_learning(self):
+        learning = {
+            "strategies_tried": ["прямой запрос"],
+            "observations": ["цель отказала"],
+            "hypotheses": ["нужен другой контекст"],
+            "next_steps": ["проверить новую сессию"],
+            "avoid": ["не повторять текст"],
+        }
+        llm = FakeLLM([
+            chat(message="первый подход"),
+            submit(claim="give_up", summary="лимит исчерпан", learning=learning),
+            submit(claim="give_up", summary="вторая попытка"),
+        ])
+        storage = RunStorage(self.tmp.name)
+        deps = AttackerDeps(
+            adapter=ScriptableAdapter(responses=["отказ"]),
+            evidence=SequencedEvidence(), llm=llm, roles=("attacker",),
+        )
+        record = run_attack_campaign(
+            [test_brief()], deps, LLMJudge(ScriptedJudgeClient(["NO", "NO"])),
+            storage, "forced-learning", modes=["vulnerable"], trials=2,
+            limits=AttackerLimits(
+                attempt_timeout=100, max_turns=1, evidence_timeout=5,
+            ),
+            strategy="adaptive",
+        )
+        self.assertEqual(llm.calls[1]["termination"]["reason"], "max_turns")
+        self.assertEqual(llm.calls[2]["previous_attempts"][0]["learning"], learning)
+        self.assertEqual(
+            record["attempts"][0]["learning_source"], "attacker_finalization"
+        )
 
     def test_adaptive_experience_is_isolated_between_modes(self):
         llm = FakeLLM([submit(claim="give_up")] * 4)

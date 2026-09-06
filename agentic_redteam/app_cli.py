@@ -57,6 +57,12 @@ from .profile.registry import ProfileRegistry, to_mapping
 from .profile.schema import TargetProfile
 from .redaction import redact_data
 from .reporting.business import build_business_report
+from .reporting.autonomous import (
+    build_autonomous_business_report,
+    build_autonomous_report,
+    is_autonomous_run,
+    load_autonomous_run,
+)
 from .reporting.regression import RUSSIAN as REGRESSION_RU, compare
 from .reporting.technical import add_narrative, build_skeleton
 from .stand_bootstrap import target_model_from_config
@@ -159,9 +165,9 @@ def build_parser() -> argparse.ArgumentParser:
         help="скомпоновать применимые шаблоны стандартов под профиль цели",
     )
     run.add_argument(
-        "--briefs", metavar="DIR",
+        "--briefs", metavar="PATH",
         help="автономная кампания по зафиксированным AttackBrief "
-             "(каталог с YAML-файлами brief)",
+             "(один YAML-файл или каталог с brief)",
     )
     run.add_argument(
         "--strategy", choices=("independent", "adaptive"), default="independent",
@@ -964,7 +970,8 @@ def _run_briefs_campaign(args) -> int:
     if not args.profile:
         raise PipelineConfigurationError("--briefs требует --profile.")
     profile = load_profile(args.profile)
-    briefs = load_briefs(args.briefs)
+    briefs_source = Path(args.briefs).expanduser().resolve()
+    briefs = load_briefs(briefs_source)
     modes = [mode.strip() for mode in (args.mode or "").split(",") if mode.strip()]
     config = _config_mapping(args.config)
     # Гейт авторизации общий для обоих путей запуска (US-34).
@@ -998,9 +1005,10 @@ def _run_briefs_campaign(args) -> int:
         config=config,
         authorization=authorization,
         telemetry=telemetry,
+        reporter_llm=reporter_from_config(args.config),
         on_event=progress,
         metadata={
-            "briefs_dir": str(Path(args.briefs).expanduser().resolve()),
+            "briefs_source": str(briefs_source),
         },
         strategy=args.strategy,
         stop_on_success=args.stop_on_success,
@@ -1019,7 +1027,8 @@ def _run_briefs_campaign(args) -> int:
                          ensure_ascii=False))
     else:
         print(f"{run_id}: ASR {overall['asr_display']} · YES {overall['yes']} · "
-              f"NO {overall['no']} · ошибок {overall['errors']} · {summary['run_dir']}")
+              f"NO {overall['no']} · не оценено {overall['errors']} · "
+              f"{summary['run_dir']}")
         adaptive = record["asr"].get("adaptive")
         if adaptive is not None:
             value = adaptive["success_within_budget_percent"]
@@ -1896,6 +1905,26 @@ def _report(args) -> int:
     """Пересобрать технический или бизнес-отчёт, не меняя verdict."""
     run_dir = Path(args.run).expanduser().resolve()
     storage = RunStorage(run_dir.parent)
+    if is_autonomous_run(run_dir):
+        try:
+            report = load_autonomous_run(run_dir)
+        except (OSError, ValueError) as exc:
+            raise PipelineConfigurationError(
+                f"Не удалось прочитать автономный прогон: {run_dir}"
+            ) from exc
+        reporter = reporter_from_config(args.config) if args.narrative else None
+        if args.business:
+            name = "business-report.md"
+            content = build_autonomous_business_report(report, reporter)
+        else:
+            name = "report.md"
+            content = build_autonomous_report(report, reporter)
+        output = storage.write_text(run_dir, name, content)
+        if args.json:
+            print(json.dumps({"ok": True, "report": str(output)}, ensure_ascii=False))
+        else:
+            print(f"отчёт: {output}")
+        return 0
     try:
         findings = storage.load_json(run_dir, "findings.json")
     except (OSError, ValueError) as exc:

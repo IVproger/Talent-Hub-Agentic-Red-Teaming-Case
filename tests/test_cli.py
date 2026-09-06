@@ -6,6 +6,8 @@ import io
 import json
 import tempfile
 import unittest
+import sys
+from unittest.mock import patch
 from pathlib import Path
 
 from agentic_redteam.app_cli import build_parser, main
@@ -50,6 +52,22 @@ class CLIContractTests(unittest.TestCase):
         parser = build_parser()
         with contextlib.redirect_stderr(io.StringIO()), self.assertRaises(SystemExit):
             parser.parse_args(["serve", "--address", "0.0.0.0"])
+
+    def test_serve_launches_new_ui_with_current_python(self):
+        with patch('agentic_redteam.app_cli.subprocess.run') as run:
+            run.return_value.returncode = 0
+            self.assertEqual(main(['serve']), 0)
+        run.assert_called_once_with(
+            [sys.executable, '-m', 'uvicorn', 'webui.server:app',
+             '--host', '127.0.0.1', '--port', '8502'],
+            cwd=Path(__file__).resolve().parents[1], check=False,
+        )
+
+    def test_serve_preserves_custom_bind_and_exit_code(self):
+        with patch('agentic_redteam.app_cli.subprocess.run') as run:
+            run.return_value.returncode = 1
+            self.assertEqual(main(['serve', '--address', 'localhost', '--port', '8503']), 1)
+        self.assertEqual(run.call_args.args[0][-4:], ['--host', 'localhost', '--port', '8503'])
 
     def test_report_without_a_saved_run_is_a_usage_error(self):
         output = io.StringIO()

@@ -338,7 +338,7 @@ def build_parser() -> argparse.ArgumentParser:
     kb_rebuild.add_argument("--runs", default=str(DEFAULT_RUNS_ROOT), help="корень runs/")
     kb_rebuild.add_argument("--json", action="store_true")
 
-    serve = commands.add_parser("serve", help="запустить локальный интерфейс Streamlit")
+    serve = commands.add_parser("serve", help="запустить новый локальный Web UI (FastAPI)")
     serve.add_argument(
         "--address",
         choices=("127.0.0.1", "localhost"),
@@ -2087,23 +2087,19 @@ def _stand_sync(args) -> int:
 
 
 def _serve(args) -> int:
-    app = Path(__file__).parent / "ui" / "app.py"
     command = [
         sys.executable,
         "-m",
-        "streamlit",
-        "run",
-        str(app),
-        "--server.address",
+        "uvicorn",
+        "webui.server:app",
+        "--host",
         args.address,
-        "--server.port",
+        "--port",
         str(args.port),
-        "--server.headless",
-        "true",
-        "--browser.gatherUsageStats",
-        "false",
     ]
-    return subprocess.run(command, check=False).returncode
+    return subprocess.run(
+        command, cwd=Path(__file__).resolve().parents[1], check=False,
+    ).returncode
 
 
 def _kb(args) -> int:

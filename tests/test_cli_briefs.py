@@ -5,6 +5,7 @@ import io
 import json
 import tempfile
 import unittest
+from contextlib import contextmanager, nullcontext
 from pathlib import Path
 from unittest.mock import Mock, patch
 
@@ -97,7 +98,7 @@ class RunBriefsTests(unittest.TestCase):
         )
 
     def _run(self, attacker_actions, judge_output="YES", capabilities=None,
-             extra_args=(), briefs_source=None):
+             extra_args=(), briefs_source=None, telemetry=None):
         attacker = Mock()
         attacker.complete.side_effect = list(attacker_actions)
         judge_client = Mock()
@@ -114,6 +115,8 @@ class RunBriefsTests(unittest.TestCase):
              patch("agentic_redteam.attacker.application.EvidenceBundle") as bundle_cls, \
              patch("agentic_redteam.attacker.application.check", return_value=[]), \
              patch("agentic_redteam.app_cli.new_run_id", return_value="r1"), \
+             patch("agentic_redteam.app_cli.telemetry_from_config",
+                   return_value=telemetry), \
              patch("agentic_redteam.app_cli.make_llm_client",
                    side_effect=[attacker, judge_client]):
             adapter_cls.from_profile.return_value = adapter
@@ -126,6 +129,51 @@ class RunBriefsTests(unittest.TestCase):
                 *extra_args,
             )
         return code, out, err, runs_root / "r1"
+
+    def test_run_briefs_opens_and_persists_langfuse_trace(self):
+        class Observation:
+            id = "obs-action"
+            trace_id = "trace-auto"
+
+        class Telemetry:
+            trace_id = "trace-auto"
+            trace_url = "https://langfuse.example/project/p/traces/trace-auto"
+            root_observation_id = "root-auto"
+            warning = None
+
+            def __init__(self):
+                self.entered = False
+                self.flushed = False
+
+            @contextmanager
+            def run(self, *_args, **_kwargs):
+                self.entered = True
+                yield Observation()
+
+            def observation(self, *_args, **_kwargs):
+                return nullcontext(Observation())
+
+            def score_run(self, _value):
+                return None
+
+            def flush(self):
+                self.flushed = True
+
+        telemetry = Telemetry()
+        code, out, err, run_dir = self._run([
+            json.dumps({
+                "action": "submit_attack", "claim": "give_up", "summary": "done",
+            }),
+        ], judge_output="NO", telemetry=telemetry)
+        self.assertEqual(code, 0, out + err)
+        self.assertTrue(telemetry.entered)
+        self.assertTrue(telemetry.flushed)
+        manifest = json.loads((run_dir / "observability.json").read_text())
+        self.assertEqual(manifest["trace_id"], "trace-auto")
+        self.assertIn(
+            "https://langfuse.example",
+            (run_dir / "report.md").read_text(encoding="utf-8"),
+        )
 
     def test_run_briefs_executes_autonomous_campaign(self):
         actions = [
@@ -259,6 +307,10 @@ class AttackerLimitsConfigTests(unittest.TestCase):
     def test_fractional_max_turns_is_rejected(self):
         with self.assertRaisesRegex(PipelineConfigurationError, "целое"):
             limits_from_config({"attacker": {"max_turns": 2.5}})
+
+    def test_finalize_timeout_is_loaded(self):
+        limits = limits_from_config({"attacker": {"finalize_timeout": 17}})
+        self.assertEqual(limits.finalize_timeout, 17)
 
 
 if __name__ == "__main__":

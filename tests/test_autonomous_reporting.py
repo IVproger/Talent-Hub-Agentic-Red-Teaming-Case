@@ -201,6 +201,39 @@ class AutonomousReportingTests(unittest.TestCase):
             (self.run / "business-report.md").read_text(encoding="utf-8"),
         )
 
+    def test_finalization_persists_trace_before_rendering_reports(self):
+        from agentic_redteam.attacker.application import _finalize_autonomous_reports
+
+        class Telemetry:
+            trace_id = "trace-final"
+            trace_url = "https://langfuse.example/project/p/traces/trace-final"
+            root_observation_id = "root-final"
+            warning = None
+
+            def __init__(self):
+                self.flushed = False
+                self.score = None
+
+            def score_run(self, value):
+                self.score = value
+
+            def flush(self):
+                self.flushed = True
+
+        telemetry = Telemetry()
+        _finalize_autonomous_reports(
+            RunStorage(self.run.parent), self.run.name, telemetry, None,
+            asr={"overall": {"asr_percent": 100}},
+        )
+        self.assertTrue(telemetry.flushed)
+        self.assertEqual(telemetry.score, 100)
+        manifest = (self.run / "observability.json").read_text(encoding="utf-8")
+        technical = (self.run / "report.md").read_text(encoding="utf-8")
+        business = (self.run / "business-report.md").read_text(encoding="utf-8")
+        self.assertIn("trace-final", manifest)
+        self.assertIn("https://langfuse.example", technical)
+        self.assertIn("https://langfuse.example", business)
+
 
 if __name__ == "__main__":
     unittest.main()

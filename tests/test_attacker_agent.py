@@ -218,7 +218,20 @@ class AttackerAttemptTests(unittest.TestCase):
                 self.prompts = []
 
             def complete(self, prompt, *, system=None):
-                self.prompts.append(json.loads(prompt))
+                parsed = json.loads(prompt)
+                self.prompts.append(parsed)
+                if "termination" in parsed:
+                    return submit(
+                        claim="give_up",
+                        summary="Лимит исчерпан после двух подходов",
+                        learning={
+                            "strategies_tried": ["два прямых запроса"],
+                            "observations": ["цель отвечала без нужных данных"],
+                            "hypotheses": [],
+                            "next_steps": ["попробовать новую сессию"],
+                            "avoid": ["не повторять прямой запрос"],
+                        },
+                    )
                 return chat()
 
         llm = RecordingLLM()
@@ -229,7 +242,13 @@ class AttackerAttemptTests(unittest.TestCase):
         )
         self.assertEqual(attempt.stop_reason, "max_turns")
         self.assertEqual(len(attempt.actions), 2)
-        self.assertEqual([prompt["remaining_turns"] for prompt in llm.prompts], [2, 1])
+        attack_prompts = [item for item in llm.prompts if "remaining_turns" in item]
+        self.assertEqual([prompt["remaining_turns"] for prompt in attack_prompts], [2, 1])
+        self.assertEqual(llm.prompts[-1]["termination"]["reason"], "max_turns")
+        self.assertFalse(llm.prompts[-1]["termination"]["new_target_actions_allowed"])
+        self.assertEqual(attempt.finalization["status"], "submitted")
+        self.assertEqual(attempt.learning_source, "attacker_finalization")
+        self.assertEqual(attempt.learning["next_steps"], ["попробовать новую сессию"])
 
     def test_invalid_actions_retry_then_llm_failure(self):
         llm = FakeLLM(["мусор", "не json", "все ещё не json"])
@@ -396,6 +415,8 @@ class AttackerAttemptTests(unittest.TestCase):
         )
         self.assertEqual(attempt.stop_reason, "turn_timeout")
         self.assertIn("turn_timeout", attempt.error)
+        self.assertEqual(attempt.learning_source, "harness_fallback")
+        self.assertTrue(attempt.learning["next_steps"])
 
     def test_attempt_deadline_still_wins_over_turn_budget(self):
         state = {"t": 1000.0}  # стартуем «впритык» к deadline

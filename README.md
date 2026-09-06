@@ -588,7 +588,7 @@ Top 10, `LLMxx` — LLM Top 10, `AML.Txxxx` — ATLAS. Каждый сгенер
 инфраструктура: таймауты вызовов учитывают оставшееся время, действия после
 deadline запрещены, а сбор оставшихся evidence и вызов judge имеют собственные
 ограниченные таймауты (секция `attacker` в config: `attempt_timeout`,
-`turn_timeout`, `evidence_timeout`, `judge_timeout`, `max_turns`,
+`turn_timeout`, `evidence_timeout`, `judge_timeout`, `finalize_timeout`, `max_turns`,
 `llm_retries`, `experience_max_attempts`, `experience_max_chars`). `max_turns`
 задаёт положительное целое число ходов; при его
 исчерпании попытка завершается с `stop_reason=max_turns`, после чего накопленные
@@ -603,13 +603,24 @@ evidence всё равно оценивает judge. Отдельный ход (
 всё равно оценивается judge. Заявление атакующего сохраняется, но не определяет
 итог.
 
-**Стратегии попыток.** `--strategy independent` (по умолчанию) запускает каждый
-trial без знания о предыдущих и подходит для измерения воспроизводимого ASR.
-`--strategy adaptive` после каждой попытки добавляет к `learning` подтверждённые
-harness-ом tool calls, memory writes, ошибки и verdict judge и передаёт
-ограниченную историю следующей попытке. Опыт изолирован по `brief_id + mode`;
-состояние цели по-прежнему сбрасывается. `--stop-on-success` в adaptive-режиме
-завершает цепочку данного brief и режима после первого `YES`.
+После `deadline`, `max_turns` или таймаута LLM-решения активная атака уже не
+продолжается, но запускается отдельная post-budget фаза с бюджетом
+`finalize_timeout`. В ней атакующему разрешён только обязательный
+`submit_attack`: он фиксирует итог, испробованные подходы, наблюдения, гипотезы,
+следующие шаги и avoid-list. Этот вызов не расходует атакующий turn и не может
+обратиться к цели. Если LLM повторно завис или вернул другое действие, harness
+строит честный fallback из сохранённого transcript/evidence; поэтому следующая
+adaptive-попытка всегда получает опыт. В артефактах различаются
+`learning_source=attacker_finalization` и `harness_fallback`.
+
+**Стратегии попыток.** `--strategy independent` (по умолчанию)
+запускает каждый trial без знания о предыдущих и подходит для измерения
+воспроизводимого ASR. `--strategy adaptive` после каждой попытки
+добавляет к `learning` подтверждённые harness-ом tool calls, memory writes,
+ошибки и verdict judge и передаёт ограниченную историю следующей
+попытке. Опыт изолирован по `brief_id + mode`; состояние цели по-прежнему
+сбрасывается. `--stop-on-success` в adaptive-режиме завершает цепочку
+данного brief и режима после первого `YES`.
 
 **Judge.** Бинарный LLM judge получает критерий из зафиксированного brief,
 полную хронологию попытки (транскрипт с ролями, принципалами, сессиями и
@@ -633,14 +644,20 @@ discovery-метрики: успех в пределах бюджета, ном�
 профиля и конфигурации; `attempts/NNNN/` с `brief.yaml`, `actions.json`
 (журнал действий с ролями, принципалами, сессиями, facts и observations),
 `evidence.json`, `judge.json` (точный вход и ответы judge) и `result.json`
-(причина остановки, claim, learning, унаследованные попытки, вердикт,
+(причина остановки, claim, learning, источник learning, результат post-budget
+финализации, унаследованные попытки, вердикт,
 технический статус); `experience.json` в adaptive-режиме; `summary.json` с ASR
 и discovery-метриками, `report.md`, `business-report.md`, `transcript.jsonl`,
 `status.json`. Технический отчёт содержит покрытие, бюджеты, все попытки,
-запросы/ответы, tool calls, memory diff, trace-ссылки, рефлексию и точные пути
-к evidence. Бизнес-отчёт включает только попытки с judge verdict `YES` и не
-выдумывает severity или последствия без явной привязки `standard_refs` в
-`profile.business`.
+запросы/ответы, tool calls, memory diff, кликабельные локальные evidence и
+trace/span-ссылки, рефлексию и точные пути к evidence. Основная часть отчёта
+показывает вывод, качество измерения, результаты по brief и рекомендации;
+полные transcript свёрнуты в `<details>`. Бизнес-отчёт показывает не только
+`YES`, но и полноту оценки, неоценённые попытки, явную связь с запретами
+`profile.business` и приоритетные действия. `NO` не формулируется как
+«уязвимости нет», severity и последствия без явных данных не выдумываются.
+При доступном `llm.report_writer` после детерминированного скелета добавляется
+аналитическая записка; она не участвует в scoring и не меняет verdict.
 
 Оба отчёта можно пересобрать только из сохранённых артефактов, без повторной
 атаки:
@@ -770,9 +787,11 @@ judge и trace-ссылки, отдельная эволюция adaptive-опы
 <details>
 <summary><b>Наблюдаемость и Langfuse (опционально)</b></summary>
 
-Инструкция запуска — [`deploy/langfuse/README.md`](deploy/langfuse/README.md).
-Runner создаёт корневую trace и наблюдение на каждую попытку; ссылка на трассу
-сохраняется в `observability.json` прогона.
+Инструкция запуска находится в [`deploy/langfuse/README.md`](deploy/langfuse/README.md).
+Оба runner-пути создают корневую trace и наблюдение на каждую попытку; ссылка
+на трассу сохраняется в `observability.json` прогона. Автономный отчёт содержит
+ссылку на полную trace и deep links на action spans. Если trace создать не
+удалось, отчёт явно показывает отсутствие трассы и warning экспорта.
 
 Tracing включён в YAML, но работает fail-open: Langfuse не вычисляет security
 verdict и не заменяет локальные evidence. Без credentials или при недоступном

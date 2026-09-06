@@ -991,6 +991,7 @@ def _run_briefs_campaign(args) -> int:
         config=config,
         authorization=authorization,
         telemetry=telemetry,
+        reporter_llm=reporter_from_config(args.config),
         on_event=progress,
         metadata={
             "briefs_source": str(briefs_source),
@@ -1903,7 +1904,7 @@ def _report(args) -> int:
             content = build_autonomous_business_report(report, reporter)
         else:
             name = "report.md"
-            content = add_narrative(build_autonomous_report(report), reporter)
+            content = build_autonomous_report(report, reporter)
         output = storage.write_text(run_dir, name, content)
         if args.json:
             print(json.dumps({"ok": True, "report": str(output)}, ensure_ascii=False))

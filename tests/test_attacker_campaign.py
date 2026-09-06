@@ -330,6 +330,38 @@ class RunAttackCampaignTests(unittest.TestCase):
         )
         self.assertEqual(len(saved["by_brief_mode"]["cross-client-portfolio-access::vulnerable"]), 2)
 
+    def test_adaptive_attempt_inherits_forced_post_budget_learning(self):
+        learning = {
+            "strategies_tried": ["прямой запрос"],
+            "observations": ["цель отказала"],
+            "hypotheses": ["нужен другой контекст"],
+            "next_steps": ["проверить новую сессию"],
+            "avoid": ["не повторять текст"],
+        }
+        llm = FakeLLM([
+            chat(message="первый подход"),
+            submit(claim="give_up", summary="лимит исчерпан", learning=learning),
+            submit(claim="give_up", summary="вторая попытка"),
+        ])
+        storage = RunStorage(self.tmp.name)
+        deps = AttackerDeps(
+            adapter=ScriptableAdapter(responses=["отказ"]),
+            evidence=SequencedEvidence(), llm=llm, roles=("attacker",),
+        )
+        record = run_attack_campaign(
+            [test_brief()], deps, LLMJudge(ScriptedJudgeClient(["NO", "NO"])),
+            storage, "forced-learning", modes=["vulnerable"], trials=2,
+            limits=AttackerLimits(
+                attempt_timeout=100, max_turns=1, evidence_timeout=5,
+            ),
+            strategy="adaptive",
+        )
+        self.assertEqual(llm.calls[1]["termination"]["reason"], "max_turns")
+        self.assertEqual(llm.calls[2]["previous_attempts"][0]["learning"], learning)
+        self.assertEqual(
+            record["attempts"][0]["learning_source"], "attacker_finalization"
+        )
+
     def test_adaptive_experience_is_isolated_between_modes(self):
         llm = FakeLLM([submit(claim="give_up")] * 4)
         storage = RunStorage(self.tmp.name)

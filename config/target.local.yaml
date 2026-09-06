@@ -14,6 +14,7 @@ attacker:
   turn_timeout: 40
   evidence_timeout: 30
   judge_timeout: 120
+  finalize_timeout: 60
   max_turns: 40
   llm_retries: 2
   experience_max_attempts: 4

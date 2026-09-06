@@ -36,7 +36,11 @@ LLM Judge → ASR` как первый класс пути запуска (`agen
   даже при ошибке действия; каждая попытка агрегирует facts/observations/memory
   diffs + окно хвостовых событий. `submit_attack` принимает типизированную
   рефлексию `learning`: пробовавшиеся стратегии, наблюдения, гипотезы,
-  следующие шаги и avoid-list.
+  следующие шаги и avoid-list. После `deadline`, `max_turns` и
+  `turn_timeout` отдельная post-budget фаза с `finalize_timeout` принудительно
+  запрашивает только `submit_attack`; она не может продлить атаку. При повторном
+  сбое создаётся помеченный `harness_fallback` из transcript/evidence, поэтому
+  adaptive-цепочка всегда получает опыт.
 - **Application-слой** (`attacker/application.py`): валидирует brief
   против выбранного профиля и собирает adapter/evidence/dependencies;
   CLI оставляет за собой разбор аргументов и форматирование вывода.
@@ -63,8 +67,13 @@ LLM Judge → ASR` как первый класс пути запуска (`agen
   `status.json`; чекпоинт после каждой попытки. Полный отчёт собирается из
   сохранённых attempt-артефактов: метрики/покрытие, бюджеты, хронология,
   request/response, tool/memory/callback evidence, trace-ссылки, learning,
-  воспроизведение и ограничения. `report --run` пересобирает технический и
-  бизнес-вариант и для автономного формата.
+  воспроизведение и ограничения. Финализация автономного запуска теперь
+  закрывает Langfuse trace, пишет `observability.json`, затем строит компактный
+  evidence-first технический отчёт и decision-oriented бизнес-отчёт со
+  ссылками на trace/span и локальные артефакты. Raw transcript свёрнут, качество
+  измерения и неоценённые попытки вынесены наверх; optional `report_writer`
+  добавляет аналитическую записку без влияния на scoring. `report --run`
+  пересобирает оба варианта из сохранённых данных.
 - **CLI**: `briefs generate --profile --out [--count --sources]` и
   `run --briefs PATH --profile [--mode --trials --strategy
   independent|adaptive --stop-on-success]`. Гейты авторизации (US-34) и
@@ -112,7 +121,7 @@ judge (`tests/test_attacker_judge.py`), независимость judge от cl
   Противоречивые утверждения о «локально, не в main», отсутствии W3C,
   урезанной surface map и неподключённой истории ниже помечены историческими.
 
-Проверка текущего состояния: **493 теста, OK**, плюс `compileall` и
+Проверка текущего состояния: **667 тестов, OK**, плюс `compileall` и
 `git diff --check`. Из исходного списка открыты отдельные пункты: живой
 `memory poisoning → foreign tool call → proven` и второй target.
 

@@ -7,14 +7,21 @@ dependencies, and campaign runner.
 from __future__ import annotations
 
 from collections.abc import Mapping
+from contextlib import nullcontext
 from typing import Any, Callable
 
 from ..adapters.http_chat import HttpChatAdapter
+from ..campaign.runner import _Guarded
 from ..doctor import checks_ok
 from ..errors import PipelineConfigurationError
 from ..evidence.bundle import EvidenceBundle
 from ..evidence.calibrate import check
 from ..profile.schema import TargetProfile
+from ..reporting.autonomous import (
+    build_autonomous_business_report,
+    build_autonomous_report,
+    load_autonomous_run,
+)
 from ..storage.runs import RunStorage
 from ..target_runtime import TargetConfigurationError
 from .agent import AttackerDeps, AttackerLimits
@@ -98,6 +105,7 @@ def execute_attack_campaign(
     config: dict | None = None,
     authorization: dict | None = None,
     telemetry: Any = None,
+    reporter_llm: Any = None,
     on_event: Callable | None = None,
     metadata: dict | None = None,
     strategy: str = "independent",
@@ -143,22 +151,90 @@ def execute_attack_campaign(
                 supports_memory_commit="commit_memory" in profile.entrypoint,
                 telemetry=telemetry,
             )
-            return run_attack_campaign(
-                briefs,
-                deps,
-                judge,
-                storage,
-                run_id,
-                modes=modes or None,
-                trials=trials,
-                limits=limits,
-                profile=profile,
-                profile_ref=f"{profile.name}@{profile.version}",
-                config=config,
-                on_event=on_event,
-                metadata=campaign_metadata,
-                strategy=strategy,
-                stop_on_success=stop_on_success,
+            root = nullcontext()
+            if telemetry is not None:
+                try:
+                    root = _Guarded(telemetry.run(
+                        run_id,
+                        metadata={
+                            "profile": f"{profile.name}@{profile.version}",
+                            "component": "autonomous-attacker",
+                            "strategy": strategy,
+                        },
+                        input={"briefs": [brief.id for brief in briefs]},
+                    ))
+                except Exception:
+                    root = nullcontext()
+            try:
+                with root:
+                    record = run_attack_campaign(
+                        briefs,
+                        deps,
+                        judge,
+                        storage,
+                        run_id,
+                        modes=modes or None,
+                        trials=trials,
+                        limits=limits,
+                        profile=profile,
+                        profile_ref=f"{profile.name}@{profile.version}",
+                        config=config,
+                        on_event=on_event,
+                        metadata=campaign_metadata,
+                        strategy=strategy,
+                        stop_on_success=stop_on_success,
+                    )
+            except BaseException:
+                _finalize_autonomous_reports(
+                    storage, run_id, telemetry, reporter_llm,
+                )
+                raise
+            _finalize_autonomous_reports(
+                storage, run_id, telemetry, reporter_llm,
+                asr=record.get("asr"),
             )
+            return record
         finally:
             adapter.close()
+
+
+def _finalize_autonomous_reports(
+    storage: RunStorage,
+    run_id: str,
+    telemetry: Any,
+    reporter_llm: Any,
+    *,
+    asr: dict | None = None,
+) -> None:
+    """Persist trace linkage before rendering final human artifacts."""
+    run_dir = storage.root / run_id
+    if telemetry is not None:
+        try:
+            percent = ((asr or {}).get("overall") or {}).get("asr_percent")
+            if percent is not None:
+                telemetry.score_run(percent)
+            telemetry.flush()
+            storage.write_json(run_dir, "observability.json", {
+                "trace_id": getattr(telemetry, "trace_id", None),
+                "trace_url": getattr(telemetry, "trace_url", None),
+                "root_observation_id": getattr(
+                    telemetry, "root_observation_id", None
+                ),
+                "warning": getattr(telemetry, "warning", None),
+            })
+        except Exception:
+            # Telemetry is reporting-only and must stay fail-open.
+            pass
+    try:
+        report = load_autonomous_run(run_dir)
+    except (OSError, ValueError):
+        return
+    use_reporter = reporter_llm if report.get("status") == "completed" else None
+    storage.write_text(
+        run_dir, "report.md", build_autonomous_report(report, use_reporter)
+    )
+    storage.write_text(
+        run_dir,
+        "business-report.md",
+        build_autonomous_business_report(report, use_reporter),
+    )

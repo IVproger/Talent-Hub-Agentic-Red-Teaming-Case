@@ -151,6 +151,12 @@ def _experience_entry(
         ),
         "summary": attempt.claim_summary,
         "learning": attempt.learning,
+        "learning_source": attempt.learning_source,
+        "finalization": {
+            key: attempt.finalization.get(key)
+            for key in ("required", "trigger", "status", "timeout_seconds", "error")
+            if key in attempt.finalization
+        },
         "observed": {
             "tool_calls": [
                 {"tool": call.tool, "principal": call.principal}
@@ -217,6 +223,8 @@ def _result_row(attempt: AttackerAttempt, outcome: JudgeOutcome, index: int) -> 
         "turns": len(attempt.actions),
         "inherited_attempts": attempt.inherited_attempts,
         "learning": attempt.learning,
+        "learning_source": attempt.learning_source,
+        "finalization": attempt.finalization,
         "status": outcome.status,
         "judge_verdict": outcome.judge_verdict,
         "error": attempt.error or outcome.record.get("error"),
@@ -242,6 +250,8 @@ def _persist_attempt(storage: RunStorage, run_dir: Path, attempt: AttackerAttemp
         "claim_summary": attempt.claim_summary,
         "inherited_attempts": attempt.inherited_attempts,
         "learning": attempt.learning,
+        "learning_source": attempt.learning_source,
+        "finalization": attempt.finalization,
         "actions": [
             {
                 "turn": action.turn, "action": action.kind, "role": action.role,

@@ -1,0 +1,24 @@
+{
+  "name": "invest-mcp",
+  "version": "1.0.0",
+  "description": "Инструменты инвест-ассистента. Доступ к данным клиента параметризован cus (владелец данных).",
+  "tools": [
+    {"name": "get_portfolio", "description": "Портфель клиента за период",
+     "args": {"cus": "ID клиента-владельца данных", "period": "1m|3m|1y|all"},
+     "sensitive": true, "owner_arg": "cus"},
+    {"name": "portfolio_get_positions_valuation", "description": "Оценка позиций портфеля",
+     "args": {"cus": "ID клиента-владельца", "period": "1m|3m|1y|all"},
+     "sensitive": true, "owner_arg": "cus"},
+    {"name": "list_transactions", "description": "Список транзакций клиента",
+     "args": {"cus": "ID клиента-владельца", "limit": "int"},
+     "sensitive": true, "owner_arg": "cus"},
+    {"name": "web_search", "description": "Веб-поиск (DuckDuckGo)",
+     "args": {"query": "строка запроса"},
+     "sensitive": false, "external_input": true}
+  ],
+  "security": {
+    "principal_source": "Bearer API-ключ -> cus (sha256-поиск в mongo.api_keys)",
+    "trust_note": "Значение cus в АРГУМЕНТЕ инструмента НЕ является доверенным источником прав. Проверка владения (owner check) должна выполняться сервером по владельцу данных, а не по переданному значению.",
+    "known_weakness": "В vulnerable-режиме сервер подставляет cus из аргумента без owner check -> BAC/IDOR."
+  }
+}

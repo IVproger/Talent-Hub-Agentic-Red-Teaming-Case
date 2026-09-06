@@ -17,20 +17,36 @@
   let scenarios = [];
   let poll = null;
   let openRunId = null;
+  let draftActive = false;  // «новый прогон»-заготовка показана в истории
+  let selectedScenario = null;
+  let runMode = 'all';       // 'all' | 'one'
+  let runScenarios = [];     // сценарии текущего прогона (1 или все)
+  let maxStep = 1;           // дальше достигнутого шага — нельзя
+  let running = false;       // прогон идёт — блокирует переход вперёд/новый прогон
+  let curStep = 1;           // экран, на котором сейчас пользователь
+  const RUN_STEP = 4;        // индекс шага «Прогон»
 
   function syncSteps(n) {
-    // «✓» только на шагах ДО текущего; впереди — номера (сбрасываются при возврате)
+    maxStep = Math.max(maxStep, n);
     document.querySelectorAll('#steps .mk-step').forEach((b) => {
       const i = Number(b.dataset.step);
+      const isRun = running && i === RUN_STEP;      // идущий прогон — «в процессе»
       b.toggleAttribute('aria-current', false);
-      if (i === n) b.setAttribute('aria-current', 'step');
-      const done = i < n;
+      if (i === n) b.setAttribute('aria-current', 'step');  // подсвечен только текущий
+      const done = i < n && !isRun;                 // «✓» на пройденных, кроме идущего прогона
       b.classList.toggle('mk-step--done', done);
+      b.classList.toggle('mk-step--running', isRun);
+      // прогон идёт → назад свободно, вперёд не дальше шага прогона;
+      // прогон не идёт → только вперёд (назад по пройденным нельзя).
+      b.disabled = i === n || (running ? i > RUN_STEP : (i < n || i > maxStep));
       const num = b.querySelector('.mk-step__n');
-      if (num) num.textContent = done ? '✓' : String(i);
+      if (num) num.textContent = isRun ? '⟳' : (done ? '✓' : String(i));
     });
+    const nb = $('#newRunBtn');
+    if (nb) nb.disabled = running;                  // новый прогон — нельзя во время прогона
   }
   function show(n) {
+    curStep = n;
     sections.forEach((s) => { s.hidden = Number(s.dataset.screen) !== n; });
     syncSteps(n);
     if (n === 3) loadScenarios();
@@ -49,6 +65,9 @@
     const arch = files.find(isArch);
     $('#archName').textContent = arch || 'Загрузить архитектуру';
     $('#archZone').classList.toggle('mk-dropzone--filled', !!arch);
+    const hadFile = $('#archText').readOnly;
+    $('#archText').readOnly = !!arch;   // есть файл — только чтение; нет — редактируемо
+    if (!arch && hadFile) $('#archText').value = '';  // файл убрали (reset) — чистим поле
     const docs = files.filter((n) => !isArch(n));
     const box = $('#docFiles');
     if (!docs.length) { box.innerHTML = '<span class="mk-caption">Файлы не добавлены.</span>'; return; }
@@ -79,7 +98,15 @@
       if (input) input.value = '';
     }).catch(() => { $('#ctxHint').textContent = 'Не удалось загрузить.'; });
   }
-  $('#archInput').addEventListener('change', (e) => upload(e.target.files, e.target));
+  $('#archInput').addEventListener('change', (e) => {
+    const f = e.target.files[0];
+    if (f) {  // копируем содержимое архитектуры в поле, делаем read-only
+      const r = new FileReader();
+      r.onload = () => { $('#archText').value = r.result; $('#archText').readOnly = true; };
+      r.readAsText(f);
+    }
+    upload(e.target.files, e.target);
+  });
   $('#docInput').addEventListener('change', (e) => upload(e.target.files, e.target));
   $('#resetTarget').addEventListener('click', () => {
     j('/api/target/reset', { method: 'POST' }).then((t) => {
@@ -103,11 +130,49 @@
   });
 
   // ── История в сайдбаре ──
+  function discardDraft() {
+    draftActive = false;
+    openRunId = null;
+    resetRunScreen();
+    j('/api/target/reset', { method: 'POST' }).then(renderTarget).catch(() => {});
+    $('#targetDot').classList.remove('mk-dot--ok');
+    $('#sbConn').textContent = 'Не подключён';
+    $('#sbConn').classList.remove('mk-text-positive');
+    loadHistory();  // черновик исчезает из истории
+  }
+  function draftItem() {
+    const d = document.createElement('button');
+    d.className = 'mk-history mk-history--draft';
+    d.innerHTML = '<span class="mk-between" style="width:100%;font-size:12px">' +
+      '<span>◇ Новый прогон</span>' +
+      '<span class="art-draft-x" title="Удалить черновик">×</span></span>';
+    d.addEventListener('click', () => { openRunId = null; resetRunScreen(); goto(1); });
+    d.querySelector('.art-draft-x').addEventListener('click', (e) => {
+      e.stopPropagation();
+      discardDraft();
+    });
+    return d;
+  }
   function loadHistory() {
     j('/api/runs').then((rows) => {
       const box = $('#sbHistory');
+      box.innerHTML = '';
+      if (draftActive) box.appendChild(draftItem());  // заготовка сверху
+      const live = rows.filter((r) => r.status === 'running');
       const done = rows.filter((r) => r.status === 'completed').slice(0, 8);
-      box.innerHTML = done.length ? '' : '<span class="mk-meta" style="font-size:11px">пусто</span>';
+      if (!live.length && !done.length && !draftActive) {
+        box.innerHTML = '<span class="mk-meta" style="font-size:11px">пусто</span>';
+        return;
+      }
+      live.forEach((r) => {  // идущий прогон — пульсирующий индикатор, клик → экран прогона
+        const b = document.createElement('button');
+        b.className = 'mk-history mk-history--running';
+        b.innerHTML = '<span class="mk-meta" style="font-size:11px">' + r.run_id.slice(0, 13) +
+          '</span><span class="mk-between" style="font-size:12px;width:100%">Прогон' +
+          '<span class="mk-run-pill">⟳ идёт</span></span>';
+        b.addEventListener('click', () => { openRunId = r.run_id; goto(4); if (!poll) pollStatus(); });
+        box.appendChild(b);
+      });
       done.forEach((r) => {
         const b = document.createElement('button');
         b.className = 'mk-history';
@@ -141,8 +206,9 @@
           '<span class="' + tag + '">' + s.goal[0] + '</span>';
         box.appendChild(el);
       });
-      const ctl = MK.scenarios(box);
-      box.addEventListener('mk:scenario', (e) => renderScnDetail(e.detail.id));
+      MK.scenarios(box);
+      box.addEventListener('mk:scenario', (e) => { selectedScenario = e.detail.id; renderScnDetail(e.detail.id); });
+      selectedScenario = list[0].id;
       renderScnDetail(list[0].id);
     }).catch(() => { $('#scnList').innerHTML = '<span class="mk-meta">не удалось загрузить</span>'; });
   }
@@ -153,13 +219,47 @@
       '<div class="mk-card__head"><h3 class="mk-h3">' + scnName(s) + '</h3><span class="mk-meta">' + s.id + '</span></div>' +
       '<div class="mk-grid" style="grid-template-columns:repeat(2,1fr);gap:10px">' +
       param('Целевой предикат', s.goal[0]) + param('OWASP/ATLAS', (s.standard_refs || []).join(', ')) +
-      param('Граница', s.boundary || '—') + param('Меню предикатов', s.goal.length) + '</div>' +
-      '<p class="mk-scenario__desc" style="font-size:13px">Агент выбирает целевой предикат и действие; ядро исполняет и проверяет предикат по состоянию цели.</p>';
+      param('Граница', s.boundary || '—') + param('Класс атаки', s.attack_class) + '</div>' +
+      '<p class="mk-scenario__desc" style="font-size:13px">Многошаговый ReAct-агент атакует цель, целясь в этот предикат; вердикт — по наблюдаемому состоянию (вызовы инструментов, память), а не по тексту ответа.</p>';
   }
   const param = (k, v) => '<div class="mk-param"><span class="mk-param__k">' + k + '</span><span class="mk-param__v mk-mono">' + v + '</span></div>';
 
   // ── Экран 4 · Прогон ──
+  function resetRunScreen() {
+    $('#rows').innerHTML = '';
+    $('#log').innerHTML = '<span class="mk-log__cursor" id="cursor"></span>';
+    $('#runStatus').textContent = 'Ожидание запуска…';
+    $('#counter').textContent = '— / —';
+    $('#fill').style.width = '0%';
+    $('#cProven').textContent = '—'; $('#cScored').textContent = '—';
+    $('#toReport').hidden = true; $('#cancelBtn').hidden = true;
+    $('#spin').style.visibility = 'hidden';
+  }
+  // «＋ Новый прогон» — чистая заготовка: шаг 1 (Контекст), без артефактов
+  $('#newRunBtn').addEventListener('click', () => {
+    if (poll) { clearInterval(poll); poll = null; }
+    running = false;
+    openRunId = null;
+    draftActive = true;
+    maxStep = 1;  // новый прогон — снова только с шага 1
+    resetRunScreen();
+    j('/api/target/reset', { method: 'POST' }).then((t) => {
+      renderTarget(t);  // очистить архитектуру и документы
+      $('#targetDot').classList.remove('mk-dot--ok');
+      $('#sbConn').textContent = 'Не подключён';
+      $('#sbConn').classList.remove('mk-text-positive');
+      $('#ctxHint').textContent = 'Новый прогон — загрузите артефакты цели.';
+    });
+    loadHistory();  // черновик появляется в истории
+    goto(1);  // на «Контекст» с чистого листа
+  });
+
   $('#runBtn').addEventListener('click', startRun);
+  // переключатель режима запуска (все предикаты / только выбранный)
+  document.querySelectorAll('#runMode .mk-tab').forEach((t) => t.addEventListener('click', () => {
+    runMode = t.dataset.tab;
+    document.querySelectorAll('#runMode .mk-tab').forEach((x) => x.setAttribute('aria-selected', String(x === t)));
+  }));
   $('#cancelBtn').addEventListener('click', () => {
     if (openRunId) api('/api/run/' + openRunId + '/cancel', { method: 'POST' });
   });
@@ -167,7 +267,7 @@
 
   function buildRows() {
     const box = $('#rows'); box.innerHTML = '';
-    scenarios.forEach((s, i) => {
+    runScenarios.forEach((s, i) => {
       const r = document.createElement('div');
       r.className = 'mk-attack-row'; r.dataset.i = i;
       r.innerHTML = '<span class="mk-attack-row__n">' + (i + 1) + '</span>' +
@@ -187,7 +287,7 @@
   function log(lines) {
     const box = $('#log'); const cur = $('#cursor');
     box.querySelectorAll('.mk-log__line').forEach((n) => n.remove());
-    lines.slice(-9).forEach((msg) => {
+    lines.slice(-14).forEach((msg) => {
       const line = document.createElement('div'); line.className = 'mk-log__line';
       line.innerHTML = '<span class="mk-log__msg">' + msg + '</span>';
       box.insertBefore(line, cur);
@@ -196,14 +296,23 @@
 
   function startRun() {
     if (!scenarios.length) return;
+    draftActive = false;  // черновик превращается в реальный прогон
+    const one = runMode === 'one' && selectedScenario;
+    runScenarios = one ? scenarios.filter((s) => s.id === selectedScenario) : scenarios.slice();
+    if (!runScenarios.length) runScenarios = scenarios.slice();
+    loadHistory();
     buildRows();
     $('#spin').style.visibility = 'visible';
     $('#runStatus').textContent = 'Запуск…';
     $('#toReport').hidden = true; $('#cancelBtn').hidden = false;
     $('#fill').style.width = '0%';
+    $('#runTitle').textContent = one ? ('Прогон · ' + scnName(runScenarios[0])) : 'Прогон по всем предикатам';
+    running = true;
     goto(4);
-    j('/api/run', { method: 'POST' }).then((r) => {
+    const q = one ? ('?scenario=' + encodeURIComponent(runScenarios[0].id)) : '';
+    j('/api/run' + q, { method: 'POST' }).then((r) => {
       openRunId = r.run_id;
+      loadHistory();  // прогон уже создан на сервере → показать его в истории как «идёт»
       pollStatus();
     });
   }
@@ -213,7 +322,7 @@
     poll = setInterval(() => {
       j('/api/status/' + openRunId).then((st) => {
         if (st.log) log(st.log);
-        const total = scenarios.length;
+        const total = runScenarios.length;
         const m = /Атака · (\d+)\/(\d+)/.exec(st.label || '');
         if (m) {
           const i = Number(m[1]);
@@ -225,6 +334,8 @@
         $('#runStatus').textContent = st.label || 'Идёт прогон…';
         if (st.status === 'completed' || st.status === 'interrupted' || st.status === 'failed') {
           clearInterval(poll); poll = null;
+          running = false;
+          syncSteps(curStep);              // прогон завершён — снять блокировку/индикатор
           $('#spin').style.visibility = 'hidden';
           $('#cancelBtn').hidden = true;
           $('#cursor').hidden = true;
@@ -236,21 +347,8 @@
   }
 
   function finishRun(runId) {
-    j('/api/runs/' + runId + '/findings').then((f) => {
-      const total = f.scenarios_scored || scenarios.length;
-      (f.attempts || []).forEach((a) => {
-        const idx = scenarios.findIndex((s) => s.id === a.scenario_id);
-        if (idx >= 0) setBadge(idx, a.verdict === 'proven' ? 'mk-badge--proven' : 'mk-badge--not-proven',
-          a.verdict === 'proven' ? 'PROVEN' : 'NOT PROVEN');
-      });
-      $('#fill').style.width = '100%';
-      $('#runStatus').textContent = 'Готово · оракул вынес вердикты';
-      $('#counter').textContent = f.scenarios_proven + ' / ' + total + ' proven · ASR ' + f.asr_percent + '%';
-      $('#cProven').textContent = f.scenarios_proven;
-      $('#cScored').textContent = f.scenarios_scored;
-      $('#toReport').hidden = false;
-      loadHistory();
-    }).catch(() => { $('#runStatus').textContent = 'Прогон завершён'; });
+    loadHistory();
+    goto(5);  // после прогона сразу открываем отчёт (не возвращаемся)
   }
 
   // ── Экран 5 · Отчёт ──
@@ -296,6 +394,14 @@
   let reqFiles = [];
   function renderReq() {
     const box = $('#reqFiles'); box.innerHTML = '';
+    if (openRunId) {  // техотчёт прогона прикреплён автоматически
+      const auto = document.createElement('div'); auto.className = 'mk-file-row';
+      auto.innerHTML = '<span class="mk-file-row__kind">MD</span><span class="mk-stack" style="gap:2px">' +
+        '<span class="mk-file-row__name">Технический отчёт (report.md)</span>' +
+        '<span class="mk-file-row__meta">прикреплён автоматически</span></span>' +
+        '<span class="mk-text-positive" style="margin-left:auto;font-weight:600">авто</span>';
+      box.appendChild(auto);
+    }
     reqFiles.forEach((f) => {
       const ext = (f.name.split('.').pop() || '').toUpperCase();
       const row = document.createElement('div'); row.className = 'mk-file-row';
@@ -315,6 +421,7 @@
 
   function renderBiz() {
     updateKind();
+    renderReq();  // показать авто-приложенный техотчёт
     $('#bizBanner').hidden = true; $('#bizDl').hidden = true;
     if (!openRunId) { $('#bizThesis').textContent = 'Сначала выполните или откройте прогон (шаги 3–5).'; return; }
     j('/api/runs/' + openRunId + '/findings').then((f) => {

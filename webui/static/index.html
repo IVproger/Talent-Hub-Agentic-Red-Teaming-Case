@@ -9,6 +9,21 @@
   [hidden] { display: none !important; }
   /* каждый экран — flex-колонка с тем же ритмом, что и .mk-content */
   #content > section { flex: 1; min-height: 0; display: flex; flex-direction: column; gap: var(--mk-space-6); }
+  /* заготовка «новый прогон» в истории — пунктирный черновик */
+  .mk-history--draft { border: 1.5px dashed var(--mk-color-border-dashed) !important; background: transparent !important; color: var(--mk-color-text-secondary); }
+  .art-draft-x { color: var(--mk-color-text-tertiary); font-weight: 700; font-size: 15px; line-height: 1; padding: 0 2px; border-radius: 6px; }
+  .art-draft-x:hover { color: var(--mk-color-negative); }
+  /* архитектура из файла — read-only вид */
+  .mk-textarea:read-only { background: #f2f3f5; color: var(--mk-color-text-secondary); cursor: default; }
+  /* шаг с идущим прогоном — пульсирующий индикатор «в процессе» в ленте */
+  .mk-step--running { background: var(--mk-color-info-muted); color: var(--mk-color-info); animation: mk-pulse 1.2s infinite; }
+  .mk-step--running .mk-step__n { background: rgba(37,99,235,.22); color: var(--mk-color-info); }
+  /* приглушаем только недостигнутые будущие шаги; пройденные (✓) и текущий — яркие */
+  .mk-step:disabled { cursor: default; }
+  .mk-step:disabled:not(.mk-step--done):not(.mk-step--running):not([aria-current]) { opacity: .45; }
+  /* идущий прогон в истории — рамка info + пульсирующая метка «идёт» */
+  .mk-history--running { border-color: var(--mk-color-info) !important; }
+  .mk-run-pill { font-size: 11px; font-weight: 600; color: var(--mk-color-info); background: var(--mk-color-info-muted); border-radius: 99px; padding: 1px 8px; animation: mk-pulse 1.2s infinite; }
 </style>
 </head>
 <body><div class="mk-app">
@@ -47,7 +62,8 @@
       <div class="mk-stack" style="gap:2px"><span class="mk-caption" style="font-size:11px">Генератор атак</span><span class="mk-mono" style="font-size:12px">glm-5.3-flash</span></div>
       <div class="mk-stack" style="gap:2px"><span class="mk-caption" style="font-size:11px">Целевой агент</span><span class="mk-mono" style="font-size:12px">qwen3-8b</span></div>
       <div class="mk-stack" style="gap:2px"><span class="mk-caption" style="font-size:11px">Автор отчёта</span><span class="mk-mono" style="font-size:12px">glm-5.3-flash</span></div></div></div>
-  <div class="mk-sidebar__section"><span class="mk-label">История прогонов</span>
+  <div class="mk-sidebar__section"><div class="mk-between"><span class="mk-label">История прогонов</span>
+    <button class="mk-btn mk-btn--small mk-btn--secondary" id="newRunBtn">＋ Новый прогон</button></div>
     <div class="mk-stack mk-gap-2" id="sbHistory"><span class="mk-meta" style="font-size:11px">загрузка…</span></div></div>
 </aside>
 
@@ -56,18 +72,18 @@
 <!-- ЭКРАН 1 · Контекст -->
 <section data-screen="1">
   <div class="mk-page-head"><span class="mk-meta">Шаг 1 из 6 · цель аудита</span><h1 class="mk-h1">Контекст цели</h1>
-    <p class="mk-lead">Загрузите артефакты стенда: OpenAPI (обязателен), архитектуру, system card, compose. По ним MOROK соберёт профиль цели и адаптирует сценарии.</p></div>
+    <p class="mk-lead">Загрузите артефакты стенда: архитектуру, документацию, контракты, system card, compose. По ним MOROK соберёт профиль цели и адаптирует сценарии.</p></div>
   <div class="mk-grid mk-grid-1-1 mk-grow" style="grid-template-rows:1fr auto">
-    <div class="mk-card"><div class="mk-card__head"><h3 class="mk-h3">Архитектура решения</h3><span class="mk-meta">.mmd · .md</span></div>
+    <div class="mk-card"><div class="mk-card__head"><h3 class="mk-h3">Архитектура</h3></div>
       <label class="mk-dropzone" id="archZone" style="cursor:pointer">
         <span class="mk-dropzone__icon">mmd</span>
         <span class="mk-stack" style="gap:2px;min-width:0"><span style="font-weight:600;font-size:14px" id="archName">Загрузить архитектуру</span><span class="mk-caption">Mermaid .mmd или .md со схемой</span></span>
         <input id="archInput" type="file" hidden accept=".mmd,.mermaid,.md,.txt">
       </label>
       <textarea class="mk-textarea mk-textarea--mono mk-grow" id="archText" rows="6" style="font-size:13px" placeholder="Или вставьте описание архитектуры текстом…"></textarea></div>
-    <div class="mk-card"><div class="mk-card__head"><h3 class="mk-h3">Документация и контракты</h3><span class="mk-meta">OpenAPI обязателен</span></div>
+    <div class="mk-card"><div class="mk-card__head"><h3 class="mk-h3">Документация и контракты</h3></div>
       <div class="mk-stack mk-gap-2 mk-grow" id="docFiles"><span class="mk-caption">Файлы не добавлены.</span></div>
-      <label class="mk-btn mk-btn--ghost-dashed" style="cursor:pointer">+ Добавить файл · OpenAPI, MCP manifest, system card, MD
+      <label class="mk-btn mk-btn--ghost-dashed" style="cursor:pointer">+ Добавить файл · документация, контракты, MCP manifest, MD
         <input id="docInput" type="file" multiple hidden accept=".json,.yaml,.yml,.md,.txt"></label></div>
     <div class="mk-card mk-span-all"><div class="mk-card__head"><h3 class="mk-h3">Точки входа</h3><span class="mk-caption" style="font-size:13px">Прямые адреса, к которым MOROK подключится внутри контура</span></div>
       <div class="mk-grid" style="grid-template-columns:repeat(2,minmax(0,1fr));gap:12px 16px">
@@ -101,7 +117,10 @@
   <div class="mk-grid mk-grid-2-5 mk-grow" style="grid-template-rows:1fr auto">
     <div class="mk-scenarios mk-stack mk-gap-2" id="scnList"><span class="mk-meta">загрузка…</span></div>
     <div class="mk-card" id="scnDetail"><span class="mk-meta">Выберите сценарий слева.</span></div>
-    <div class="mk-page-nav mk-span-all"><button class="mk-btn mk-btn--secondary" data-go="2">← Назад</button><button class="mk-btn mk-btn--brand" id="runBtn">Запустить сценарий</button></div>
+    <div class="mk-page-nav mk-span-all"><button class="mk-btn mk-btn--secondary" data-go="2">← Назад</button>
+      <span class="mk-row mk-gap-2" style="align-items:center">
+        <div class="mk-tabs" id="runMode"><button class="mk-tab" data-tab="all" aria-selected="true">Все предикаты</button><button class="mk-tab" data-tab="one">Только выбранный</button></div>
+        <button class="mk-btn mk-btn--brand" id="runBtn">Запустить</button></span></div>
   </div>
 </section>
 

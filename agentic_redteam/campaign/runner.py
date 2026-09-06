@@ -24,7 +24,8 @@ from ..adapters.base import TargetUnavailable
 from ..assertions import predicates as P
 from ..assertions.dispatch import evaluate
 from ..assertions.verdict import CheckOutcome, Grade, verdict
-from ..normalize.facts import Facts
+from ..normalize.facts import Facts, Persistence
+from ..verification.judge import PROMPT_VERSION, VerificationSpec
 
 
 @dataclass(frozen=True)
@@ -72,6 +73,7 @@ class RunnerDeps:
     id_factory: Any = None
     now: Any = None
     telemetry: Any = None       # optional run-observability; fail-open
+    judge: Any = None           # optional LLMJudge, required by llm_judge scenarios
 
 
 @dataclass
@@ -82,6 +84,7 @@ class StepEvidence:
     session_id: str
     facts: Facts | None = None
     observations: dict = field(default_factory=dict)
+    request: str | None = None
     response: str | None = None
     error: str | None = None
 
@@ -99,6 +102,7 @@ class AttemptResult:
     observations: dict = field(default_factory=dict)
     evidence_refs: list[str] = field(default_factory=list)
     steps: list[StepEvidence] = field(default_factory=list)
+    verification: dict = field(default_factory=dict)
 
 
 @dataclass
@@ -206,6 +210,110 @@ def _evaluate_goal(goal, facts, steps, actor, implicit=False):
     return outcomes
 
 
+def _judge_transcript(steps: list[StepEvidence]) -> list[dict]:
+    transcript = []
+    for step in steps:
+        row = {
+            "step": step.name,
+            "role": step.role,
+            "principal": step.principal,
+        }
+        if step.request is None:
+            row["event"] = "memory_commit"
+        else:
+            row["request"] = step.request
+            row["response"] = step.response
+        transcript.append(row)
+    return transcript
+
+
+def _judge_memory_diff(facts: Facts) -> list[dict]:
+    return [
+        {
+            "store": write.store_id,
+            "scope": write.scope,
+            "key": write.key,
+            "owner": write.owner,
+            "content": write.content,
+            "persistence": str(write.persistence),
+        }
+        for write in facts.memory_writes
+    ]
+
+
+def _judge_tool_calls(facts: Facts) -> list[dict]:
+    """Expose only normalized call facts, never provider-specific raw logs."""
+    return [
+        {
+            "tool": call.tool,
+            "principal": call.principal,
+            "args": call.args,
+        }
+        for call in facts.tool_calls
+    ]
+
+
+def _judge_callbacks(facts: Facts) -> list[dict]:
+    return [
+        {"token": callback.token, "source": callback.source}
+        for callback in facts.callbacks
+    ]
+
+
+def _has_confirmed_evidence(facts: Facts) -> bool:
+    """Whether the judge decision is backed by an observed non-text fact."""
+    return bool(
+        facts.tool_calls
+        or facts.callbacks
+        or any(
+            write.persistence is Persistence.CONFIRMED
+            for write in facts.memory_writes
+        )
+    )
+
+
+def _evaluate_with_judge(
+    verification: VerificationSpec,
+    description: str,
+    facts: Facts,
+    steps: list[StepEvidence],
+    judge,
+) -> tuple[CheckOutcome, dict, str | None]:
+    context = {
+        "attack_description": description,
+        "success_criteria": verification.criteria,
+        "transcript": _judge_transcript(steps),
+        "tool_calls": _judge_tool_calls(facts),
+        "memory_diff": _judge_memory_diff(facts),
+        "callbacks": _judge_callbacks(facts),
+    }
+    record = {
+        "type": "llm_judge",
+        "prompt_version": PROMPT_VERSION,
+        "input": context,
+    }
+    if judge is None:
+        error = "LLM judge не настроен для сценария с verification.type=llm_judge."
+        record["error"] = error
+        return CheckOutcome(False, Grade.ERROR, error), record, error
+    try:
+        decision = judge.evaluate(context)
+    except Exception as exc:
+        error = f"{type(exc).__name__}: {exc}"
+        if hasattr(exc, "output"):
+            record["output"] = exc.output
+        record["error"] = error
+        return CheckOutcome(False, Grade.ERROR, error), record, error
+    record.update({
+        "provider": decision.provider,
+        "model": decision.model,
+        "output": decision.output,
+    })
+    detail = f"LLM judge: {decision.output}"
+    grade = Grade.STATE if _has_confirmed_evidence(facts) else Grade.TEXT
+    return CheckOutcome(decision.passed, grade, detail), record, None
+
+
 def _run_chain(steps, payload, mode, deps, index, run_id, evidence, reset_policy):
     """Every role keeps its session; each step owns its mark/collect window."""
     sessions: dict[str, Any] = {}
@@ -223,7 +331,8 @@ def _run_chain(steps, payload, mode, deps, index, run_id, evidence, reset_policy
             if step.commit_memory:
                 session.commit_memory()
             else:
-                current.response = session.send(payload if step.payload else step.message)
+                current.request = payload if step.payload else step.message
+                current.response = session.send(current.request)
             current.facts = deepcopy(deps.evidence.collect_facts(marker))
             current.observations = deepcopy(getattr(deps.evidence, "last_observations", {}))
         except Exception as exc:
@@ -231,9 +340,15 @@ def _run_chain(steps, payload, mode, deps, index, run_id, evidence, reset_policy
             raise
 
 
-def _run_attempt(index, payload, actor, mode, goal, deps, reset_policy, run_id, steps=()) -> AttemptResult:
+def _run_attempt(
+    index, payload, actor, mode, goal, deps, reset_policy, run_id, steps=(),
+    verification: VerificationSpec | None = None, description: str = "",
+) -> AttemptResult:
     with _obs(deps.telemetry, "campaign.attempt"):
         evidence = []
+        verification = verification or VerificationSpec()
+        verification_record = {"type": "deterministic"}
+        verification_error = None
         try:
             if steps:
                 validate_step_references(goal, steps)
@@ -241,7 +356,13 @@ def _run_attempt(index, payload, actor, mode, goal, deps, reset_policy, run_id, 
                 deps.evidence.reset()
             _run_chain(steps or DEFAULT_CHAIN, payload, mode, deps, index, run_id, evidence, reset_policy)
             facts, observations = _aggregate(evidence)
-            outcomes = _evaluate_goal(goal, facts, evidence, actor, implicit=not steps)
+            if verification.type == "llm_judge":
+                outcome, verification_record, verification_error = _evaluate_with_judge(
+                    verification, description, facts, evidence, deps.judge
+                )
+                outcomes = [outcome]
+            else:
+                outcomes = _evaluate_goal(goal, facts, evidence, actor, implicit=not steps)
         except KeyboardInterrupt as exc:
             facts, observations = _aggregate(evidence)
             exc.attempt = AttemptResult(index, payload, actor, mode, "error", [], "Прервано пользователем",
@@ -253,9 +374,18 @@ def _run_attempt(index, payload, actor, mode, goal, deps, reset_policy, run_id, 
             error = str(exc) if isinstance(exc, TargetUnavailable) else f"{type(exc).__name__}: {exc}"
             return AttemptResult(index, payload, actor, mode, "error", [], error,
                                  facts=facts if any(s.facts is not None for s in evidence) else None,
-                                 observations=observations, steps=evidence)
-        return AttemptResult(index, payload, actor, mode, verdict([o for a, o in zip(goal, outcomes) if not a.get("optional", False)]), outcomes,
-                             facts=facts, observations=observations, steps=evidence)
+                                 observations=observations, steps=evidence,
+                                 verification=verification_record)
+        required_outcomes = (
+            outcomes
+            if verification.type == "llm_judge"
+            else [o for a, o in zip(goal, outcomes) if not a.get("optional", False)]
+        )
+        return AttemptResult(
+            index, payload, actor, mode, verdict(required_outcomes), outcomes,
+            error=verification_error, facts=facts, observations=observations,
+            steps=evidence, verification=verification_record,
+        )
 
 
 def _asr(attempts: list[AttemptResult]) -> tuple[float, int | None]:
@@ -278,6 +408,8 @@ def run_scenario(
     on_event=None,
     on_attempt=None,
     should_stop=None,
+    verification: VerificationSpec | None = None,
+    description: str = "",
 ) -> RunResult:
     modes = modes or [None]
     attempts: list[AttemptResult] = []
@@ -291,7 +423,8 @@ def run_scenario(
                 index += 1
                 try:
                     attempt = _run_attempt(index, payload, actor, mode, goal, deps,
-                                           reset_policy, run_id, steps)
+                                           reset_policy, run_id, steps,
+                                           verification, description)
                 except KeyboardInterrupt as exc:
                     if getattr(exc, "attempt", None) is not None and on_attempt:
                         on_attempt(exc.attempt)

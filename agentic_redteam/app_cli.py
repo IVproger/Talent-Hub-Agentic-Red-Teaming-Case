@@ -58,6 +58,7 @@ from .stand_sync import StandSyncError, sync_stand
 from .storage.runs import RunStorage
 from .surface.map import build_surface
 from .target_runtime import TargetConfigurationError
+from .verification.judge import LLMJudge, verification_from_mapping
 
 
 DEFAULT_RUNS_ROOT = Path(__file__).resolve().parents[1] / "runs"
@@ -510,7 +511,7 @@ def new_run_id() -> str:
 def execute_campaign(profile, planned, modes, trials, output_root, run_id,
                      reporter_llm=None, on_event=None, telemetry=None,
                      metadata=None, config=None, should_stop=None,
-                     read_only=False, authorization=None) -> dict:
+                     read_only=False, authorization=None, judge=None) -> dict:
     """Собрать реальные адаптер и evidence по профилю и прогнать кампанию.
 
     Общее ядро запуска: CLI и UI зовут его, а не повторяют сборку зависимостей —
@@ -534,6 +535,8 @@ def execute_campaign(profile, planned, modes, trials, output_root, run_id,
         f"{profile.name}@{profile.version}", [item.id for item in planned], trials, modes
     )
     _validate_plan(profile, planned, campaign)
+    if any(item.verification.type == "llm_judge" for item in planned) and judge is None:
+        judge = _judge_from_config(config)
     scope = modes_scope(profile, modes)
     metadata = {
         **(metadata or {}),
@@ -568,7 +571,7 @@ def execute_campaign(profile, planned, modes, trials, output_root, run_id,
             metadata["limitations"] = list(metadata.get("limitations", [])) + skipped
             findings = run_campaign(
                 selected,
-                RunnerDeps(adapter, bundle, telemetry=telemetry),
+                RunnerDeps(adapter, bundle, telemetry=telemetry, judge=judge),
                 storage,
                 run_id,
                 modes=modes,
@@ -710,6 +713,12 @@ def _gate_scenarios(bundle, planned) -> tuple[list, list[str]]:
     selected, skipped = [], []
     for scenario in planned:
         supported, reasons = bundle.supports(scenario.goal)
+        if supported and scenario.verification.type == "llm_judge":
+            available = {str(kind) for kind in bundle.capabilities()}
+            missing = sorted({"memory_snapshot", "tool_calls"} - available)
+            if missing:
+                supported = False
+                reasons = [f"нет {kind}" for kind in missing]
         if supported:
             selected.append(scenario)
         else:
@@ -801,6 +810,18 @@ def reporter_from_config(config_path):
         return make_llm_client(roles["report_writer"])
     except Exception:
         return None
+
+
+def _judge_from_config(config):
+    raw = config or {}
+    llm = raw.get("llm") if isinstance(raw, Mapping) else None
+    if not isinstance(llm, Mapping) or "judge" not in llm:
+        raise PipelineConfigurationError(
+            "Сценарий требует llm_judge, но в конфигурации отсутствует llm.judge."
+        )
+    roles = role_configs_from_mapping(llm)
+    roles["judge"].validate()
+    return LLMJudge(make_llm_client(roles["judge"]))
 
 
 def _saved_campaign(reference):
@@ -928,6 +949,8 @@ def _validate_plan(profile, planned, campaign):
             "reset_policy": item.reset_policy,
             "expect": item.expect,
             "remediation": item.remediation,
+            "description": item.description,
+            "verification": asdict(item.verification),
         })
         for step in item.steps:
             if step.actor not in profile.identities.get("roles", {}):
@@ -1112,6 +1135,8 @@ def _planned_from_saved(data: dict) -> PlannedScenario:
         steps=steps,
         expect=data.get("expect", "attack_success"),
         remediation=data.get("remediation", ""),
+        description=data.get("description", ""),
+        verification=verification_from_mapping(data.get("verification")),
     )
 
 
@@ -1174,6 +1199,8 @@ def preview_scenario(planned) -> dict:
         ],
         "payloads": planned.payloads,
         "goal": planned.goal,
+        "description": planned.description,
+        "verification": asdict(planned.verification),
     }
 
 
@@ -1456,10 +1483,15 @@ def coverage_of(profile: TargetProfile, refs: list[str]) -> tuple[list[dict], se
     rows = []
     for spec in resolve_specs(refs):
         required = required_kinds(spec.goal)
+        if spec.verification.type == "llm_judge":
+            required |= {"memory_snapshot", "tool_calls"}
         # То же правило, что и в EvidenceBundle.supports: state-вердикт требует
         # источника действий, память — только усилитель (US-04 AC2). Гейт нельзя
         # выполнить самим бандлом: он поднимает провайдеров, а coverage read-only.
-        if any(assertion["type"] != "response_contains" for assertion in spec.goal):
+        if (
+            spec.verification.type == "deterministic"
+            and any(assertion["type"] != "response_contains" for assertion in spec.goal)
+        ):
             required.add("tool_calls")
         missing = sorted(required - available)
         rows.append({

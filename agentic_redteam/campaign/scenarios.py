@@ -18,6 +18,7 @@ import yaml
 
 from ..assertions.dispatch import ASSERTION_TYPES
 from ..errors import PipelineConfigurationError
+from ..verification.judge import VerificationSpec
 from .orchestrator import PlannedScenario
 from .runner import ScenarioStep, validate_step_references
 
@@ -60,6 +61,7 @@ class ScenarioSpec:
     reset_policy: str = "per_scenario"
     expect: str = "attack_success"
     remediation: str = ""
+    verification: VerificationSpec = VerificationSpec()
 
     @classmethod
     def load(cls, path: str | Path) -> ScenarioSpec:
@@ -79,6 +81,22 @@ class ScenarioSpec:
         if not isinstance(params, dict):
             _invalid("params — ожидается отображение")
         render = _renderer(params)
+        raw_verification = data.get("verification", {}) or {}
+        if not isinstance(raw_verification, dict):
+            _invalid("verification — ожидается отображение")
+        unknown_verification = set(raw_verification) - {"type", "criteria"}
+        if unknown_verification:
+            _invalid(
+                "verification — неизвестные поля: "
+                + ", ".join(sorted(unknown_verification))
+            )
+        verification_type = raw_verification.get("type", "deterministic")
+        raw_criteria = raw_verification.get("criteria", "")
+        criteria = (
+            render(raw_criteria, "verification.criteria")
+            if isinstance(raw_criteria, str) and raw_criteria
+            else raw_criteria
+        )
         steps = []
         for index, raw in enumerate(_list(data.get("steps"), "steps"), start=1):
             if not isinstance(raw, dict):
@@ -117,11 +135,20 @@ class ScenarioSpec:
             reset_policy=data.get("reset_policy", "per_scenario"),
             expect=data.get("expect", "attack_success"),
             remediation=data.get("remediation", "") or "",
+            verification=VerificationSpec(verification_type, criteria),
         )
         spec.validate()
         return spec
 
     def validate(self) -> None:
+        if self.verification.type not in ("deterministic", "llm_judge"):
+            _invalid(
+                f"verification.type '{self.verification.type}' — допустимо: "
+                "deterministic, llm_judge"
+            )
+        if self.verification.type == "llm_judge":
+            _text(self.verification.criteria, "verification.criteria")
+            _text(self.description, "description для llm_judge")
         if self.expect not in EXPECTATIONS:
             _invalid(f"expect — ожидается одно из: {', '.join(sorted(EXPECTATIONS))}")
         if self.reset_policy not in RESET_POLICIES:
@@ -157,7 +184,10 @@ class ScenarioSpec:
             missing = [f for f in GOAL_REQUIRED.get(kind, ()) if f not in assertion]
             if missing:
                 _invalid(f"цель {index} ({kind}) — не хватает полей: {', '.join(missing)}")
-        if not self.goal or all(a.get("optional") for a in self.goal):
+        if (
+            self.verification.type == "deterministic"
+            and (not self.goal or all(a.get("optional") for a in self.goal))
+        ):
             _invalid("нужен хотя бы один обязательный критерий")
         try:
             validate_step_references(self.goal, self.steps)
@@ -182,6 +212,8 @@ class ScenarioSpec:
             steps=list(self.steps),
             expect=self.expect,
             remediation=self.remediation,
+            description=self.description,
+            verification=self.verification,
         )
 
 

@@ -22,6 +22,7 @@ def _to_mapping(spec) -> dict:
         "steps": [{k: v for k, v in asdict(step).items() if v not in (None, False)}
                   for step in spec.steps],
         "goal": [dict(item) for item in spec.goal],
+        "verification": asdict(spec.verification),
     }
     return data
 

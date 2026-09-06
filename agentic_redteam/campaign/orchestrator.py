@@ -12,6 +12,7 @@ from typing import Any
 
 from ..assertions.verdict import Grade
 from ..reporting.technical import add_narrative, build_skeleton, severity_of, remediation_for
+from ..verification.judge import VerificationSpec
 from .runner import (
     RunnerDeps,
     ScenarioStep,
@@ -36,6 +37,8 @@ class PlannedScenario:
     steps: list[ScenarioStep] = field(default_factory=list)
     expect: str = "attack_success"
     remediation: str = ""
+    description: str = ""
+    verification: VerificationSpec = field(default_factory=VerificationSpec)
 
 
 # Which stage of the kill chain the predicate that fired speaks to.
@@ -64,6 +67,12 @@ def _compromise(goal, outcomes):
         if outcome.passed and not assertion.get("optional", False):
             return assertion, outcome
     return (goal[0] if goal else {}), (outcomes[0] if outcomes else None)
+
+
+def _report_goal(scenario) -> list[dict]:
+    if scenario.verification.type == "llm_judge":
+        return [{"type": "llm_judge"}]
+    return scenario.goal
 
 
 def _joined(values) -> str:
@@ -156,7 +165,8 @@ def build_findings(run_id, profile_ref, modes, scenario_results, business=None) 
         best = next((a for a in res.attempts if a.verdict == "proven"), None)
         if best is None or scen.expect == "pass":
             continue
-        assertion, outcome = _compromise(scen.goal, best.outcomes)
+        report_goal = _report_goal(scen)
+        assertion, outcome = _compromise(report_goal, best.outcomes)
         findings.append({
             "scenario_id": scen.id,
             "attack_class": scen.attack_class,
@@ -179,10 +189,10 @@ def build_findings(run_id, profile_ref, modes, scenario_results, business=None) 
                  "optional": bool(assertion.get("optional", False)),
                  "passed": result.passed, "grade": str(result.grade),
                  "detail": result.detail}
-                for assertion, result in zip(scen.goal, best.outcomes)
+                for assertion, result in zip(report_goal, best.outcomes)
             ],
             "chain": [_step_summary(step) for step in best.steps],
-            "remediation": scen.remediation or remediation_for(scen.goal),
+            "remediation": scen.remediation or remediation_for(report_goal),
         })
     scorable = [a for scen, a in pairs if scen.expect != "pass" and a.verdict != "error"]
     groups = {}
@@ -205,7 +215,7 @@ def build_findings(run_id, profile_ref, modes, scenario_results, business=None) 
     table = [{
         "attempt": i + 1, "scenario_id": scen.id, "attack_class": scen.attack_class,
         "roles": _attempt_roles(a), "mode": a.mode, "verdict": a.verdict,
-        "signal": _signal(scen.goal, a.outcomes),
+        "signal": _signal(_report_goal(scen), a.outcomes),
     } for i, (scen, a) in enumerate(pairs)]
     return {
         "run_id": run_id, "profile": profile_ref, "status": "completed",
@@ -255,8 +265,10 @@ def _transcript_row(scen, attempt) -> dict:
                      for o in attempt.outcomes],
         "error": attempt.error,
         "evidence_refs": list(attempt.evidence_refs),
+        "verification": attempt.verification,
         "steps": [{"name": step.name, "role": step.role, "principal": step.principal,
                    "session_id": step.session_id, "evidence_complete": step.facts is not None,
+                   "request": step.request, "response": step.response,
                    "error": step.error} for step in attempt.steps],
     }
 
@@ -319,6 +331,7 @@ def _run_campaign(scenarios, deps: RunnerDeps, storage, run_id: str,
                 "actor": attempt.actor, "mode": attempt.mode,
                 "facts": attempt.facts, "observations": attempt.observations,
                 "steps": attempt.steps,
+                "verification": attempt.verification,
             })
             attempt.evidence_refs = [name]
         storage.append_transcript(run_dir, _transcript_row(scen, attempt))
@@ -356,7 +369,8 @@ def _run_campaign(scenarios, deps: RunnerDeps, storage, run_id: str,
             run_scenario(scen.payloads or [""], scen.goal, scen.actor, deps,
                          modes=selected_modes, trials=trials, reset_policy=scen.reset_policy,
                          run_id=f"{run_id}-{scen.id}-{'-'.join(selected_modes or [])}", steps=scen.steps,
-                         on_attempt=lambda a, s=scen: persist(s, a), should_stop=should_stop)
+                         on_attempt=lambda a, s=scen: persist(s, a), should_stop=should_stop,
+                         verification=scen.verification, description=scen.description)
     except KeyboardInterrupt:
         status, error = "interrupted", "Прервано пользователем"
     except Exception as exc:

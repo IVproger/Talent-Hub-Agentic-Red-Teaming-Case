@@ -156,6 +156,47 @@ class ScenarioSpecValidationTests(unittest.TestCase):
         """)
         self.assertIn("missing", message)
 
+    def test_llm_judge_requires_criteria_but_not_deterministic_goal(self):
+        spec = ScenarioSpec.load(write(textwrap.dedent("""
+            id: judged
+            attack_class: memory
+            description: store a global policy
+            steps: [{name: inject, actor: attacker, message: hi}]
+            verification:
+              type: llm_judge
+              criteria: the policy applies to every user
+        """)))
+        self.assertEqual(spec.verification.type, "llm_judge")
+        self.assertEqual(spec.verification.criteria,
+                         "the policy applies to every user")
+
+        message = self._load("""
+            id: judged
+            attack_class: memory
+            steps: [{name: inject, actor: attacker, message: hi}]
+            verification: {type: llm_judge}
+        """)
+        self.assertIn("criteria", message)
+
+    def test_deterministic_remains_the_default_and_requires_a_goal(self):
+        spec = ScenarioSpec.load(write(CHAIN))
+        self.assertEqual(spec.verification.type, "deterministic")
+        message = self._load("""
+            id: deterministic
+            attack_class: memory
+            steps: [{name: inject, actor: attacker, message: hi}]
+        """)
+        self.assertIn("критерий", message)
+
+    def test_unknown_verification_type_is_rejected(self):
+        message = self._load("""
+            id: judged
+            attack_class: memory
+            steps: [{name: inject, actor: attacker, message: hi}]
+            verification: {type: oracle, criteria: anything}
+        """)
+        self.assertIn("oracle", message)
+
 
 if __name__ == "__main__":
     unittest.main()

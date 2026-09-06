@@ -99,7 +99,7 @@ identities:
 
 # Число ходов ReAct-агента в одной атаке. Флаг --agentic N перекрывает.
 agentic:
-  budget: 2
+  budget: 20
 
 attack:
   component: react-agent

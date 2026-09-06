@@ -97,7 +97,7 @@ class RunBriefsTests(unittest.TestCase):
         )
 
     def _run(self, attacker_actions, judge_output="YES", capabilities=None,
-             extra_args=()):
+             extra_args=(), briefs_source=None):
         attacker = Mock()
         attacker.complete.side_effect = list(attacker_actions)
         judge_client = Mock()
@@ -119,7 +119,8 @@ class RunBriefsTests(unittest.TestCase):
             adapter_cls.from_profile.return_value = adapter
             bundle_cls.from_profile.return_value.__enter__.return_value = bundle
             code, out, err = run_cli(
-                "run", "--profile", PROFILE, "--briefs", str(self.briefs_dir),
+                "run", "--profile", PROFILE, "--briefs",
+                str(briefs_source or self.briefs_dir),
                 "--config", str(self.config), "-o", str(runs_root), "--json",
                 "--mode", "vulnerable",
                 *extra_args,
@@ -144,6 +145,20 @@ class RunBriefsTests(unittest.TestCase):
         self.assertTrue((attempt_dir / "actions.json").exists())
         self.assertTrue((attempt_dir / "evidence.json").exists())
         self.assertTrue((attempt_dir / "result.json").exists())
+
+    def test_run_briefs_accepts_one_yaml_file(self):
+        path = self.briefs_dir / "cross-client-portfolio-access.yaml"
+        actions = [
+            json.dumps({"action": "submit_attack", "claim": "success",
+                        "summary": "ok"}),
+        ]
+        code, out, err, run_dir = self._run(actions, briefs_source=path)
+        self.assertEqual(code, 0, out + err)
+        campaign = json.loads((run_dir / "campaign.json").read_text())
+        self.assertEqual(campaign["briefs_source"], str(path.resolve()))
+        self.assertEqual([item["id"] for item in campaign["briefs"]], [
+            "cross-client-portfolio-access",
+        ])
 
     def test_error_attempt_keeps_zero_denominator(self):
         # Judge трижды отвечает невалидно → техническая ошибка, ASR нет данных.

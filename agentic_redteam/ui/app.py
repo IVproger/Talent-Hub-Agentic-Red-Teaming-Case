@@ -7,10 +7,13 @@
 """
 from __future__ import annotations
 
+import io
+import json
 import sys
 import tempfile
 import threading
 import time
+import zipfile
 from datetime import datetime
 from pathlib import Path
 
@@ -31,8 +34,16 @@ from agentic_redteam.app_cli import (  # noqa: E402
     make_llm_client,
     new_run_id,
 )
+from agentic_redteam.attacker.status import attempt_outcome_label  # noqa: E402
 from agentic_redteam.profile.ingest import build_draft, read_document  # noqa: E402
 from agentic_redteam.profile.schema import TargetProfile  # noqa: E402
+from agentic_redteam.reporting.autonomous import (  # noqa: E402
+    AUTONOMOUS_RUN_KIND,
+    build_autonomous_business_report,
+    build_autonomous_report,
+    is_autonomous_run,
+    load_autonomous_run,
+)
 from agentic_redteam.storage.runs import RunStorage  # noqa: E402
 
 RUNS_ROOT = REPO_ROOT / "runs"
@@ -260,6 +271,28 @@ def _run_time(run_id):
         return None
 
 
+def _load_saved_run(run_dir: str | Path) -> dict:
+    """Detect and load either a scenario or an autonomous saved run."""
+    root = Path(run_dir).expanduser().resolve()
+    storage = RunStorage(root.parent)
+    if (root / "findings.json").is_file():
+        return {
+            "kind": "scenario",
+            "run_dir": str(root),
+            "findings": storage.load_json(root, "findings.json"),
+        }
+    if is_autonomous_run(root):
+        return {
+            "kind": AUTONOMOUS_RUN_KIND,
+            "run_dir": str(root),
+            "report": load_autonomous_run(root),
+        }
+    raise ValueError(
+        "не найден ни сценарный findings.json, ни автономные "
+        "campaign.json + summary.json"
+    )
+
+
 def _top_status():
     """(css-класс чипа, текст) для верхней панели — статус текущего запуска."""
     run_id = st.session_state.get("current_run")
@@ -393,18 +426,25 @@ def _render_run() -> None:
                 st.rerun()
         return
     try:
-        findings = storage.load_json(run_dir, "findings.json")
+        loaded = _load_saved_run(run_dir)
     except (OSError, ValueError):
-        findings = None
+        loaded = None
     if state == "interrupted":
         st.warning("Запуск отменён — ниже частичный результат (успевшие сценарии).")
         if st.session_state.profile_path and st.button("Повторить запуск", key="retry_run"):
             _start_run()
             st.rerun()
-    if findings is None:
+    if loaded is None:
         st.info("Запуск завершается…")
         return
-    _render_results(run_dir, findings)
+    _render_saved_results(run_dir, loaded)
+
+
+def _render_saved_results(run_dir: Path, loaded: dict, key: str = "run") -> None:
+    if loaded.get("kind") == AUTONOMOUS_RUN_KIND:
+        _render_autonomous_results(run_dir, loaded["report"], key)
+    else:
+        _render_results(run_dir, loaded["findings"], key)
 
 
 def _render_results(run_dir: Path, findings: dict, key: str = "run") -> None:
@@ -438,6 +478,173 @@ def _render_results(run_dir: Path, findings: dict, key: str = "run") -> None:
             st.markdown(report.read_text(encoding="utf-8"))
         else:
             st.info("Отчёт появится после запуска.")
+
+
+def _render_autonomous_results(run_dir: Path, report: dict,
+                               key: str = "run") -> None:
+    """Render the AttackBrief read model without requiring findings.json."""
+    overall = (report.get("asr") or {}).get("overall") or {}
+    attempts = report.get("attempts") or []
+    st.subheader("Результат · автономная кампания")
+    st.caption(
+        f"{report.get('profile') or 'профиль не указан'} · "
+        f"{report.get('strategy') or 'independent'} · {report.get('status') or '—'}"
+    )
+    columns = st.columns(5)
+    columns[0].metric("ASR", overall.get("asr_display", "нет данных"))
+    columns[1].metric("YES", overall.get("yes", 0))
+    columns[2].metric("NO", overall.get("no", 0))
+    columns[3].metric("Не оценено", overall.get("errors", 0))
+    columns[4].metric("Попыток", len(attempts))
+
+    attempts_tab, evidence_tab, experience_tab, report_tab, files_tab = st.tabs(
+        ("ПОПЫТКИ", "ДОКАЗАТЕЛЬСТВА", "ОПЫТ", "ОТЧЁТ", "ФАЙЛЫ")
+    )
+    with attempts_tab:
+        st.dataframe([{
+            "#": row.get("attempt"),
+            "BRIEF": row.get("brief_id"),
+            "РЕЖИМ": row.get("mode") or "default",
+            "TRIAL": row.get("trial"),
+            "ХОДОВ": row.get("turns", len(row.get("actions") or [])),
+            "ОСТАНОВКА": row.get("stop_reason"),
+            "РЕЗУЛЬТАТ": attempt_outcome_label(row),
+            "ТЕХНИЧЕСКАЯ ПРИЧИНА": row.get("error"),
+        } for row in attempts], width="stretch", hide_index=True)
+        adaptive = (report.get("asr") or {}).get("adaptive")
+        if adaptive:
+            st.caption("ADAPTIVE DISCOVERY")
+            st.dataframe([{
+                "BRIEF": item.get("brief_id"),
+                "РЕЖИМ": item.get("mode"),
+                "ПОПЫТОК": item.get("attempts_run"),
+                "УСПЕХ": "да" if item.get("success") else "нет",
+                "ПЕРВЫЙ УСПЕХ": item.get("first_success_attempt") or "—",
+            } for item in adaptive.get("groups") or []],
+                width="stretch", hide_index=True)
+    with evidence_tab:
+        _render_autonomous_evidence(report)
+    with experience_tab:
+        experience = report.get("experience") or {}
+        groups = experience.get("by_brief_mode") or {}
+        if not groups:
+            st.info("Опыт появляется у кампаний со стратегией adaptive.")
+        for group, items in groups.items():
+            st.markdown(f"#### {group}")
+            st.dataframe([{
+                "ПОПЫТКА": item.get("attempt"),
+                "TRIAL": item.get("trial"),
+                "ОСТАНОВКА": item.get("stop_reason"),
+                "РЕЗУЛЬТАТ": attempt_outcome_label({
+                    "judge_verdict": item.get("judge_verdict"),
+                    "status": item.get("technical_status"),
+                    "stop_reason": item.get("stop_reason"),
+                    "unscored_reason": item.get("unscored_reason"),
+                    "error": item.get("technical_error"),
+                }),
+                "SUMMARY": item.get("summary"),
+            } for item in items], width="stretch", hide_index=True)
+            with st.container(border=True):
+                st.caption("LEARNING И НАБЛЮДАЕМЫЕ ФАКТЫ")
+                st.json(items)
+    technical = build_autonomous_report(report)
+    business = build_autonomous_business_report(report)
+    with report_tab:
+        selected = st.segmented_control(
+            "Вид отчёта", ("Технический", "Бизнес"), default="Технический",
+            key=f"report-kind-{key}-{run_dir.name}", label_visibility="collapsed",
+        ) or "Технический"
+        st.markdown(technical if selected == "Технический" else business)
+    with files_tab:
+        for label, name, content in (
+            ("технический отчёт", "report.md", technical),
+            ("бизнес-отчёт", "business-report.md", business),
+        ):
+            st.download_button(
+                f"Скачать {label}", content.encode("utf-8"), file_name=name,
+                mime="text/markdown", width="stretch",
+                key=f"dl-{key}-{run_dir.name}-{name}",
+            )
+        for name in ("summary.json", "campaign.json", "experience.json",
+                     "transcript.jsonl"):
+            path = run_dir / name
+            if path.is_file():
+                st.download_button(
+                    f"Скачать {name}", path.read_bytes(), file_name=name,
+                    mime=("application/x-ndjson" if name.endswith(".jsonl")
+                          else "application/json"),
+                    width="stretch",
+                    key=f"dl-{key}-{run_dir.name}-{name}",
+                )
+        st.download_button(
+            "Скачать evidence bundle (.zip)", _archive_run(run_dir),
+            file_name=f"{run_dir.name}-evidence.zip", mime="application/zip",
+            width="stretch", key=f"dl-{key}-{run_dir.name}-bundle",
+        )
+
+
+def _render_autonomous_evidence(report: dict) -> None:
+    attempts = report.get("attempts") or []
+    if not attempts:
+        st.info("Попыток пока нет.")
+        return
+    ordered = sorted(
+        attempts,
+        key=lambda row: (row.get("judge_verdict") != "YES", row.get("attempt", 0)),
+    )
+    for position, row in enumerate(ordered):
+        outcome = attempt_outcome_label(row)
+        title = (
+            f"{outcome} · попытка {row.get('attempt')} · {row.get('brief_id')} · "
+            f"{row.get('mode') or 'default'}"
+        )
+        with st.expander(title, expanded=position == 0):
+            brief = row.get("brief") or {}
+            st.markdown(f"**Objective:** {brief.get('objective') or '—'}")
+            st.markdown(
+                f"**Success criteria:** {brief.get('success_criteria') or '—'}"
+            )
+            st.caption("STANDARD REFS · " + ", ".join(
+                brief.get("standard_refs") or ["—"]
+            ))
+            actions = row.get("actions") or []
+            st.dataframe([{
+                "ХОД": action.get("turn"),
+                "ДЕЙСТВИЕ": action.get("action"),
+                "РОЛЬ / PRINCIPAL": (
+                    f"{action.get('role') or '—'} / {action.get('principal') or '—'}"
+                ),
+                "СЕССИЯ": action.get("session") or "—",
+                "ОШИБКА": action.get("error"),
+                "OBSERVATION": action.get("observation_id") or "—",
+            } for action in actions], width="stretch", hide_index=True)
+            for action in actions:
+                if action.get("request") is None and action.get("response") is None:
+                    continue
+                with st.container(border=True):
+                    st.caption(f"ХОД {action.get('turn')} · ЗАПРОС / ОТВЕТ")
+                    st.code(action.get("request") or "—", language=None)
+                    st.code(action.get("response") or "—", language=None)
+            left, right = st.columns(2)
+            with left:
+                st.caption("EVIDENCE")
+                st.json(row.get("evidence") or {})
+            with right:
+                st.caption("JUDGE")
+                st.json(row.get("judge") or {})
+            learning = row.get("learning") or {}
+            if any(learning.values()):
+                st.caption("РЕФЛЕКСИЯ АТАКУЮЩЕГО · НЕ EVIDENCE")
+                st.json(learning)
+
+
+def _archive_run(run_dir: Path) -> bytes:
+    buffer = io.BytesIO()
+    with zipfile.ZipFile(buffer, "w", compression=zipfile.ZIP_DEFLATED) as archive:
+        for path in sorted(run_dir.rglob("*")):
+            if path.is_file() and not path.is_symlink():
+                archive.write(path, path.relative_to(run_dir))
+    return buffer.getvalue()
 
 
 def _render_timings(timings: dict) -> None:
@@ -474,19 +681,19 @@ def _render_history() -> None:
         storage = RunStorage(RUNS_ROOT)
         run_dir = storage.root / open_id
         try:
-            findings = storage.load_json(run_dir, "findings.json")
+            loaded = _load_saved_run(run_dir)
         except (OSError, ValueError, TypeError, KeyError):
-            findings = None
+            loaded = None
         if st.button("← К списку запусков"):
             st.session_state.history_open = None
             st.rerun()
         when = _run_time(open_id)
         ts = f" · {when.strftime('%d.%m.%Y %H:%M')}" if when else ""
         st.caption(f"Запуск `{open_id}`{ts}")
-        if findings is None:
+        if loaded is None:
             st.error("Результаты запуска повреждены или не завершены.")
         else:
-            _render_results(run_dir, findings, key="hist")
+            _render_saved_results(run_dir, loaded, key="hist")
         return
 
     dot = {"completed": "🟢", "failed": "🔴", "interrupted": "🟠",

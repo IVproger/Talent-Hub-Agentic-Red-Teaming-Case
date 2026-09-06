@@ -1,10 +1,12 @@
 # Runtime architecture
 
-## Supported path
+## Supported paths
 
-CLI и Streamlit-UI зовут один и тот же `campaign.orchestrator.run_campaign`.
-Старый `pipeline.run_pipeline` удалён: адаптер и evidence собираются из
-профиля цели, а не из target-специфичных дефолтов.
+CLI поддерживает два явных пути исполнения: сценарный через
+`campaign.orchestrator.run_campaign` и автономный через
+`attacker.application.execute_attack_campaign`. Оба собирают адаптер и evidence
+из профиля цели, используют общий storage и сохраняют самодостаточные
+артефакты. Streamlit запускает сценарный путь, а отчёты читает для обоих.
 
 ```text
 profiles/<name>/<version>.yaml
@@ -22,6 +24,17 @@ profiles/<name>/<version>.yaml
                                         провайдеров и адаптера)
                                    покрытие, источник сброса, фичи адаптера
                                         (по поднятым провайдерам)
+
+fixed AttackBrief YAML
+        |
+        +--> CLI --> execute_attack_campaign --> attacker loop --> LLM judge
+                                                        |
+                                                        +--> attempts/NNNN/
+                                                        +--> summary.json
+                                                        +--> report.md
+                                                        +--> business-report.md
+
+runs/<run-id>/ --> reporting read model --> CLI report / Streamlit preview
 ```
 
 `config/target.yaml` держит настройки движка (LLM-роли, наблюдаемость,
@@ -32,6 +45,13 @@ profiles/<name>/<version>.yaml
 поэтому всё, что должно действовать на оба входа, живёт в нём, а не в разборе
 аргументов. Это не стилистика: пока гейт авторизации стоял на пути CLI, UI
 запускал кампании вообще без рамки.
+
+**Отчёт автономной кампании — производный read model.** Он объединяет
+`campaign.json`, `summary.json`, `experience.json` и доступные файлы каждого
+`attempts/NNNN/`. Отсутствие необязательного или частично записанного artifact
+не делает весь завершённый объём нечитаемым; неполнота маркируется в отчёте.
+Сценарный `findings.json` при этом не синтезируется: семантика LLM-judge
+`YES/NO` не маскируется под детерминированный state-verdict `proven`.
 
 ## Рамки прогона
 

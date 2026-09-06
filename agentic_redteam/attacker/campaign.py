@@ -5,10 +5,11 @@
 
     ASR = YES / (YES + NO) × 100%
 
-Ошибочные попытки ({"status": "error", "judge_verdict": null}) в знаменатель
-не входят. Рядом с ASR выводятся количества YES, NO, ошибок и исключённых
-попыток; ASR считается отдельно по режимам цели; при отсутствии оценённых
-попыток выводится «нет данных».
+Неоценённые попытки ({"status": "error", "judge_verdict": null}) в знаменатель
+не входят. ``error`` — стабильный машинный статус; человеку показывается
+«НЕ ОЦЕНЕНО» с причиной. Рядом с ASR выводятся количества YES, NO,
+неоценённых и исключённых попыток; ASR считается отдельно по режимам цели;
+при отсутствии оценённых попыток выводится «нет данных».
 
 Independent-стратегия сохраняет trials независимыми. Adaptive-стратегия
 передаёт между попытками одного brief+mode ограниченный контекст:
@@ -31,6 +32,12 @@ import yaml
 from ..campaign.runner import RunEvent, emit
 from ..errors import PipelineConfigurationError
 from ..profile.schema import TargetProfile
+from ..reporting.autonomous import (
+    AUTONOMOUS_RUN_KIND,
+    build_autonomous_business_report,
+    build_autonomous_report,
+    load_autonomous_run,
+)
 from ..storage.runs import RunStorage
 from .agent import (
     AttackerAttempt,
@@ -40,6 +47,7 @@ from .agent import (
 )
 from .briefs import AttackBrief
 from .judge import JudgeOutcome, build_judge_context, judge_attempt
+from .status import attempt_outcome_label, classify_unscored
 
 NO_DATA = "нет данных"
 CAMPAIGN_STRATEGIES = frozenset({"independent", "adaptive"})
@@ -138,6 +146,9 @@ def _experience_entry(
         "technical_error": (
             attempt.error or outcome.record.get("error")
         ),
+        "unscored_reason": classify_unscored(
+            attempt.stop_reason, attempt.error, outcome.record.get("error")
+        ),
         "summary": attempt.claim_summary,
         "learning": attempt.learning,
         "observed": {
@@ -209,6 +220,9 @@ def _result_row(attempt: AttackerAttempt, outcome: JudgeOutcome, index: int) -> 
         "status": outcome.status,
         "judge_verdict": outcome.judge_verdict,
         "error": attempt.error or outcome.record.get("error"),
+        "unscored_reason": classify_unscored(
+            attempt.stop_reason, attempt.error, outcome.record.get("error")
+        ),
     }
 
 
@@ -254,65 +268,6 @@ def _persist_attempt(storage: RunStorage, run_dir: Path, attempt: AttackerAttemp
     return directory
 
 
-def _report(run_id: str, profile_ref: str, summary: dict, rows: list[dict]) -> str:
-    lines = [
-        f"# Отчёт о прогоне {run_id}",
-        "",
-        f"Профиль: {profile_ref or '—'}",
-        "",
-        "## ASR",
-        "",
-        "Единица измерения — целая попытка атакующего; ошибки и исключённые",
-        "попытки в знаменатель не входят.",
-        "",
-        "| Режим | YES | NO | Ошибок | Исключено | ASR |",
-        "|---|---|---|---|---|---|",
-    ]
-    overall = summary["overall"]
-    lines.append(
-        f"| Всего | {overall['yes']} | {overall['no']} | {overall['errors']} "
-        f"| {overall['excluded']} | {overall['asr_display']} |"
-    )
-    for mode, row in summary["by_mode"].items():
-        lines.append(
-            f"| {mode} | {row['yes']} | {row['no']} | {row['errors']} "
-            f"| {row['excluded']} | {row['asr_display']} |"
-        )
-    adaptive = summary.get("adaptive")
-    if adaptive is not None:
-        percent = adaptive["success_within_budget_percent"]
-        display = f"{percent:g}%" if percent is not None else NO_DATA
-        lines += [
-            "",
-            "## Adaptive discovery",
-            "",
-            f"Успех в пределах бюджета: {adaptive['groups_succeeded']}/"
-            f"{adaptive['groups_total']} ({display}).",
-            "",
-            "| Brief | Режим | Попыток | Первый успех |",
-            "|---|---|---|---|",
-        ]
-        for item in adaptive["groups"]:
-            lines.append(
-                f"| {item['brief_id']} | {item['mode']} | {item['attempts_run']} | "
-                f"{item['first_success_attempt'] or '—'} |"
-            )
-    lines += [
-        "",
-        "## Попытки",
-        "",
-        "| # | Brief | Режим | Остановка | Claim | Вердикт |",
-        "|---|---|---|---|---|---|",
-    ]
-    for row in rows:
-        lines.append(
-            f"| {row['attempt']} | {row['brief_id']} | {row['mode'] or 'default'} "
-            f"| {row['stop_reason'] or '—'} | {row['claim'] or '—'} "
-            f"| {row['judge_verdict'] if row['judge_verdict'] else row['status']} |"
-        )
-    return "\n".join(lines) + "\n"
-
-
 def run_attack_campaign(briefs: list[AttackBrief], deps: AttackerDeps, judge,
                         storage: RunStorage, run_id: str, modes=None, trials: int = 1,
                         limits: AttackerLimits | None = None,
@@ -335,6 +290,7 @@ def run_attack_campaign(briefs: list[AttackBrief], deps: AttackerDeps, judge,
     modes = list(modes or [None])
     run_dir = storage.create(run_id)
     campaign_record = {
+        "run_kind": AUTONOMOUS_RUN_KIND,
         "run_id": run_id,
         "profile": profile_ref,
         "modes": modes,
@@ -372,7 +328,14 @@ def run_attack_campaign(briefs: list[AttackBrief], deps: AttackerDeps, judge,
             "error": error,
         }
         storage.write_json(run_dir, "summary.json", record)
-        storage.write_text(run_dir, "report.md", _report(run_id, profile_ref, summary, rows))
+        report_model = load_autonomous_run(run_dir)
+        storage.write_text(
+            run_dir, "report.md", build_autonomous_report(report_model)
+        )
+        storage.write_text(
+            run_dir, "business-report.md",
+            build_autonomous_business_report(report_model),
+        )
         storage.write_json(run_dir, "status.json", {
             "run_id": run_id,
             "status": current,
@@ -434,7 +397,7 @@ def run_attack_campaign(briefs: list[AttackBrief], deps: AttackerDeps, judge,
                     checkpoint("running")
                     emit(on_event, RunEvent(
                         "attempt",
-                        f"попытка {index}/{total}: {row['judge_verdict'] or row['status']}",
+                        f"попытка {index}/{total}: {attempt_outcome_label(row)}",
                         status="running", attempt=index, total=total,
                         data={"brief": brief.id, "mode": mode,
                               "verdict": row["judge_verdict"], "status": row["status"]},

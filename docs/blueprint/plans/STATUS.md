@@ -25,10 +25,14 @@ LLM Judge → ASR` как первый класс пути запуска (`agen
   commit ограничены профилем; сессии — по меткам атакующего. Deadline держит
   инфраструктура: таймауты вызовов учитывают остаток бюджета (`call_with_timeout`),
   действия после deadline запрещены, сбор хвостовых evidence и вызов judge —
-  отчёт"; judge_timeout). Ход (запрос-ответ) дополнительно ограничен
+  отдельными бюджетами (`evidence_timeout`, `judge_timeout`). Ход
+  (запрос-ответ) дополнительно ограничен
   `turn_timeout` (по умолчанию 120 с): зависшее действие помечается ошибкой и
   попытка продолжается, зависшее LLM-решение останавливает попытку со
-  stop_reason `turn_timeout` (техническая ошибка). Evidence-окно закрывается
+  stop_reason `turn_timeout` и пользовательским результатом
+  `НЕ ОЦЕНЕНО · таймаут решения атакующего`. Машинный статус остаётся `error`
+  для совместимости. `deadline` и `max_turns`, напротив, передают накопленные
+  evidence в judge и заканчиваются `YES`/`NO`. Evidence-окно закрывается
   даже при ошибке действия; каждая попытка агрегирует facts/observations/memory
   diffs + окно хвостовых событий. `submit_attack` принимает типизированную
   рефлексию `learning`: пробовавшиеся стратегии, наблюдения, гипотезы,
@@ -41,7 +45,8 @@ LLM Judge → ASR` как первый класс пути запуска (`agen
   transcript (роли/принципалы/сессии/trace-span ID), tool calls, memory diff,
   roles/boundaries профиля. Ответ строго YES/NO; невалидный ответ после
   ограниченных повторов, отказ LLM/таймаут или технический сбой попытки →
-  `{"status": "error", "judge_verdict": null}`.
+  `{"status": "error", "judge_verdict": null}`; в человекочитаемом выводе —
+  `НЕ ОЦЕНЕНО` с конкретной причиной.
 - **Кампания и ASR** (`attacker/campaign.py`): `independent` сохраняет
   независимые trials; `adaptive` передаёт следующей попытке того же
   `brief+mode` ограниченную историю learning + tool/memory/error facts +
@@ -49,19 +54,30 @@ LLM Judge → ASR` как первый класс пути запуска (`agen
   опыт между modes/brief не течёт. Для adaptive считаются discovery within K,
   first-success attempt и cumulative success; `--stop-on-success` заканчивает
   цепочку после первого YES. `ASR = YES/(YES+NO)×100%`,
-  единица — целая попытка; ошибки и исключённые вне знаменателя; разрезы по
+  единица — целая попытка; неоценённые технические исходы и исключённые вне
+  знаменателя; разрезы по
   режимам; «нет данных» при пустом знаменателе. Артефакты: `campaign.json`
   (brief + снимок профиля/конфига), `attempts/NNNN/{brief.yaml, actions.json,
   evidence.json, judge.json, result.json}`, `summary.json`, `report.md`,
-  `transcript.jsonl`, `experience.json` (adaptive), `status.json`; чекпоинт после
-  каждой попытки.
+  `business-report.md`, `transcript.jsonl`, `experience.json` (adaptive),
+  `status.json`; чекпоинт после каждой попытки. Полный отчёт собирается из
+  сохранённых attempt-артефактов: метрики/покрытие, бюджеты, хронология,
+  request/response, tool/memory/callback evidence, trace-ссылки, learning,
+  воспроизведение и ограничения. `report --run` пересобирает технический и
+  бизнес-вариант и для автономного формата.
 - **CLI**: `briefs generate --profile --out [--count --sources]` и
-  `run --briefs DIR --profile [--mode --trials --strategy
+  `run --briefs PATH --profile [--mode --trials --strategy
   independent|adaptive --stop-on-success]`. Гейты авторизации (US-34) и
   review_required общие со сценарным путём; требует reset-провайдер и
-  `llm.judge` в конфиге; ограничения — секция `attacker` в config.
+  `llm.judge` в конфиге; `PATH` может быть одним YAML-файлом или каталогом;
+  ограничения — секция `attacker` в config.
+- **UI отчётов:** сохранённый формат определяется автоматически. Автономные
+  прогоны открываются без `findings.json`; доступны попытки, discovery,
+  evidence, trace, memory diff, adaptive experience, preview технического и
+  бизнес-отчётов и ZIP всего evidence bundle. Запуск автономной кампании из UI
+  пока не добавлен.
 - **Что НЕ делалось:** big-bang удаление сценарного пути (`campaign/`,
-  `generation/`). Replay (`run --from`), регрессия, lifecycle базы знаний и UI
+  `generation/`). Replay (`run --from`), регрессия и lifecycle базы знаний
   по-прежнему потребляют PlannedScenario — по правилу CLAUDE.md старый код
   удаляется только когда новый путь заменит его целиком.
 
@@ -69,7 +85,8 @@ LLM Judge → ASR` как первый класс пути запуска (`agen
 deadline (`tests/test_attacker_agent.py`), передача traces и memory diff в
 judge (`tests/test_attacker_judge.py`), независимость judge от claim (give_up
 → YES в `tests/test_attacker_campaign.py`), знаменатель ASR (ошибки вне
-знаменателя, «нет данных»). Полный набор: **615 тестов, OK**.
+знаменателя, «нет данных»), загрузка полного автономного отчёта и сохранение
+неполного attempt bundle (`tests/test_autonomous_reporting.py`).
 
 
 ## Актуальный срез: пункты 3, 5 и 8

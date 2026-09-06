@@ -143,5 +143,80 @@ class ProfileIngestTests(unittest.TestCase):
 
 
 
+    def test_ingest_prompts_cover_identities_and_entrypoint_for_runnable_draft(self):
+        openapi = self._openapi()
+        captured = {}
+
+        class Capturing:
+            def __init__(self, role, reply):
+                self.role, self.reply = role, reply
+
+            def complete(self, prompt):
+                captured[self.role] = prompt
+                return self.reply
+
+        analyst = Capturing("analyst", json.dumps({"tools": []}))
+        judge = Capturing("judge", json.dumps(
+            {"accepted": {}, "rejected": [], "confidence": {}}))
+        build_draft(
+            openapi, "http://localhost:7001", "target",
+            analyst=analyst, judge=judge,
+        )
+        # onboarding must be able to bind the runnable, load-bearing sections,
+        # not just the surface — otherwise a docs-built profile cannot execute.
+        for section in ("identities", "entrypoint"):
+            self.assertIn(section, captured["analyst"])
+            self.assertIn(section, captured["judge"])
+        # the onboarding prompt must be target-agnostic: no stand-specific
+        # identifiers baked in — it works for any target from its documents.
+        for token in ("agent_policy_memories", "invest-server", "8600",
+                      "genai-invest"):
+            self.assertNotIn(token, captured["analyst"].lower())
+            self.assertNotIn(token, captured["judge"].lower())
+
+
+
+    def test_ingest_prompt_carries_profile_schema_for_conformant_bindings(self):
+        openapi = self._openapi()
+        captured = {}
+
+        class Cap:
+            def __init__(self, role, reply):
+                self.role, self.reply = role, reply
+
+            def complete(self, prompt):
+                captured[self.role] = prompt
+                return self.reply
+
+        build_draft(
+            openapi, "http://localhost:7001", "target",
+            analyst=Cap("analyst", json.dumps({"tools": []})),
+            judge=Cap("judge", json.dumps(
+                {"accepted": {}, "rejected": [], "confidence": {}})),
+        )
+        # the prompt must carry the exact profile schema vocabulary so the LLM
+        # emits schema-conformant bindings instead of guessing shapes.
+        for token in ("docker-exec-mint", "db-query", "cross_user",
+                      "per_deployment", "commit_memory"):
+            self.assertIn(token, captured["analyst"])
+            self.assertIn(token, captured["judge"])
+
+
+
+    def test_analyst_transient_bad_response_is_retried(self):
+        openapi = self._openapi()
+        # first completion is garbage (flaky provider), retry yields valid JSON
+        analyst = FakeLLM(["oops не json", json.dumps({"tools": []})])
+        judge = FakeLLM([json.dumps(
+            {"accepted": {}, "rejected": [], "confidence": {}})])
+        draft = build_draft(
+            openapi, "http://localhost:7001", "target",
+            analyst=analyst, judge=judge,
+        )
+        # retry recovered: hypotheses parsed, judgement produced
+        self.assertEqual(draft["ingest"]["judgement"]["provenance"], "llm-judged")
+
+
+
 if __name__ == "__main__":
     unittest.main()

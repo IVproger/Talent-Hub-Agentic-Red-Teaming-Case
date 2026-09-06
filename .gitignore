@@ -23,3 +23,4 @@ knowledge.db
 # Local browser screenshots from UI verification
 .playwright-cli/
 outputs/
+design-alpha-kit/

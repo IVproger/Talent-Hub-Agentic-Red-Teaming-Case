@@ -1,0 +1,27 @@
+<!DOCTYPE html>
+<html lang="ru"><head><meta charset="utf-8"><title>MOROK · Прогресс и лог прогона</title>
+<link rel="stylesheet" href="../css/tokens.css"><link rel="stylesheet" href="../css/base.css"><link rel="stylesheet" href="../css/components.css">
+<style>body{padding:40px;display:flex;flex-direction:column;gap:24px;max-width:1100px}.demo{display:flex;flex-direction:column;gap:12px}.demo h4{margin:0;font-size:11px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--mk-color-text-tertiary)}</style>
+</head><body>
+<div class="mk-stack mk-gap-1"><a href="../index.html" class="mk-meta">← Дизайн-кит</a><h1 class="mk-h1">Прогресс и лог прогона</h1></div>
+
+<div class="mk-card"><div class="mk-between"><span class="mk-row mk-gap-2"><span class="mk-spinner" id="spin"></span><span style="font-weight:600;font-size:15px" id="status">Атакуем · собираем состояние</span></span><span class="mk-meta" style="font-size:13px;white-space:nowrap" id="counter">0 / 4 атак · 0%</span></div>
+<div class="mk-progress"><div class="mk-progress__fill" id="fill" style="width:0%"></div></div>
+<div class="mk-row mk-gap-4 mk-caption" style="font-size:13px;flex-wrap:wrap"><span>Доказано: <b class="mk-mono mk-text-negative">—</b></span><span>Tool calls: <b class="mk-mono" style="color:var(--mk-color-text-primary)">—</b></span></div></div>
+<div class="mk-grid mk-grid-2-3">
+<div class="mk-card" style="gap:10px"><h3 class="mk-h3" style="font-size:15px">Атаки</h3><div id="rows" class="mk-stack mk-gap-2">
+<div class="mk-attack-row"><span class="mk-attack-row__n">1</span><span class="mk-attack-row__name">Подмена cus в get_customer_profile</span><span class="mk-badge mk-badge--pending">PENDING</span></div>
+<div class="mk-attack-row"><span class="mk-attack-row__n">2</span><span class="mk-attack-row__name">Расширение выборки list_transactions</span><span class="mk-badge mk-badge--pending">PENDING</span></div>
+<div class="mk-attack-row"><span class="mk-attack-row__n">3</span><span class="mk-attack-row__name">Ролевая легенда «менеджер сопровождения»</span><span class="mk-badge mk-badge--pending">PENDING</span></div>
+<div class="mk-attack-row"><span class="mk-attack-row__n">4</span><span class="mk-attack-row__name">Инъекция через реквизиты платежа</span><span class="mk-badge mk-badge--pending">PENDING</span></div></div>
+<button class="mk-btn mk-btn--brand mk-push-bottom" id="start" style="align-self:flex-start">Запустить сценарий</button></div>
+<div class="mk-card mk-card--dark" style="gap:12px;min-height:380px"><div class="mk-between"><span style="font-weight:600;font-size:15px">Живой лог</span><span class="mk-meta" style="font-size:11px;color:var(--mk-color-text-on-dark-tertiary)">observability.json · langfuse</span></div>
+<div class="mk-log" id="log"><span class="mk-log__cursor" id="cursor"></span></div></div></div>
+<script>
+document.getElementById('spin').style.visibility='hidden';
+document.getElementById('start').addEventListener('click',function(){this.hidden=true;document.getElementById('spin').style.visibility='visible';
+MK.runSim({rows:document.querySelectorAll('#rows .mk-attack-row'),verdicts:[true,false,true,true],progress:document.getElementById('fill'),counter:document.getElementById('counter'),log:document.getElementById('log'),cursor:document.getElementById('cursor'),
+onDone:function(){document.getElementById('spin').style.visibility='hidden';document.getElementById('status').textContent='Все атаки выполнены, оракул вынес вердикты';}});});
+</script>
+<script src="../js/components.js"></script>
+</body></html>

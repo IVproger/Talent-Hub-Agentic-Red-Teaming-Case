@@ -1,16 +1,17 @@
-"""Streamlit-демо поверх профиля и кампании.
+"""Streamlit UI: документы цели → профиль (LLM-судья) → проверка → OWASP-прогон.
 
-Своей логики нет: экран собирает кампанию теми же функциями, что и CLI, и
-рендерит артефакты прогона. Provider/model — read-only из YAML.
+Цель задаётся endpoint'ом и загруженными документами (без захардкоженного
+реестра). Сценарии берутся из OWASP, режимы — из профиля; пользователь только
+проверяет цель и запускает атаку. Движок — тот же `execute_campaign`, что и CLI.
 """
 from __future__ import annotations
 
-import html
-import json
 import sys
+import tempfile
 from pathlib import Path
 
 import streamlit as st
+import yaml
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 if str(REPO_ROOT) not in sys.path:
@@ -18,615 +19,226 @@ if str(REPO_ROOT) not in sys.path:
 
 from agentic_redteam.adapters.http_chat import HttpChatAdapter  # noqa: E402
 from agentic_redteam.app_cli import (  # noqa: E402
-    PROFILES_ROOT,
     _config_mapping,
-    coverage_of,
+    _generate_payloads,
+    _role_configs_at,
+    build_baseline,
     execute_campaign,
     load_profile,
+    make_llm_client,
     new_run_id,
-    preview_scenario,
-    profile_principals,
     reporter_from_config,
     telemetry_from_config,
 )
 from agentic_redteam.campaign.authorization import authorization_from_mapping  # noqa: E402
-from agentic_redteam.campaign.scenarios import resolve as resolve_specs  # noqa: E402
 from agentic_redteam.evidence.bundle import EvidenceBundle  # noqa: E402
 from agentic_redteam.evidence.calibrate import check  # noqa: E402
-from agentic_redteam.profile.registry import ProfileRegistry  # noqa: E402
+from agentic_redteam.profile.ingest import build_draft, read_document  # noqa: E402
+from agentic_redteam.profile.schema import TargetProfile  # noqa: E402
 from agentic_redteam.storage.runs import RunStorage  # noqa: E402
-from agentic_redteam.surface.map import build_surface  # noqa: E402
 
 RUNS_ROOT = REPO_ROOT / "runs"
-TARGET_CONFIG = REPO_ROOT / "config" / "target.yaml"
-REACHABLE_LABEL = {
-    "state": "state",
-    "text": "text · потолок indirect",
-    "unobservable": "нет источника",
-}
+CONFIG = REPO_ROOT / "config" / "target.yaml"
+GENERATE_N = 2
 
 
 def main() -> None:
-    st.set_page_config(
-        page_title="Agentic Red Team",
-        page_icon="■",
-        layout="wide",
-        initial_sidebar_state="expanded",
-    )
-    _styles()
-    _init_state()
-    _page_header()
-
-    references = _profile_options()
-    if not references:
-        st.error(f"В реестре {PROFILES_ROOT} нет профилей.")
-        _render_history()
-        return
+    st.set_page_config(page_title="Agentic Red Team", page_icon="■", layout="wide")
+    st.title("Agentic Red Team")
+    st.caption("Документы цели → профиль (LLM-судья) → проверка → OWASP-прогон. "
+               "Сценарии — из OWASP, режимы — из профиля.")
+    for key in ("profile_path", "docs", "last", "console"):
+        st.session_state.setdefault(key, None if key != "console" else [])
 
     with st.sidebar:
-        st.markdown("## Настройки")
-        reference = st.selectbox("Профиль", references, index=0, key="profile_ref")
-        try:
-            profile = load_profile(reference)
-        except Exception as exc:
-            st.error(f"Профиль не загрузился: {_safe(str(exc))}")
-            _render_history()
+        st.markdown("## Цель")
+        base_url = st.text_input("Endpoint (base_url)", value="http://localhost:8600")
+        st.markdown("### Документы (загружаются вручную)")
+        openapi = st.file_uploader("OpenAPI · обязательно", type=["json", "yaml", "yml"])
+        arch = st.file_uploader("Архитектура", type=["mmd", "md", "txt"])
+        system_card = st.file_uploader("System card", type=["md", "txt"])
+        extra = st.file_uploader("Доп. файлы: compose, схемы, исходники памяти",
+                                 accept_multiple_files=True)
+        left, right = st.columns(2)
+        do_check = left.button("ПРОВЕРКА", use_container_width=True)
+        do_run = right.button("ЗАПУСК", type="primary", use_container_width=True)
+
+    if do_check or do_run:
+        if openapi is None:
+            st.error("Загрузите OpenAPI цели.")
             return
-        rows, available = coverage_of(profile, [])
-        by_id = {row["scenario_id"]: row for row in rows}
-        st.caption("Источники: " + (", ".join(sorted(available)) or "—"))
+        path = _build_profile(openapi, base_url, arch, system_card, extra)
+        if path is None:
+            return
+        st.session_state.profile_path = str(path)
 
-        with st.form("campaign", clear_on_submit=False):
-            st.markdown("### Кампания")
-            runnable = [row["scenario_id"] for row in rows if row["reachable"] != "unobservable"]
-            scenario_ids = st.multiselect(
-                "Сценарии",
-                [row["scenario_id"] for row in rows],
-                default=runnable,
-                format_func=lambda value: f"{value} · {REACHABLE_LABEL[by_id[value]['reachable']]}",
-                key="campaign_scenarios",
-            )
-            modes = st.multiselect("Режимы", sorted(profile.modes),
-                                   default=sorted(profile.modes), key="campaign_modes")
-            trials = st.number_input("Прогонов на payload", min_value=1, max_value=100,
-                                     value=1, step=1)
-            blocked = sorted(set(scenario_ids) & {row["scenario_id"] for row in rows
-                                                  if row["reachable"] == "unobservable"})
-            if blocked:
-                st.error("Не запустятся — нет источника: " + ", ".join(blocked))
-            st.caption("«Проверить» — необязательная диагностика; запуск сам проверит цель.")
-            check_col, run_col = st.columns(2)
-            with check_col:
-                check_submitted = st.form_submit_button("ПРОВЕРИТЬ", width="stretch")
-            with run_col:
-                submitted = st.form_submit_button(
-                    "ЗАПУСТИТЬ", type="primary", width="stretch",
-                    disabled=not scenario_ids or bool(blocked),
-                )
+    profile_path = st.session_state.profile_path
+    if profile_path:
+        st.success(f"Профиль собран из документов: `{Path(profile_path).name}`")
+        profile = load_profile(profile_path)
+        with st.expander("Секции профиля"):
+            st.json(_profile_summary(profile_path))
+        if do_check:
+            _do_check(profile)
+        if do_run:
+            _do_run(profile, st.session_state.docs or [])
 
-        if check_submitted:
-            st.session_state.run_error = None
-            st.session_state.environment_checks = _preflight(profile)
-            st.rerun()
-        _render_preflight_checks(st.session_state.get("environment_checks", []))
-
-    _render_surface(build_surface(
-        profile, st.session_state.get("environment_checks", [])
-    ))
-    planned = _planned(profile, scenario_ids)
-    _render_preview(planned)
-
-    progress, live_trace, status = st.empty(), st.empty(), st.empty()
-    if submitted and not st.session_state.run_in_progress:
-        _start_run(profile, planned, modes, int(trials), progress, live_trace, status)
-
-    if st.session_state.run_error:
-        st.error(st.session_state.run_error)
-    for note in st.session_state.get("skipped", []):
-        st.warning(f"пропущено · {note}")
     _render_results()
-    _render_history()
 
 
-def _profile_options() -> list[str]:
+def _build_profile(openapi, base_url, arch, system_card, extra):
+    tmp = Path(tempfile.mkdtemp())
+    op = tmp / (openapi.name or "openapi.json")
+    op.write_bytes(openapi.getvalue())
+    docs: list[str] = []
+    for upload in (arch, system_card, *(extra or [])):
+        if upload is None:
+            continue
+        dest = tmp / upload.name
+        dest.write_bytes(upload.getvalue())
+        docs.append(str(dest))
+    st.session_state.docs = docs
     try:
-        return [f"{name}@{version}" for name, version in ProfileRegistry(PROFILES_ROOT).list()]
-    except Exception:
-        return []
+        roles = _role_configs_at(CONFIG)
+        analyst = make_llm_client(roles["analyst"])
+        judge = make_llm_client(roles["judge"])
+    except Exception as exc:  # noqa: BLE001
+        st.error(f"LLM для онбординга не настроен: {exc}")
+        return None
+    name = "target-" + op.stem
+    with st.spinner("Собираю профиль из документов (analyst → judge)… пара минут"):
+        try:
+            draft = build_draft(str(op), base_url, name,
+                                documents=docs, analyst=analyst, judge=judge)
+            TargetProfile.from_mapping(draft)
+        except Exception as exc:  # noqa: BLE001
+            st.error(f"Онбординг не удался: {exc}")
+            return None
+    out = tmp / "profile.yaml"
+    out.write_text(yaml.safe_dump(draft, allow_unicode=True, sort_keys=False),
+                   encoding="utf-8")
+    return out
 
 
-def _planned(profile, scenario_ids: list[str]) -> list:
-    if not scenario_ids:
-        return []
-    try:
-        principals = profile_principals(profile)
-        return [spec.to_planned(principals) for spec in resolve_specs(list(scenario_ids))]
-    except Exception:
-        return []
+def _profile_summary(path):
+    data = yaml.safe_load(Path(path).read_text(encoding="utf-8"))
+    return {
+        "adapter": data.get("adapter"),
+        "identities": (data.get("identities") or {}).get("provider"),
+        "tools": [t.get("name") for t in (data.get("surface") or {}).get("tools", [])],
+        "memory": [m.get("id") for m in (data.get("surface") or {}).get("memory", [])],
+        "evidence": [(e.get("id"), e.get("provider")) for e in data.get("evidence", [])],
+        "modes": list((data.get("modes") or {})),
+        "judgement": (data.get("ingest") or {}).get("judgement", {}).get("rejected", []),
+    }
 
 
-def _preflight(profile) -> list[dict]:
-    """Тот же read-only `check`, что и в CLI: цель не меняется."""
+def _do_check(profile):
+    st.subheader("Проверка цели · read-only")
     try:
         with EvidenceBundle.from_profile(profile) as bundle:
             adapter = HttpChatAdapter.from_profile(profile)
             try:
-                return [item.to_dict() for item in check(bundle, adapter)]
+                results = [r.to_dict() for r in check(bundle, adapter)]
             finally:
                 adapter.close()
-    except Exception as exc:
-        return [{"name": "preflight", "ok": False, "message": str(exc), "blocking": True}]
-
-
-def _start_run(profile, planned, modes, trials, progress, live_trace, status) -> None:
-    st.session_state.run_in_progress = True
-    st.session_state.run_error = None
-    st.session_state.last_result = None
-    st.session_state.skipped = []
-    bar = progress.progress(0, text="Готовим кампанию…")
-    events: list[dict] = []
-
-    def on_event(event) -> None:
-        if event.stage == "completed":
-            value = 1.0
-        elif event.stage == "report":
-            value = 0.95
-        elif event.total and event.attempt:
-            value = min((event.attempt - 0.1) / event.total, 0.9)
-        else:
-            value = 0.05
-        bar.progress(value, text=event.message)
-        events.append({"stage": event.stage, "message": event.message,
-                       "verdict": event.data.get("verdict")})
-        live_trace.markdown(_live_progress_html(events), unsafe_allow_html=True)
-
-    run_id = new_run_id()
-    try:
-        summary = execute_campaign(
-            profile, planned, modes, trials, RUNS_ROOT, run_id,
-            reporter_llm=reporter_from_config(TARGET_CONFIG), on_event=on_event,
-            # US-34: демо подчиняется той же рамке, что и CLI.
-            authorization=authorization_from_mapping(
-                _config_mapping(TARGET_CONFIG)).as_record(),
-            telemetry=telemetry_from_config(TARGET_CONFIG),
-            config=_config_mapping(TARGET_CONFIG))
-        st.session_state.skipped = summary["skipped"]
-        run_dir = Path(summary["run_dir"])
-        st.session_state.last_result = _saved_result(
-            RunStorage(RUNS_ROOT).load_json(run_dir, "findings.json"), run_dir)
-        status.success(f"Готово · {summary['run_id']}")
-    except KeyboardInterrupt:
-        st.session_state.run_error = "Прогон остановлен; собранное сохранено."
-    except Exception as exc:
-        st.session_state.run_error = str(exc)
-    finally:
-        st.session_state.run_in_progress = False
-
-
-def _render_surface(surface: dict) -> None:
-    with st.expander(f"Поверхность цели · {surface['profile']}"):
-        st.caption(f"{surface['adapter']} · {surface['base_url']} · "
-                   f"атрибуция {surface['attribution']}")
-        columns = st.columns(2)
-        with columns[0]:
-            st.markdown("##### Инструменты")
-            st.dataframe([{
-                "TOOL": tool["name"],
-                "ARGS": ", ".join(tool["args"]) or "—",
-                "SENSITIVE": "да" if tool["sensitive"] else "нет",
-                "PRINCIPAL": tool["principal_from"].get("name")
-                             or tool["principal_from"].get("kind", "—"),
-                "СТАТУС": tool["status"],
-            } for tool in surface["tools"]], width="stretch", hide_index=True)
-            st.markdown("##### Границы изоляции")
-            st.dataframe([{"BOUNDARY": item["id"], "ПО": item["principal"],
-                           "ОБЕЩАНИЕ": item["claim"]} for item in surface["isolation"]],
-                         width="stretch", hide_index=True)
-        with columns[1]:
-            st.markdown("##### Память")
-            st.dataframe([{"STORE": item["id"], "SCOPE": item["scope"],
-                           "СТАТУС": item["status"]} for item in surface["memory"]],
-                         width="stretch", hide_index=True)
-            st.markdown("##### Evidence")
-            st.dataframe([{"ID": item["id"], "PROVIDER": item["provider"],
-                           "KIND": item["kind"] or "неизвестен",
-                           "СТАТУС": item["status"]}
-                          for item in surface["evidence"]], width="stretch", hide_index=True)
-        st.markdown("##### Каналы и интеграции")
-        st.caption("Каналы входа: " + (
-            ", ".join(f"{item['name']} ({item['status']})"
-                      for item in surface["input_channels"]) or "—"
-        ))
-        st.dataframe([{
-            "СИСТЕМА": item["name"],
-            "ТИП": item["kind"],
-            "КОМПОНЕНТЫ": ", ".join(item["components"]),
-            "СТАТУС": item["status"],
-        } for item in surface["integrations"]], width="stretch", hide_index=True)
-        st.markdown("##### Связи компонентов")
-        st.dataframe([{
-            "ОТКУДА": item["from"],
-            "СВЯЗЬ": item["kind"],
-            "КУДА": item["to"],
-        } for item in surface["relationships"]], width="stretch", hide_index=True)
-        standard = surface["coverage"]
-        st.caption(
-            f"Покрытие {standard['standard']}: "
-            f"{standard['provable']} из {standard['total']} пунктов доказуемо. "
-            f"{standard['note']}"
-        )
-        st.caption("Режимы: " + (", ".join(f"{name} ({scope})" for name, scope
-                                           in surface["modes"].items()) or "—"))
-
-
-def _render_preview(planned: list) -> None:
-    if not planned:
-        return
-    with st.expander(f"Предпросмотр · {len(planned)} сценарий(ев)"):
-        st.caption("Ровно это будет отправлено цели — как в `run --dry-run`.")
-        for scenario in (preview_scenario(item) for item in planned):
-            st.markdown(f"**{scenario['id']}** · {scenario['attack_class']} · "
-                        f"{', '.join(scenario['standard_refs']) or '—'}")
-            st.caption(f"актор {scenario['actor']} · граница {scenario['boundary'] or '—'}"
-                       f" · reset {scenario['reset_policy']}")
-            st.dataframe([{
-                "#": index, "STEP": step["name"], "ACTOR": step["actor"],
-                "ЧТО": {"payload": "← payload", "commit_memory": "← фиксация памяти"}.get(
-                    step["kind"], step["message"] or ""),
-            } for index, step in enumerate(scenario["steps"], start=1)],
-                width="stretch", hide_index=True)
-            for index, payload in enumerate(scenario["payloads"], start=1):
-                st.code(f"[{index}] {payload}", language=None)
-            st.dataframe([{"ПРЕДИКАТ": item.get("type"),
-                           "ПАРАМЕТРЫ": ", ".join(f"{k}={v}" for k, v in item.items()
-                                                  if k != "type") or "—"}
-                          for item in scenario["goal"]], width="stretch", hide_index=True)
-
-
-def _render_results() -> None:
-    data = st.session_state.last_result
-    if not data:
-        st.info("Выберите сценарии и запустите кампанию.")
-        return
-    outcome_tab, attempts_tab, report_tab, files_tab = st.tabs(
-        ("РЕЗУЛЬТАТ", "ПОПЫТКИ", "ОТЧЁТ", "ФАЙЛЫ"))
-    with outcome_tab:
-        _render_outcome(data)
-    with attempts_tab:
-        _render_attempts(data)
-    with report_tab:
-        _render_report(data)
-    with files_tab:
-        _render_artifacts(data)
-
-
-def _render_outcome(data: dict) -> None:
-    attempts = _valid_dict_list(data.get("attempts"))
-    findings = _valid_dict_list(data.get("findings"))
-    scenarios_scored = int(data.get("scenarios_scored", 0) or 0)
-    scenarios_proven = int(data.get("scenarios_proven", 0) or 0)
-    if data.get("status") in ("failed", "interrupted"):
-        verdict = "INCOMPLETE"
-    elif any(item.get("verdict") == "proven" for item in findings):
-        verdict = "COMPROMISED"
-    elif any(item.get("verdict") == "indirect" for item in findings):
-        verdict = "INDIRECT"
-    elif not scenarios_scored:
-        verdict = "NOT SCORED"
-    else:
-        verdict = "NOT PROVEN"
-    ratio = float(data.get("asr_percent", 0) or 0) if scenarios_scored else 0
-    st.markdown(
-        '<section class="result-summary">'
-        '<div class="result-title"><span>ИТОГ</span>'
-        f'<strong>{_safe(verdict)}</strong><small>{_safe(data.get("run_id", "unknown"))}</small></div>'
-        '<dl>'
-        f'<div><dt>ASR</dt><dd>{_safe(_format_asr(data.get("asr_percent"), scenarios_scored))}</dd></div>'
-        f'<div><dt>Сценарии</dt><dd>{scenarios_proven}/{scenarios_scored}</dd></div>'
-        f'<div><dt>Находок</dt><dd>{len(findings)}</dd></div>'
-        f'<div><dt>Статус</dt><dd>{_safe(str(data.get("status", "unknown")).upper())}</dd></div>'
-        '</dl>'
-        f'<div class="ratio-track"><i style="width:{ratio:.2f}%"></i></div></section>',
-        unsafe_allow_html=True,
-    )
-    st.caption(f"Профиль {data.get('profile', '—')} · режимы "
-               f"{', '.join(data.get('modes', [])) or '—'}")
-    if data.get("asr_by_mode"):
-        st.dataframe([{
-            "РЕЖИМ": mode,
-            "ASR": _format_asr(row.get("asr_percent"), row.get("scenarios_scored")),
-            "СЦЕНАРИИ": f"{row.get('scenarios_proven', 0)}/{row.get('scenarios_scored', 0)}",
-        } for mode, row in data["asr_by_mode"].items()], width="stretch", hide_index=True)
-    if findings:
-        st.markdown("#### Находки")
-        st.dataframe([{
-            "SEVERITY": str(item.get("severity", "—")).upper(),
-            "СЦЕНАРИЙ": item.get("scenario_id"),
-            "ЭТАП": item.get("chain_stage", "—"),
-            "VERDICT": str(item.get("verdict", "—")).upper(),
-            "ТОЧКА КОМПРОМЕТАЦИИ": item.get("compromise_point", "—"),
-            "EVIDENCE": ", ".join(item.get("evidence_refs", [])) or "—",
-        } for item in findings], width="stretch", hide_index=True)
-    for note in data.get("limitations", []):
-        st.caption(f"Ограничение: {note}")
-
-
-def _render_attempts(data: dict) -> None:
-    attempts = _valid_dict_list(data.get("attempts"))
-    if not attempts:
-        st.info("Попыток не записано.")
+    except Exception as exc:  # noqa: BLE001
+        st.error(f"Проверка не выполнена: {exc}")
         return
     st.dataframe([{
-        "#": item.get("attempt"),
-        "СЦЕНАРИЙ": item.get("scenario_id"),
-        "РЕЖИМ": item.get("mode") or "—",
-        "АКТОР": item.get("roles", "—"),
-        "VERDICT": str(item.get("verdict", "invalid")).upper(),
-        "ПРИЗНАК": item.get("signal", "—"),
-    } for item in attempts], width="stretch", hide_index=True)
-    run_dir = _run_dir(data)
-    if run_dir is None:
-        return
-    evidence = sorted(run_dir.glob("evidence-*.json"))
-    if not evidence:
-        st.caption("Evidence-файлов нет: ни одна попытка не собрала фактов.")
-        return
-    chosen = st.selectbox("Evidence попытки", [path.name for path in evidence],
-                          key="evidence_file")
-    st.json(json.loads((run_dir / chosen).read_text(encoding="utf-8")), expanded=False)
+        "ИСТОЧНИК": r["name"],
+        "OK": "✓" if r["ok"] else "✗",
+        "БЛОКИРУЮЩИЙ": "да" if r.get("blocking") else "нет",
+        "СООБЩЕНИЕ": r.get("message", ""),
+    } for r in results], use_container_width=True, hide_index=True)
 
 
-def _render_artifacts(data: dict) -> None:
-    run_dir = _run_dir(data)
-    if run_dir is None:
-        return
-    artifacts = (
-        ("REPORT.MD", "report.md", "text/markdown"),
-        ("FINDINGS.JSON", "findings.json", "application/json"),
-        ("CAMPAIGN.JSON", "campaign.json", "application/json"),
-        ("TRANSCRIPT.JSONL", "transcript.jsonl", "application/x-ndjson"),
-        ("STATUS.JSON", "status.json", "application/json"),
-        ("SURFACE.JSON", "surface.json", "application/json"),
-        ("CONFIG.JSON", "config.json", "application/json"),
-        ("OBSERVABILITY.JSON", "observability.json", "application/json"),
-    )
-    columns = st.columns(2)
-    for index, (label, filename, mime) in enumerate(artifacts):
-        path = run_dir / filename
-        if path.is_file():
-            with columns[index % 2]:
-                st.download_button(label, path.read_bytes(),
-                                   file_name=f"{data.get('run_id', 'run')}-{filename}",
-                                   mime=mime, width="stretch")
+def _do_run(profile, docs):
+    st.subheader("Console")
+    console: list[str] = []
+    box = st.empty()
 
+    def log(line: str) -> None:
+        console.append(line)
+        box.code("\n".join(console[-300:]), language="log")
 
-def _render_history() -> None:
+    modes = list(profile.modes) or ["vulnerable"]
+    log(f"$ run --baseline --generate {GENERATE_N} "
+        f"--mode {','.join(modes)} --profile {profile.name}@{profile.version}")
     try:
-        history = RunStorage(RUNS_ROOT).list_runs()
-    except Exception:
-        history = []
-    if not history:
+        planned, _coverage = build_baseline(profile)
+        log(f"OWASP → применимо сценариев: {len(planned)}")
+        for item in planned:
+            log(f"  · {item.id} [{item.attack_class}]")
+        documents = [read_document(path) for path in docs]
+        planned, _generation = _generate_payloads(
+            planned, profile, GENERATE_N, CONFIG, documents=documents)
+        log("генератор: пейлоады синтезированы")
+    except Exception as exc:  # noqa: BLE001
+        log(f"! подготовка не удалась: {exc}")
+        st.error(str(exc))
         return
-    with st.expander(f"История запусков · {len(history)}"):
+
+    run_id = new_run_id()
+
+    def on_event(event) -> None:
+        verdict = event.data.get("verdict")
+        log(f"[{event.stage}] {event.message}" + (f" → {verdict}" if verdict else ""))
+
+    try:
+        with st.spinner("Прогон OWASP-атаки на живой цели…"):
+            summary = execute_campaign(
+                profile, planned, modes, 1, RUNS_ROOT, run_id,
+                reporter_llm=reporter_from_config(CONFIG), on_event=on_event,
+                authorization=authorization_from_mapping(
+                    _config_mapping(CONFIG)).as_record(),
+                telemetry=telemetry_from_config(CONFIG),
+                config=_config_mapping(CONFIG))
+        run_dir = Path(summary["run_dir"])
+        st.session_state.last = {
+            "run_dir": str(run_dir),
+            "findings": RunStorage(RUNS_ROOT).load_json(run_dir, "findings.json"),
+        }
+        log(f"готово · {summary['run_id']}")
+    except Exception as exc:  # noqa: BLE001
+        log(f"! прогон не удался: {exc}")
+        st.error(str(exc))
+
+
+def _render_results():
+    last = st.session_state.last
+    if not last:
+        return
+    findings = last["findings"]
+    run_dir = Path(last["run_dir"])
+    st.subheader("Результат")
+    scored = int(findings.get("scenarios_scored", 0) or 0)
+    proven = int(findings.get("scenarios_proven", 0) or 0)
+    a, b, c = st.columns(3)
+    a.metric("ASR", f"{findings.get('asr_percent', 0)}%")
+    b.metric("Сценарии proven", f"{proven}/{scored}")
+    c.metric("Попыток", findings.get("attempts_total", 0))
+
+    attempts_tab, report_tab, files_tab = st.tabs(("ПОПЫТКИ", "ОТЧЁТ", "ФАЙЛЫ"))
+    with attempts_tab:
         st.dataframe([{
-            "RUN ID": item.get("run_id"),
-            "STATUS": str(item.get("status", "unknown")).upper(),
-            "ASR": _format_asr(item.get("asr_percent"), item.get("scenarios_scored")),
-        } for item in history], width="stretch", hide_index=True)
-        available = [item for item in history
-                     if item.get("status") not in ("invalid", "running")
-                     and isinstance(item.get("run_id"), str)]
-        if not available:
-            return
-        selected = st.selectbox("Сохранённый прогон", [item["run_id"] for item in available],
-                                key="history_run")
-        if st.button("ОТКРЫТЬ", width="stretch"):
-            item = next(row for row in available if row["run_id"] == selected)
-            run_dir = Path(item["run_dir"])
-            try:
-                st.session_state.last_result = _saved_result(
-                    RunStorage(RUNS_ROOT).load_json(run_dir, "findings.json"), run_dir)
-                st.session_state.run_error = None
-                st.rerun()
-            except (OSError, ValueError, TypeError, KeyError):
-                st.error("Результаты прогона повреждены или не завершены.")
-
-
-def _saved_result(findings: object, run_dir: Path) -> dict:
-    if not isinstance(findings, dict):
-        raise ValueError("findings.json must contain an object")
-    for key in ("attempts", "findings"):
-        value = findings.get(key, [])
-        if not isinstance(value, list) or any(not isinstance(item, dict) for item in value):
-            raise ValueError(f"findings {key} must be a list of objects")
-    if any(not isinstance(findings.get(key), str) for key in ("run_id", "status")):
-        raise ValueError("findings.json is missing required string fields")
-    float(findings.get("asr_percent", 0))
-    return {**findings, "run_dir": str(run_dir)}
-
-
-def _init_state() -> None:
-    defaults = {
-        "run_in_progress": False,
-        "run_error": None,
-        "last_result": None,
-        "environment_checks": [],
-        "skipped": [],
-    }
-    for key, value in defaults.items():
-        if key not in st.session_state:
-            st.session_state[key] = value
-
-
-def _page_header() -> None:
-    st.markdown(
-        """
-        <header class="page-head">
-          <h1>Agentic Red Team</h1>
-          <p>Сценарии безопасности агента с проверкой по состоянию.</p>
-        </header>
-        """,
-        unsafe_allow_html=True,
-    )
-
-
-def _render_preflight_checks(checks: list[dict]) -> None:
-    if not checks:
-        return
-    passed = sum(bool(check.get("ok")) for check in checks)
-    ready = checks_ok_from_dicts(checks)
-    with st.expander(f"Проверка · {passed}/{len(checks)}", expanded=not ready):
-        for check in checks:
-            marker = "PASS" if check.get("ok") else "FAIL"
-            st.markdown(
-                '<div class="check-row">'
-                f'<b>{marker}</b><span><strong>{_safe(check.get("name", "check"))}</strong>'
-                f'<small>{_safe(check.get("message", ""))}</small></span></div>',
-                unsafe_allow_html=True,
-            )
-
-
-def _live_progress_html(events: list[dict]) -> str:
-    rows = []
-    for event in events[-6:]:
-        verdict = event.get("verdict")
-        suffix = f" / {str(verdict).upper()}" if verdict else ""
-        rows.append(
-            '<div class="live-row">'
-            f'<code>{_safe(str(event.get("stage", "event")).upper())}{_safe(suffix)}</code>'
-            f'<span>{_safe(event.get("message", ""))}</span></div>'
-        )
-    return '<section class="live-log">' + "".join(rows) + "</section>"
-
-
-def _run_dir(data: dict) -> Path | None:
-    value = data.get("run_dir")
-    if not isinstance(value, str):
-        st.warning("Для результата не указан каталог артефактов.")
-        return None
-    return Path(value)
-
-
-def _render_report(data: dict) -> None:
-    run_dir = _run_dir(data)
-    if run_dir is None:
-        return
+            "СЦЕНАРИЙ": a.get("scenario_id"),
+            "OWASP": a.get("attack_class"),
+            "РОЛИ": a.get("roles"),
+            "VERDICT": a.get("verdict"),
+            "ПРИЗНАК": a.get("signal"),
+        } for a in findings.get("attempts", [])],
+            use_container_width=True, hide_index=True)
     report = run_dir / "report.md"
-    if not report.is_file():
-        st.info("Отчёт ещё не сформирован.")
-        return
-    st.markdown(report.read_text(encoding="utf-8"))
-
-
-def checks_ok_from_dicts(checks: list[dict]) -> bool:
-    return all(item.get("ok") or not item.get("blocking", True) for item in checks)
-
-
-def _format_asr(value: object, attempts_scored: object) -> str:
-    try:
-        scored, percent = int(attempts_scored), float(value)
-    except (TypeError, ValueError):
-        return "N/A"
-    return f"{percent:.0f}%" if scored > 0 else "N/A"
-
-
-def _valid_dict_list(value: object) -> list[dict]:
-    return [item for item in value if isinstance(item, dict)] if isinstance(value, list) else []
-
-
-
-def _safe(value: object) -> str:
-    return html.escape(str(value), quote=True)
-
-
-def _styles() -> None:
-    st.markdown(
-        """
-        <style>
-        @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&display=swap');
-        :root { --ink:#11110f; --paper:#f4f4ef; --surface:#e9e9e4; --line:#a9a9a1; --muted:#5c5c57; }
-        html, body, .stApp, button, input, textarea, select { font-family:"JetBrains Mono","SFMono-Regular",Consolas,monospace !important; font-variant-ligatures:none; }
-        .material-symbols-rounded,.material-symbols-outlined,[data-testid="stIconMaterial"] { font-family:"Material Symbols Rounded" !important; font-weight:normal !important; font-style:normal !important; letter-spacing:normal !important; text-transform:none !important; white-space:nowrap; word-wrap:normal; direction:ltr; font-feature-settings:"liga"; -webkit-font-feature-settings:"liga"; -webkit-font-smoothing:antialiased; }
-        .stApp { background:var(--paper); color:var(--ink); }
-        .block-container { max-width:1180px; padding:2rem 3rem 5rem; }
-        [data-testid="stHeader"] { background:transparent; }
-        [data-testid="stExpandSidebarButton"] { position:fixed!important; top:.75rem!important; left:.75rem!important; z-index:10000!important; margin:0!important; transform:none!important; }
-        [data-testid="stSidebar"] { background:var(--surface); border-right:1px solid var(--line); min-width:360px; max-width:360px; }
-        [data-testid="stSidebar"] .block-container { padding:1.5rem 1.25rem 3rem; }
-        h1,h2,h3,h4,h5 { color:var(--ink); letter-spacing:-.035em; }
-        h2 { font-size:1.15rem !important; }
-        h3 { font-size:.72rem !important; letter-spacing:.08em; text-transform:uppercase; margin-top:1.4rem !important; }
-        h5 { font-size:.72rem !important; margin-bottom:.45rem !important; }
-        p,label { line-height:1.5; } code { color:var(--ink) !important; }
-        .page-head { display:flex; align-items:baseline; justify-content:space-between; gap:2rem; border-bottom:1px solid var(--ink); padding:.35rem 0 1rem; margin-bottom:2rem; }
-        .page-head h1 { font-size:1.35rem; line-height:1; margin:0; font-weight:700; }
-        .page-head p { color:var(--muted); font-size:.72rem; margin:0; }
-        .scenario-meta { display:flex; justify-content:space-between; gap:1rem; margin:.65rem 0 .8rem; color:var(--muted); font-size:.64rem; }
-        .scenario-meta code { font-size:.64rem; font-weight:600; }
-        .scenario-meta span { text-align:right; }
-        .config-source>small { display:block; color:var(--muted); font-size:.6rem; padding:0 0 .5rem; }
-        .model-row { border-top:1px solid var(--line); padding:.55rem 0; font-size:.62rem; }
-        .model-row span { display:block; color:var(--muted); margin-bottom:.2rem; }
-        .model-row strong { display:block; overflow-wrap:anywhere; }
-        .scenario-summary { margin:0 0 2rem; }
-        .scenario-title { display:flex; align-items:baseline; justify-content:space-between; gap:2rem; }
-        .scenario-title h2 { font-size:1.4rem !important; margin:0 0 .55rem; }
-        .scenario-title code { color:var(--muted) !important; font-size:.65rem; }
-        .scenario-summary>p { max-width:76ch; color:var(--muted); font-size:.78rem; margin:0 0 1rem; }
-        .scenario-summary>small { display:block; color:var(--muted); font-size:.62rem; margin-top:.65rem; }
-        .step-line { display:flex; align-items:center; flex-wrap:wrap; gap:.65rem; border-top:1px solid var(--line); border-bottom:1px solid var(--line); padding:.7rem 0; font-size:.7rem; }
-        .step-line span { font-weight:600; }
-        .step-line i { color:var(--muted); font-style:normal; }
-        .result-summary { border:1px solid var(--ink); margin:1.25rem 0 1rem; }
-        .result-title { display:flex; align-items:baseline; gap:1rem; padding:1.15rem 1.25rem; border-bottom:1px solid var(--ink); }
-        .result-title span,.result-title small { color:var(--muted); font-size:.64rem; }
-        .result-title strong { font-size:1.5rem; margin-right:auto; letter-spacing:-.05em; }
-        .result-summary dl { display:grid; grid-template-columns:repeat(4,1fr); margin:0; }
-        .result-summary dl>div { padding:.9rem 1rem; border-right:1px solid var(--line); }
-        .result-summary dl>div:last-child { border-right:0; }
-        .result-summary dt { color:var(--muted); font-size:.61rem; margin-bottom:.4rem; }
-        .result-summary dd { font-size:.9rem; font-weight:700; margin:0; }
-        .ratio-track { height:.35rem; border-top:1px solid var(--line); }
-        .ratio-track i { height:100%; display:block; background:var(--ink); }
-        .trace-rail { display:flex; flex-wrap:wrap; gap:.5rem; border-bottom:1px solid var(--line); padding:1rem 0; margin:.5rem 0 1rem; }
-        .trace-node { display:flex; gap:.55rem; align-items:baseline; border-right:1px solid var(--line); padding-right:.7rem; }
-        .trace-node:last-child { border-right:0; }
-        .trace-node b { font-size:.66rem; }
-        .trace-node small { color:var(--muted); font-size:.6rem; }
-        .live-log { border-bottom:1px solid var(--line); padding:.45rem 0; margin:.5rem 0 1.5rem; }
-        .live-row { display:grid; grid-template-columns:10rem 1fr; gap:1rem; padding:.3rem 0; font-size:.66rem; }
-        .live-row code { font-weight:700; }
-        .check-row { display:grid; grid-template-columns:3.2rem 1fr; border-top:1px solid var(--line); padding:.5rem 0; font-size:.64rem; }
-        .check-row:first-child { border-top:0; }
-        .check-row span { display:flex; flex-direction:column; gap:.18rem; }
-        .check-row strong { font-size:.64rem; }
-        .check-row small { color:var(--muted); font-size:.59rem; line-height:1.4; }
-        [data-testid="stAlert"],.stAlertContainer { background:var(--surface)!important; color:var(--ink)!important; border-radius:0; }
-        [data-testid="stAlert"] { border:0; }
-        [data-testid="stAlert"] *,.stAlertContainer * { color:var(--ink)!important; }
-        [data-testid="stAlert"] svg,.stAlertContainer svg { color:var(--ink)!important; fill:var(--ink)!important; }
-        a,a:visited,a:hover,a:active,a * { color:var(--ink)!important; }
-        a svg,a path,a line { color:var(--ink)!important; stroke:var(--ink)!important; }
-        [data-testid="stExpander"] { border:0; border-radius:0; background:transparent; }
-        [data-testid="stCode"] { border-radius:0; border:0; }
-        .stButton>button,.stDownloadButton>button,.stFormSubmitButton>button { border-radius:0!important; border:1px solid var(--ink)!important; background:var(--paper)!important; color:var(--ink)!important; min-height:2.5rem; font-size:.7rem; font-weight:700; letter-spacing:.04em; }
-        .stButton>button:hover,.stDownloadButton>button:hover,.stFormSubmitButton>button:hover,.stFormSubmitButton>button[kind="primary"] { background:var(--ink)!important; color:var(--paper)!important; }
-        .stFormSubmitButton>button:disabled { background:var(--surface)!important; color:var(--muted)!important; border-color:var(--line)!important; }
-        [data-baseweb="select"]>div,[data-testid="stTextInput"] input,[data-testid="stNumberInput"] input { border-radius:0!important; border-color:var(--line)!important; background:var(--paper)!important; }
-        [data-baseweb="tab-list"] { border-bottom:1px solid var(--line); gap:1.1rem; }
-        [data-baseweb="tab"] { border-radius:0; padding:.7rem 0; font-size:.68rem; }
-        [aria-selected="true"][role="tab"] { color:var(--ink); border-bottom:2px solid var(--ink); }
-        [data-testid="stDataFrame"] { border:0; }
-        [data-testid="stProgressBar"]>div>div { background:var(--ink)!important; }
-        hr { border-color:var(--line); }
-        @media (prefers-reduced-motion:reduce) { *,*::before,*::after { transition-duration:.01ms!important; animation-duration:.01ms!important; } }
-        </style>
-        """,
-        unsafe_allow_html=True,
-    )
-
-
-
+    with report_tab:
+        st.markdown(report.read_text(encoding="utf-8") if report.exists() else "—")
+    with files_tab:
+        if report.exists():
+            st.download_button("Скачать технический отчёт", report.read_bytes(),
+                               file_name="report.md", mime="text/markdown",
+                               use_container_width=True)
+        else:
+            st.info("Отчёт появится после прогона.")
 
 
 if __name__ == "__main__":

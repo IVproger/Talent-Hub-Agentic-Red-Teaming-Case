@@ -31,6 +31,46 @@ class LLMRequestError(RuntimeError):
     """A provider request failed with a user-actionable error."""
 
 
+def extract_json(raw: str):
+    """Parse a JSON value from an LLM completion.
+
+    Tolerates the two things chat models do to otherwise-clean JSON: wrapping it
+    in a ``\u0060\u0060\u0060json`` markdown fence, and surrounding it with prose.  The fenced
+    body is unwrapped first; failing that, the first balanced ``{...}``/``[...]``
+    span is extracted.  Raises ``ValueError`` when no JSON value is present.
+    """
+    if not isinstance(raw, str):
+        raise ValueError("completion is not text")
+    text = raw.strip()
+    if text.startswith("```"):
+        text = text[3:]
+        if text[:4].lower() == "json":
+            text = text[4:]
+        if "```" in text:
+            text = text[: text.rfind("```")]
+        text = text.strip()
+    try:
+        return json.loads(text)
+    except (ValueError, TypeError):
+        pass
+    for open_ch, close_ch in (("{", "}"), ("[", "]")):
+        start = text.find(open_ch)
+        if start == -1:
+            continue
+        depth = 0
+        for i in range(start, len(text)):
+            if text[i] == open_ch:
+                depth += 1
+            elif text[i] == close_ch:
+                depth -= 1
+                if depth == 0:
+                    try:
+                        return json.loads(text[start : i + 1])
+                    except (ValueError, TypeError):
+                        break
+    raise ValueError("no JSON value in completion")
+
+
 @dataclass(frozen=True)
 class LLMRoleConfig:
     provider: str = "ollama"
@@ -39,6 +79,9 @@ class LLMRoleConfig:
     api_key_env: str | None = None
     temperature: float = 0.0
     timeout: int = 600
+    routing: dict | None = None
+    max_tokens: int | None = None
+    reasoning: dict | None = None
 
     def normalized(self) -> "LLMRoleConfig":
         if not isinstance(self.provider, str):
@@ -49,6 +92,14 @@ class LLMRoleConfig:
             raise LLMConfigurationError("base_url must be a string.")
         if self.api_key_env is not None and not isinstance(self.api_key_env, str):
             raise LLMConfigurationError("api_key_env must be a string.")
+        if self.routing is not None and not isinstance(self.routing, dict):
+            raise LLMConfigurationError("routing must be a mapping.")
+        if self.max_tokens is not None and (
+            not isinstance(self.max_tokens, int) or self.max_tokens <= 0
+        ):
+            raise LLMConfigurationError("max_tokens must be a positive integer.")
+        if self.reasoning is not None and not isinstance(self.reasoning, dict):
+            raise LLMConfigurationError("reasoning must be a mapping.")
         try:
             temperature = float(self.temperature)
             timeout = int(self.timeout)
@@ -69,6 +120,9 @@ class LLMRoleConfig:
             api_key_env=api_key_env,
             temperature=temperature,
             timeout=timeout,
+            routing=self.routing,
+            max_tokens=self.max_tokens,
+            reasoning=self.reasoning,
         )
 
     def validate(
@@ -279,6 +333,12 @@ class HTTPChatClient:
                 "messages": [{"role": "user", "content": prompt}],
                 "temperature": self.config.temperature,
             }
+            if self.config.routing:
+                payload["provider"] = self.config.routing
+            if self.config.max_tokens:
+                payload["max_tokens"] = self.config.max_tokens
+            if self.config.reasoning is not None:
+                payload["reasoning"] = self.config.reasoning
             url = _endpoint(
                 self.config.base_url or "", "/chat/completions", "/chat/completions"
             )

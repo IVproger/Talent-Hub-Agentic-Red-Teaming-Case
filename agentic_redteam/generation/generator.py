@@ -6,6 +6,7 @@ import json
 from ..campaign.orchestrator import PlannedScenario
 from ..campaign.scenarios import ScenarioSpec
 from ..errors import PipelineConfigurationError
+from ..llm import extract_json
 from .dedup import is_duplicate
 
 _PROMPT = """Ты пишешь варианты полезной нагрузки для проверки безопасности агента.
@@ -51,7 +52,7 @@ def generate(scenario: ScenarioSpec | PlannedScenario, surface: dict, n: int, ll
                             n=n, context=_history_context(prior_context),
                             documents=_document_context(surface))
     try:
-        raw = json.loads(llm.complete(prompt))
+        raw = extract_json(llm.complete(prompt))
     except (ValueError, TypeError) as exc:
         raise PipelineConfigurationError(
             "Генератор ожидал JSON-массив строк от LLM.") from exc

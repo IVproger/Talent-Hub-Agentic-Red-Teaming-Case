@@ -10,6 +10,7 @@ from agentic_redteam.llm import (
     make_llm_client,
     role_configs_from_mapping,
     validate_role_configs,
+    extract_json,
 )
 
 
@@ -102,6 +103,62 @@ class LLMConfigurationTests(unittest.TestCase):
         self.assertTrue(requests[1][0].full_url.endswith("/chat/completions"))
         self.assertEqual(requests[1][0].get_header("Authorization"), "Bearer sk-test-SENTINEL")
         self.assertNotIn("sk-test-SENTINEL", str(router.config.safe_dict()))
+
+
+
+class ExtractJsonTests(unittest.TestCase):
+    def test_bare_object_and_array(self):
+        self.assertEqual(extract_json('{"a": 1}'), {"a": 1})
+        self.assertEqual(extract_json('[1, 2]'), [1, 2])
+
+    def test_strips_markdown_fence(self):
+        self.assertEqual(extract_json('```json\n{"a": 1}\n```'), {"a": 1})
+        self.assertEqual(extract_json('```\n[1]\n```'), [1])
+
+    def test_ignores_surrounding_prose(self):
+        self.assertEqual(extract_json('Вот результат:\n{"a": 1}\nготово'), {"a": 1})
+
+    def test_no_json_raises(self):
+        with self.assertRaises(ValueError):
+            extract_json('нет тут json')
+
+
+
+class ProviderRoutingTests(unittest.TestCase):
+    def _payload(self, **cfg_kwargs):
+        payloads = []
+
+        def transport(request, timeout):
+            payloads.append(json.loads(request.data))
+            return {"choices": [{"message": {"content": "ok"}}]}
+
+        client = make_llm_client(
+            LLMRoleConfig(provider="openrouter", model="z-ai/glm-5.3-flash",
+                          **cfg_kwargs),
+            environ={"OPENROUTER_API_KEY": "sk-test-SENTINEL"},
+            transport=transport,
+        )
+        client.complete("hi")
+        return payloads[0]
+
+    def test_routing_is_sent_as_provider_block(self):
+        routing = {"order": ["CoreWeave"], "allow_fallbacks": False}
+        self.assertEqual(self._payload(routing=routing)["provider"], routing)
+
+    def test_no_routing_means_no_provider_block(self):
+        self.assertNotIn("provider", self._payload())
+
+    def test_max_tokens_sent_when_set(self):
+        self.assertEqual(self._payload(max_tokens=8000)["max_tokens"], 8000)
+
+    def test_max_tokens_absent_when_unset(self):
+        self.assertNotIn("max_tokens", self._payload())
+
+    def test_reasoning_sent_when_set(self):
+        self.assertEqual(
+            self._payload(reasoning={"enabled": False})["reasoning"],
+            {"enabled": False},
+        )
 
 
 if __name__ == "__main__":

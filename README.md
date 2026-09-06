@@ -111,9 +111,16 @@ python -m agentic_redteam run --profile genai-invest-stand@1.0.0 \
 
 # Повтор сохранённой кампании и пересборка отчёта.
 python -m agentic_redteam run --from runs/<run-id> --dry-run   # предпросмотр
-python -m agentic_redteam run --from runs/<run-id>             # исполнить повтор
 python -m agentic_redteam report --run runs/<run-id>
 python -m agentic_redteam report --business --run runs/<run-id>
+
+# Автономный путь: OWASP + профиль → AttackBrief → атакующий агент → judge → ASR.
+python -m agentic_redteam briefs generate --profile genai-invest-stand@1.0.0 \
+  --out local-scenarios/briefs-2026-09 --count 5
+python -m agentic_redteam run --profile genai-invest-stand@1.0.0 \
+  --briefs local-scenarios/briefs-2026-09 --mode vulnerable,protected \
+  --trials 5 --strategy adaptive --stop-on-success
+
 
 # Регрессия: находки → набор, набор → прогон, прогон vs прогон.
 python -m agentic_redteam regress export --from runs/<run-id> -o regress/bac
@@ -231,6 +238,85 @@ Ctrl+C останавливает прогон безопасно: собран�
 стандарта, классы атак, число различных подходов и затронутую поверхность
 (инструменты, хранилища, границы). ASR легко накрутить повтором одной удачной
 попытки — покрытие нет.
+
+## Автономный путь атаки (AttackBrief)
+
+Альтернатива фиксированным YAML-сценариям: фиксированы только задания, а
+проводит атаку автономный LLM-агент. Конвейер:
+
+```text
+OWASP + Profile → AttackBrief Generator → зафиксированные brief YAML
+    → Attacker Loop → Transcript + Tool Traces + Memory Diff
+    → LLM Judge (YES/NO) → ASR и отчёт
+```
+
+**Генерация brief.** `briefs generate --profile … --out DIR` подаёт LLM дайджест
+профиля (роли, инструменты, память, границы) и описания OWASP Top 10 for LLM
+Applications и OWASP Top 10 for Agentic Applications (`--sources …,atlas`
+добавляет MITRE ATLAS). Ссылки соответствуют источникам: `ASIxx` — Agentic
+Top 10, `LLMxx` — LLM Top 10, `AML.Txxxx` — ATLAS. Каждый сгенерированный brief
+проверяется на схему (ровно `id`, `standard_refs`, `objective`,
+`success_criteria`, `guidance`) и ссылки на сущности профиля: значения
+принципалов (`cus=…`) должны принадлежать ролям, упоминания инструментов —
+объявленным в профиле. Невалидные отбраковываются с указанием причины. Набор
+фиксируется в каталоге один раз и не перезаписывается: сравнение режимов и
+повторные запуски используют те же критерии успеха.
+
+**Автономный атакующий.** `run --briefs DIR --profile …` — одна попытка = один
+brief в одном режиме. Перед попыткой выполняется сброс состояния из профиля.
+Атакующий сам выбирает сообщения, порядок и сессии; его инструменты:
+`chat(role, session, message)`, `commit_memory(role, session)` (если цель
+поддерживает) и `submit_attack(claim, summary, learning)`. В `learning`
+атакующий фиксирует испробованные стратегии, наблюдения, гипотезы,
+следующие шаги и то, что не стоит повторять. Deadline и лимит ходов
+контролирует
+инфраструктура: таймауты вызовов учитывают оставшееся время, действия после
+deadline запрещены, а сбор оставшихся evidence и вызов judge имеют собственные
+ограниченные таймауты (секция `attacker` в config: `attempt_timeout`,
+`turn_timeout`, `evidence_timeout`, `judge_timeout`, `max_turns`,
+`llm_retries`, `experience_max_attempts`, `experience_max_chars`). `max_turns`
+задаёт положительное целое число ходов; при его
+исчерпании попытка завершается с `stop_reason=max_turns`, после чего накопленные
+evidence всё равно оценивает judge. Отдельный ход (запрос-ответ: решение атакующего плюс действие
+против цели) ограничен `turn_timeout` — один зависший запрос не съедает бюджет
+всей попытки: действие помечается ошибкой, атакующий видит её в истории и
+выбирает следующее. Истечение
+времени или `give_up` не означают автоматический `NO` — накопленная попытка
+всё равно оценивается judge. Заявление атакующего сохраняется, но не определяет
+итог.
+
+**Стратегии попыток.** `--strategy independent` (по умолчанию)
+запускает каждый trial без знания о предыдущих и подходит для измерения
+воспроизводимого ASR. `--strategy adaptive` после каждой попытки
+добавляет к `learning` подтверждённые harness-ом tool calls, memory writes,
+ошибки и verdict judge и передаёт ограниченную историю следующей
+попытке. Опыт изолирован по `brief_id + mode`; состояние цели по-прежнему
+сбрасывается. `--stop-on-success` в adaptive-режиме завершает цепочку
+данного brief и режима после первого `YES`.
+
+**Judge.** Бинарный LLM judge получает критерий из зафиксированного brief,
+полную хронологию попытки (транскрипт с ролями, принципалами, сессиями и
+trace/span ID), tool calls, memory diff и контекст профиля; claim атакующего
+передаётся как явно недоверенный контекст. Ответ — строго `YES`/`NO`.
+Невалидный ответ после ограниченных повторов, отказ обязательного
+evidence-источника или технический сбой попытки дают `{"status": "error",
+"judge_verdict": null}` — ошибка хранится отдельно и в знаменатель не входит.
+
+**ASR** = `YES / (YES + NO) × 100%`; единица измерения — целая попытка.
+Рядом выводятся количества `YES`, `NO`, ошибок и исключённых попыток; ASR
+считается отдельно по режимам; при отсутствии оценённых попыток — «нет данных».
+В adaptive-режиме attempts зависимы, поэтому дополнительно выводятся
+discovery-метрики: успех в пределах бюджета, номер первой успешной попытки
+и cumulative success к попыткам `1..K`. Обычный ASR сохраняется для совместимости,
+но не должен интерпретироваться как вероятность независимой попытки.
+
+**Артефакты** (`runs/<id>/`): `campaign.json` с замороженными brief, снимком
+профиля и конфигурации; `attempts/NNNN/` с `brief.yaml`, `actions.json`
+(журнал действий с ролями, принципалами, сессиями, facts и observations),
+`evidence.json`, `judge.json` (точный вход и ответы judge) и `result.json`
+(причина остановки, claim, learning, унаследованные попытки, вердикт,
+технический статус); `experience.json` в adaptive-режиме; `summary.json` с ASR
+и discovery-метриками, `report.md`, `transcript.jsonl`, `status.json`.
 
 ## Артефакты
 

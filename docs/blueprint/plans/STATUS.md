@@ -3,7 +3,74 @@
 > Живой снимок: что готово, что блокировано, и **контракты стыковки** между
 > dseredkin и oushtt. Обновлять при каждом слиянии в `main`.
 >
-> Обновлено: 2026-09-05
+> Обновлено: 2026-09-06
+
+## Автономный путь атаки (attacker/) — 2026-09-06
+
+Реализован новый конвейер `AttackBrief → автономный атакующий агент → бинарный
+LLM Judge → ASR` как первый класс пути запуска (`agentic_redteam/attacker/`):
+
+- **Генерация brief** (`attacker/brief_generator.py`): OWASP LLM Top 10 +
+  Agentic Top 10 (+ опционально ATLAS через `--sources`) и дайджест профиля →
+  LLM → brief `id/standard_refs/objective/success_criteria/guidance`. Каталог
+  стандартов зафиксирован по `docs/blueprint/references/` (`ASIxx` = Agentic
+  Top 10, `LLMxx` = LLM Top 10, `AML.Txxxx` = ATLAS по формату). После
+  генерации — строгая схема + проверка ссылок на сущности профиля (значения
+  принципалов по атрибутам границ, упоминания инструментов). Невалидные
+  отбраковываются с причиной; набор фиксируется `briefs generate --out DIR`
+  один раз и не перезаписывается.
+- **Автономный атакующий** (`attacker/agent.py`): одна попытка = один brief ×
+  режим; перед попыткой — сброс из профиля (нет reset-провайдера → отказ
+  конфигурации). Действия `chat` / `commit_memory` / `submit_attack`; роли и
+  commit ограничены профилем; сессии — по меткам атакующего. Deadline держит
+  инфраструктура: таймауты вызовов учитывают остаток бюджета (`call_with_timeout`),
+  действия после deadline запрещены, сбор хвостовых evidence и вызов judge —
+  отчёт"; judge_timeout). Ход (запрос-ответ) дополнительно ограничен
+  `turn_timeout` (по умолчанию 120 с): зависшее действие помечается ошибкой и
+  попытка продолжается, зависшее LLM-решение останавливает попытку со
+  stop_reason `turn_timeout` (техническая ошибка). Evidence-окно закрывается
+  даже при ошибке действия; каждая попытка агрегирует facts/observations/memory
+  diffs + окно хвостовых событий. `submit_attack` принимает типизированную
+  рефлексию `learning`: пробовавшиеся стратегии, наблюдения, гипотезы,
+  следующие шаги и avoid-list.
+- **Application-слой** (`attacker/application.py`): валидирует brief
+  против выбранного профиля и собирает adapter/evidence/dependencies;
+  CLI оставляет за собой разбор аргументов и форматирование вывода.
+- **Judge** (`attacker/judge.py`): критерий — только из зафиксированного brief;
+  claim/summary атакующего передаются как явно недоверенный контекст. Контекст:
+  transcript (роли/принципалы/сессии/trace-span ID), tool calls, memory diff,
+  roles/boundaries профиля. Ответ строго YES/NO; невалидный ответ после
+  ограниченных повторов, отказ LLM/таймаут или технический сбой попытки →
+  `{"status": "error", "judge_verdict": null}`.
+- **Кампания и ASR** (`attacker/campaign.py`): `independent` сохраняет
+  независимые trials; `adaptive` передаёт следующей попытке того же
+  `brief+mode` ограниченную историю learning + tool/memory/error facts +
+  judge verdict. Состояние target между attempts всё равно сбрасывается;
+  опыт между modes/brief не течёт. Для adaptive считаются discovery within K,
+  first-success attempt и cumulative success; `--stop-on-success` заканчивает
+  цепочку после первого YES. `ASR = YES/(YES+NO)×100%`,
+  единица — целая попытка; ошибки и исключённые вне знаменателя; разрезы по
+  режимам; «нет данных» при пустом знаменателе. Артефакты: `campaign.json`
+  (brief + снимок профиля/конфига), `attempts/NNNN/{brief.yaml, actions.json,
+  evidence.json, judge.json, result.json}`, `summary.json`, `report.md`,
+  `transcript.jsonl`, `experience.json` (adaptive), `status.json`; чекпоинт после
+  каждой попытки.
+- **CLI**: `briefs generate --profile --out [--count --sources]` и
+  `run --briefs DIR --profile [--mode --trials --strategy
+  independent|adaptive --stop-on-success]`. Гейты авторизации (US-34) и
+  review_required общие со сценарным путём; требует reset-провайдер и
+  `llm.judge` в конфиге; ограничения — секция `attacker` в config.
+- **Что НЕ делалось:** big-bang удаление сценарного пути (`campaign/`,
+  `generation/`). Replay (`run --from`), регрессия, lifecycle базы знаний и UI
+  по-прежнему потребляют PlannedScenario — по правилу CLAUDE.md старый код
+  удаляется только когда новый путь заменит его целиком.
+
+Проверки из задачи закрыты тестами: завершение через `submit_attack` и
+deadline (`tests/test_attacker_agent.py`), передача traces и memory diff в
+judge (`tests/test_attacker_judge.py`), независимость judge от claim (give_up
+→ YES в `tests/test_attacker_campaign.py`), знаменатель ASR (ошибки вне
+знаменателя, «нет данных»). Полный набор: **615 тестов, OK**.
+
 
 ## Актуальный срез: пункты 3, 5 и 8
 

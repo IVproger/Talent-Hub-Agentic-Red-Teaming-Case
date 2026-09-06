@@ -7,6 +7,18 @@ authorization:
   scope: genai-invest-stand, локальный учебный полигон, синтетические данные
   until: 2026-12-31
 
+# Бюджеты автономного атакующего (путь run --briefs), включая
+# ограничения контекста опыта для --strategy adaptive.
+attacker:
+  attempt_timeout: 240
+  turn_timeout: 40
+  evidence_timeout: 30
+  judge_timeout: 120
+  max_turns: 40
+  llm_retries: 2
+  experience_max_attempts: 4
+  experience_max_chars: 12000
+
 target:
   name: genai-invest-stand
   profile: profiles/genai-invest-stand/1.0.0.yaml

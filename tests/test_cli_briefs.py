@@ -29,6 +29,36 @@ def run_cli(*argv):
 
 
 class BriefsGenerateTests(unittest.TestCase):
+    def test_repairs_ids_before_writing_yaml(self):
+        client = Mock()
+        client.complete.side_effect = [
+            json.dumps([brief_payload(id=f'B{i}') for i in range(1, 6)]),
+            json.dumps([brief_payload(id=f'brief-{i}') for i in range(1, 6)]),
+        ]
+        with tempfile.TemporaryDirectory() as tmp:
+            with patch('agentic_redteam.app_cli.make_llm_client', return_value=client):
+                code, out, err = run_cli(
+                    'briefs', 'generate', '--profile', PROFILE, '--out', tmp,
+                    '--count', '5', '--idea', 'Проверить изоляцию', '--json',
+                )
+            self.assertEqual(code, 0, out + err)
+            self.assertEqual(len(json.loads(out)['rejected']), 5)
+            self.assertEqual(sorted(p.name for p in Path(tmp).iterdir()),
+                             [f'brief-{i}.yaml' for i in range(1, 6)])
+            self.assertEqual(client.complete.call_count, 2)
+
+    def test_failed_repair_writes_nothing(self):
+        client = Mock(**{'complete.return_value': json.dumps([brief_payload(id='B1')])})
+        with tempfile.TemporaryDirectory() as tmp:
+            with patch('agentic_redteam.app_cli.make_llm_client', return_value=client):
+                code, out, _ = run_cli(
+                    'briefs', 'generate', '--profile', PROFILE, '--out', tmp, '--json',
+                )
+            self.assertEqual(code, 2)
+            self.assertIn('после одной коррекции', json.loads(out)['error'])
+            self.assertEqual(list(Path(tmp).iterdir()), [])
+            self.assertEqual(client.complete.call_count, 2)
+
     def test_repeated_ideas_reach_generator_in_order(self):
         ideas = ['Подменить cus, сохранив сессию', 'Проверить перенос авторизации']
         client = Mock(**{'complete.return_value': json.dumps([brief_payload()])})

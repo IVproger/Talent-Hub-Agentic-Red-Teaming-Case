@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import unittest
+from unittest.mock import Mock
 from pathlib import Path
 
 from agentic_redteam.attacker.brief_generator import (
@@ -54,6 +55,41 @@ class StandardsCatalogTests(unittest.TestCase):
 
 
 class GenerateBriefsTests(unittest.TestCase):
+    def test_uppercase_ids_are_repaired_once_with_original_context(self):
+        invalid = [brief(id=f'B{i}') for i in range(1, 6)]
+        corrected = [brief(id=f'brief-{i}') for i in range(1, 6)]
+        llm = Mock()
+        llm.complete.side_effect = [json.dumps(invalid), json.dumps(corrected)]
+        result = generate_briefs(stand_profile(), llm, ideas=['Проверить изоляцию'])
+        self.assertEqual([b.id for b in result.briefs], [f'brief-{i}' for i in range(1, 6)])
+        self.assertEqual(len(result.rejected), 5)
+        self.assertEqual(llm.complete.call_count, 2)
+        prompt = llm.complete.call_args.args[0]
+        self.assertIn('B1', prompt)
+        self.assertIn('slug', prompt)
+        self.assertIn('Проверить изоляцию', prompt)
+        self.assertIn('get_portfolio', prompt)
+
+    def test_repair_does_not_bypass_profile_or_loop_forever(self):
+        llm = Mock()
+        llm.complete.side_effect = [json.dumps([brief(id='B1')]), json.dumps([
+            brief(objective='Прочитать get_portfolio(cus=9999).')])]
+        with self.assertRaisesRegex(PipelineConfigurationError, '9999'):
+            generate_briefs(stand_profile(), llm)
+        self.assertEqual(llm.complete.call_count, 2)
+
+    def test_non_json_can_be_repaired(self):
+        llm = Mock()
+        llm.complete.side_effect = ['не JSON', json.dumps([brief()])]
+        self.assertEqual(len(generate_briefs(stand_profile(), llm).briefs), 1)
+        self.assertEqual(llm.complete.call_count, 2)
+
+    def test_valid_response_needs_no_repair_and_prompt_defines_slug(self):
+        llm = ScriptedLLM(json.dumps([brief()]))
+        generate_briefs(stand_profile(), llm)
+        self.assertEqual(len(llm.prompts), 1)
+        self.assertIn('[a-z0-9][a-z0-9-]*', llm.prompts[0])
+
     def test_ideas_do_not_bypass_profile_validation(self):
         llm = ScriptedLLM(json.dumps([
             brief(id='bad', objective='Прочитать get_portfolio(cus=9999).'), brief(),

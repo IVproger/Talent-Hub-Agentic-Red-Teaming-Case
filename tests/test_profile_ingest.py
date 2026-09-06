@@ -218,5 +218,66 @@ class ProfileIngestTests(unittest.TestCase):
 
 
 
+    def test_repair_makes_judged_draft_runnable(self):
+        from agentic_redteam.profile.schema import TargetProfile
+        openapi = self._openapi()
+        analyst = FakeLLM([json.dumps({"tools": []})])
+        judge = FakeLLM([json.dumps({"accepted": {
+            "entrypoint": {"commit_memory": {"path": "/f", "method": "POST",
+                                             "response": {"path": "x"}}},
+            "evidence": [
+                {"id": "good", "provider": "http-canary", "config": {"bind": "127.0.0.1:0"}},
+                {"id": "bad", "provider": "db-query", "config": {"collection": "c"}},
+            ],
+            "junk_note": "should be dropped",
+        }, "rejected": [], "confidence": {}})])
+        draft = build_draft(openapi, "http://localhost:7001", "target",
+                            analyst=analyst, judge=judge)
+        # invented top-level key dropped (recorded, not silently kept)
+        self.assertNotIn("junk_note", draft)
+        # LLM judge is the review — the human gate it covered is cleared
+        self.assertNotIn("review_required", draft["entrypoint"])
+        # incomplete evidence provider dropped; complete one kept
+        ids = [e["id"] for e in draft["evidence"]]
+        self.assertIn("good", ids)
+        self.assertNotIn("bad", ids)
+        rejected = draft["ingest"]["judgement"]["rejected"]
+        self.assertTrue(any("bad" in str(r.get("binding")) for r in rejected))
+        # the repaired draft loads as a profile
+        TargetProfile.from_mapping(draft)
+
+
+
+    def test_repair_drops_evidence_the_engine_cannot_construct(self):
+        openapi = self._openapi()
+        analyst = FakeLLM([json.dumps({"tools": []})])
+        judge = FakeLLM([json.dumps({"accepted": {"evidence": [
+            {"id": "reset", "provider": "state-reset",
+             "config": {"compose_file": "x", "redis": {"service": "r"}}},
+        ]}, "rejected": [], "confidence": {}})])
+        draft = build_draft(openapi, "http://localhost:7001", "target",
+                            analyst=analyst, judge=judge)
+        # state-reset без redis.key_patterns движок не соберёт → отброшен
+        self.assertEqual(draft["evidence"], [])
+        self.assertTrue(any("reset" in str(r.get("binding"))
+                            for r in draft["ingest"]["judgement"]["rejected"]))
+
+
+
+    def test_repair_drops_trace_with_bad_host(self):
+        openapi = self._openapi()
+        analyst = FakeLLM([json.dumps({"tools": []})])
+        judge = FakeLLM([json.dumps({"accepted": {"evidence": [
+            {"id": "ok", "provider": "http-canary", "config": {"bind": "127.0.0.1:0"}},
+            {"id": "bad-trace", "provider": "trace", "config": {"host": "<url>"}},
+        ]}, "rejected": [], "confidence": {}})])
+        draft = build_draft(openapi, "http://localhost:7001", "target",
+                            analyst=analyst, judge=judge)
+        ids = [e["id"] for e in draft["evidence"]]
+        self.assertIn("ok", ids)
+        self.assertNotIn("bad-trace", ids)
+
+
+
 if __name__ == "__main__":
     unittest.main()

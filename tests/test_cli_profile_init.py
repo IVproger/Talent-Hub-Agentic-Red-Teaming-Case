@@ -125,7 +125,8 @@ class ProfileInitTests(unittest.TestCase):
             "tools": [{"name": "get_portfolio", "sensitive": True}],
         })
         judge_out = json.dumps({
-            "accepted": {"entrypoint": {"review_required": ["осталась только память"]}},
+            "accepted": {"entrypoint": {"commit_memory": {
+                "path": "/f", "method": "POST", "response": {"path": "x"}}}},
             "rejected": [{"binding": "get_portfolio.sensitive",
                           "reason": "прямо в документе не сказано"}],
             "confidence": {},
@@ -142,8 +143,9 @@ class ProfileInitTests(unittest.TestCase):
         self.assertEqual(code, 0, out)
         draft = yaml.safe_load(target.read_text(encoding="utf-8"))
         # judge-accepted fragment merged into the profile itself
-        self.assertEqual(draft["entrypoint"]["review_required"],
-                         ["осталась только память"])
+        self.assertEqual(draft["entrypoint"]["commit_memory"]["method"], "POST")
+        # repair-pass clears the human review gate — the judge is the review
+        self.assertNotIn("review_required", draft["entrypoint"])
         # verdict recorded with explicit, honest provenance
         judgement = draft["ingest"]["judgement"]
         self.assertEqual(judgement["provenance"], "llm-judged")

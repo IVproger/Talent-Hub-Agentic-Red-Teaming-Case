@@ -15,6 +15,7 @@ import copy
 import hashlib
 import json
 from pathlib import Path
+from urllib.parse import urlsplit
 
 import yaml
 
@@ -131,6 +132,67 @@ _SCHEMA_CONTRACT = (
     "- {id: <name>, provider: db-query, config: {как в surface.memory.read}}\n"
     "attribution: serialized"
 ).replace("«DB_DRIVERS»", "|".join(SUPPORTED_DRIVERS))
+
+
+_PROFILE_KEYS = {
+    "name", "version", "adapter", "entrypoint", "identities", "isolation",
+    "surface", "modes", "evidence", "attribution", "business", "ingest",
+}
+def _construct_probe(provider, config):
+    """Validate an evidence config via the engine's own provider __init__.
+
+    __init__ checks config shape (including nested requirements) without touching
+    the target, so a config the engine could not construct is caught here —
+    deeper and driftless versus a hand-kept key list.
+    """
+    from ..evidence.providers.db_query import DbQueryProvider
+    from ..evidence.providers.log_regex import LogRegexProvider
+    from ..evidence.providers.state_reset import StateResetProvider
+
+    builder = {
+        "db-query": DbQueryProvider,
+        "log-regex": LogRegexProvider,
+        "state-reset": StateResetProvider,
+    }.get(provider)
+    if builder is not None:
+        builder(config)
+        return
+    # http-canary/trace __init__ bind ports or need runtime — shallow config check
+    if provider == "trace":
+        parts = urlsplit(str(config.get("host", "")))
+        if parts.scheme not in ("http", "https") or not parts.hostname:
+            raise PipelineConfigurationError("trace требует корректный host.")
+    elif provider == "http-canary":
+        if ":" not in str(config.get("bind", "")):
+            raise PipelineConfigurationError("http-canary требует bind=host:port.")
+
+
+def _repair_draft(draft):
+    """Deterministic normalisation so a judged draft is loadable and runnable.
+
+    Independent of LLM luck: drops invented top-level keys, clears the human
+    review gate (the judge is the review), and removes evidence providers whose
+    config the engine could not construct — each move recorded in judgement.
+    """
+    rejected = draft.get("ingest", {}).get("judgement", {}).setdefault("rejected", [])
+    for key in [k for k in draft if k not in _PROFILE_KEYS]:
+        rejected.append({"binding": key, "reason": "не секция профиля — отброшено"})
+        del draft[key]
+    entrypoint = draft.get("entrypoint")
+    if isinstance(entrypoint, dict):
+        entrypoint.pop("review_required", None)
+    kept = []
+    for item in draft.get("evidence", []) or []:
+        config = item.get("config") if isinstance(item.get("config"), dict) else {}
+        try:
+            _construct_probe(item.get("provider"), config)
+            kept.append(item)
+        except PipelineConfigurationError as exc:
+            rejected.append({
+                "binding": f"evidence[{item.get('id')}] ({item.get('provider')})",
+                "reason": f"{exc} — отброшено",
+            })
+    draft["evidence"] = kept
 
 
 def build_draft(
@@ -352,6 +414,7 @@ def build_draft(
             "rejected": rejected,
             "confidence": judgement.get("confidence", {}),
         }
+        _repair_draft(draft)
     if bindings:
         try:
             reviewed = yaml.safe_load(

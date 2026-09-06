@@ -151,5 +151,22 @@ class ProfileInitTests(unittest.TestCase):
 
 
 
+    def test_init_accepts_arbitrary_wiring_documents(self):
+        import tempfile
+        d = Path(tempfile.mkdtemp())
+        doc1 = d / "compose.yml"; doc1.write_text("service: db", encoding="utf-8")
+        doc2 = d / "schema.md"; doc2.write_text("collection notes", encoding="utf-8")
+        target = d / "draft.yaml"
+        code, out = run_cli("profile", "init", "--openapi", write_spec(),
+                            "--base-url", "http://localhost:8600", "--offline",
+                            "--doc", str(doc1), "--doc", str(doc2), "-o", str(target))
+        self.assertEqual(code, 0, out)
+        draft = yaml.safe_load(target.read_text(encoding="utf-8"))
+        paths = [Path(s["path"]).name for s in draft["ingest"]["sources"]]
+        self.assertIn("compose.yml", paths)
+        self.assertIn("schema.md", paths)
+
+
+
 if __name__ == "__main__":
     unittest.main()

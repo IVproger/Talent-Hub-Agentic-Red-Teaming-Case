@@ -181,6 +181,8 @@ def build_parser() -> argparse.ArgumentParser:
             _add_config_path(sub)
             sub.add_argument("--arch", help="документ архитектуры цели")
             sub.add_argument("--system-card", help="system card цели")
+            sub.add_argument("--doc", action="append", default=[],
+                             help="доп. документ цели (wiring/схемы), можно повторять")
             sub.add_argument("--bindings", help="YAML с проверенными привязками")
             sub.add_argument("--offline", action="store_true",
                              help="без LLM: привязки — эвристики по именам, помечены TODO")
@@ -1250,7 +1252,7 @@ def _profile_init(args) -> int:
         args.base_url,
         name,
         args.version,
-        [path for path in (args.arch, args.system_card) if path],
+        [path for path in (args.arch, args.system_card, *(args.doc or [])) if path],
         analyst,
         args.bindings,
         judge,

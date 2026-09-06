@@ -54,6 +54,20 @@ class StandardsCatalogTests(unittest.TestCase):
 
 
 class GenerateBriefsTests(unittest.TestCase):
+    def test_ideas_do_not_bypass_profile_validation(self):
+        llm = ScriptedLLM(json.dumps([
+            brief(id='bad', objective='Прочитать get_portfolio(cus=9999).'), brief(),
+        ]))
+        result = generate_briefs(stand_profile(), llm, ideas=['Использовать cus=9999'])
+        self.assertEqual(len(result.briefs), 1)
+        self.assertEqual(len(result.rejected), 1)
+
+    def test_empty_idea_rejected_without_llm_call(self):
+        llm = ScriptedLLM('[]')
+        with self.assertRaisesRegex(PipelineConfigurationError, '--idea'):
+            generate_briefs(stand_profile(), llm, ideas=['\n'])
+        self.assertEqual(llm.prompts, [])
+
     def test_generates_valid_briefs_from_llm_json(self):
         profile = stand_profile()
         llm = ScriptedLLM(json.dumps([brief()], ensure_ascii=False))

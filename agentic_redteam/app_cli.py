@@ -22,7 +22,7 @@ from .adapters.base import AdapterFeature
 from .adapters.http_chat import HttpChatAdapter
 from .assertions.registry import required_kinds
 from .attacker.application import execute_attack_campaign, limits_from_config
-from .attacker.brief_generator import generate_briefs
+from .attacker.brief_generator import generate_briefs, normalize_ideas
 from .attacker.briefs import load_briefs, save_briefs
 from .attacker.standards import standard_items
 from .campaign.orchestrator import PlannedScenario, run_campaign
@@ -211,6 +211,11 @@ def build_parser() -> argparse.ArgumentParser:
     )
     briefs_generate.add_argument(
         "--count", type=int, default=5, help="сколько brief генерировать (по умолчанию 5)"
+    )
+    briefs_generate.add_argument(
+        "--idea", action="append", default=[], metavar="TEXT",
+        help="идея для генерации; можно повторять, порядок задаёт приоритет; "
+             "--count — общий бюджет brief",
     )
     briefs_generate.add_argument(
         "--sources", default="owasp-llm,owasp-agentic",
@@ -925,6 +930,7 @@ def _generate_briefs_cmd(args) -> int:
     """OWASP + профиль → зафиксированные AttackBrief YAML."""
     if not 1 <= args.count <= 30:
         raise PipelineConfigurationError("--count должен быть от 1 до 30.")
+    ideas = normalize_ideas(getattr(args, "idea", None))
     sources = tuple(
         source.strip() for source in args.sources.split(",") if source.strip()
     )
@@ -934,7 +940,7 @@ def _generate_briefs_cmd(args) -> int:
         raise PipelineConfigurationError(str(exc)) from exc
     profile = load_profile(args.profile)
     llm = make_llm_client(_role_configs_at(args.config)["attack_generator"])
-    result = generate_briefs(profile, llm, count=args.count, sources=sources)
+    result = generate_briefs(profile, llm, count=args.count, sources=sources, ideas=ideas)
     paths = save_briefs(args.out, result.briefs)
     payload = {
         "ok": True,
@@ -942,6 +948,7 @@ def _generate_briefs_cmd(args) -> int:
         "briefs": [brief.to_mapping() for brief in result.briefs],
         "files": [str(path) for path in paths],
         "rejected": result.rejected,
+        "ideas": ideas,
     }
     if args.json:
         print(json.dumps(payload, ensure_ascii=False))

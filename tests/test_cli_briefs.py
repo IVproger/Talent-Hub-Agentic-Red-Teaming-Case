@@ -29,6 +29,34 @@ def run_cli(*argv):
 
 
 class BriefsGenerateTests(unittest.TestCase):
+    def test_repeated_ideas_reach_generator_in_order(self):
+        ideas = ['Подменить cus, сохранив сессию', 'Проверить перенос авторизации']
+        client = Mock(**{'complete.return_value': json.dumps([brief_payload()])})
+        with tempfile.TemporaryDirectory() as tmp:
+            with patch('agentic_redteam.app_cli.make_llm_client', return_value=client):
+                code, out, err = run_cli(
+                    'briefs', 'generate', '--profile', PROFILE, '--out', tmp,
+                    '--count', '1', '--idea', '  ' + ideas[0] + '  ',
+                    '--idea', ideas[1], '--json',
+                )
+            self.assertEqual(code, 0, out + err)
+            self.assertEqual(json.loads(out)['ideas'], ideas)
+            prompt = client.complete.call_args.args[0]
+            self.assertIn(json.dumps(ideas, ensure_ascii=False), prompt)
+            self.assertTrue((Path(tmp) / 'cross-client-portfolio-access.yaml').exists())
+
+    def test_blank_idea_fails_before_llm_creation(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            with patch('agentic_redteam.app_cli.make_llm_client') as client:
+                code, out, _ = run_cli(
+                    'briefs', 'generate', '--profile', PROFILE, '--out', tmp,
+                    '--idea', '   ', '--json',
+                )
+            self.assertEqual(code, 2)
+            self.assertIn('--idea', json.loads(out)['error'])
+            client.assert_not_called()
+            self.assertEqual(list(Path(tmp).iterdir()), [])
+
     def test_generates_and_freezes_briefs(self):
         llm_payload = json.dumps([brief_payload()], ensure_ascii=False)
         with tempfile.TemporaryDirectory() as tmp:

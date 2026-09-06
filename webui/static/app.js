@@ -119,12 +119,31 @@
     });
   });
 
+  function setCheck(id, ok, note) {
+    const el = $(id); if (!el) return;
+    const color = ok === true ? 'var(--mk-color-positive)'
+      : ok === false ? 'var(--mk-color-negative)' : 'var(--mk-color-text-tertiary)';
+    const text = note || (ok === true ? 'доступно' : ok === false ? 'недоступно' : 'н/д');
+    el.className = 'mk-kv__v';
+    el.innerHTML = '<span class="mk-dot" style="width:6px;height:6px;background:' + color + '"></span>' + text;
+  }
+  function runPreflight() {
+    ['#chkChat', '#chkTrace', '#chkMemory', '#chkReset'].forEach((id) => setCheck(id, null, 'проверка…'));
+    j('/api/preflight').then((c) => {
+      setCheck('#chkChat', c.chat && c.chat.ok);
+      setCheck('#chkTrace', c.trace && c.trace.ok);
+      setCheck('#chkMemory', c.memory && c.memory.ok);
+      setCheck('#chkReset', c.reset && c.reset.ok, c.reset && c.reset.note);
+    }).catch(() => {});
+  }
+
   $('#connectBtn').addEventListener('click', () => {
     j('/api/target').then((t) => {
       if (!t.openapi) { $('#ctxHint').textContent = 'Нужен OpenAPI среди файлов, чтобы подключить стенд.'; return; }
       $('#targetDot').classList.add('mk-dot--ok');
       $('#sbConn').textContent = 'Подключён';
       $('#sbConn').classList.add('mk-text-positive');
+      runPreflight();  // живые проверки стенда в сайдбаре
       goto(2);
     });
   });
@@ -176,7 +195,7 @@
       done.forEach((r) => {
         const b = document.createElement('button');
         b.className = 'mk-history';
-        const asr = (r.asr_percent != null) ? r.asr_percent + '%' : '—';
+        const asr = (r.asr_percent != null) ? 'ASR ' + r.asr_percent + '%' : 'ASR —';
         b.innerHTML = '<span class="mk-meta" style="font-size:11px">' + r.run_id.slice(0, 13) +
           '</span><span class="mk-between" style="font-size:12px;width:100%">Прогон' +
           '<span class="mk-mono mk-text-negative" style="font-weight:600">' + asr + '</span></span>';
@@ -231,7 +250,6 @@
     $('#runStatus').textContent = 'Ожидание запуска…';
     $('#counter').textContent = '— / —';
     $('#fill').style.width = '0%';
-    $('#cProven').textContent = '—'; $('#cScored').textContent = '—';
     $('#toReport').hidden = true; $('#cancelBtn').hidden = true;
     $('#spin').style.visibility = 'hidden';
   }
@@ -306,7 +324,7 @@
     $('#runStatus').textContent = 'Запуск…';
     $('#toReport').hidden = true; $('#cancelBtn').hidden = false;
     $('#fill').style.width = '0%';
-    $('#runTitle').textContent = one ? ('Прогон · ' + scnName(runScenarios[0])) : 'Прогон по всем предикатам';
+    $('#runTitle').textContent = one ? ('Прогон · ' + scnName(runScenarios[0])) : 'Прогон';
     running = true;
     goto(4);
     const q = one ? ('?scenario=' + encodeURIComponent(runScenarios[0].id)) : '';
@@ -340,10 +358,25 @@
           $('#cancelBtn').hidden = true;
           $('#cursor').hidden = true;
           if (st.status === 'failed') { $('#runStatus').textContent = 'Не удался: ' + (st.error || ''); return; }
+          finalizeRunScreen(openRunId, st.status);
           finishRun(openRunId);
         }
       }).catch(() => {});
     }, 1500);
+  }
+
+  function finalizeRunScreen(runId, status) {
+    // прогон завершён — снять «running»: явный статус, 100%, вердикты по сценариям
+    $('#runStatus').textContent = status === 'interrupted' ? 'Прогон отменён' : 'Прогон завершён';
+    $('#fill').style.width = '100%';
+    j('/api/runs/' + runId + '/findings').then((f) => {
+      const at = f.attempts || [];
+      at.forEach((a, i) => {
+        const proven = a.verdict === 'proven';
+        setBadge(i, proven ? 'mk-badge--proven' : 'mk-badge--not-proven', proven ? 'PROVEN' : 'NOT PROVEN');
+      });
+      if (at.length) $('#counter').textContent = at.length + ' / ' + at.length + ' сценариев';
+    }).catch(() => {});
   }
 
   function finishRun(runId) {

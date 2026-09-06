@@ -744,7 +744,7 @@ def execute_agentic_campaign(profile, config, output_root, run_id, *,
     """Общее ядро агентного прогона: CLI и UI зовут его, не повторяя сборку.
 
     Генератор сейдит по одному сценарию на каждый distinct-предикат baseline —
-    так агент проходит по всем предикатам, стартуя с осмысленной затравки, а не
+    так агент проходит по всем предикатам, стартуя с осмысленного стартового запроса, а не
     с нуля. Пишет `findings.json` и `report.md`, возвращает summary.
 
     `extra_phases` — уже замеренные заранее фазы (напр. «Создание профиля» из
@@ -781,13 +781,13 @@ def execute_agentic_campaign(profile, config, output_root, run_id, *,
         try:
             scenario.seed = generate(scenario, surface, 1, agent)[0]
             _seeded += 1
-            _progress(f"  затравка готова: {scenario.id}")
+            _progress(f"  стартовый запрос готов: {scenario.id}")
         except PipelineConfigurationError:
-            scenario.seed = None  # генератор не дал затравку — идём без неё
-            _progress(f"  без затравки: {scenario.id} (идём с нуля)")
+            scenario.seed = None  # генератор не дал стартовый запрос — идём без него
+            _progress(f"  без стартового запроса: {scenario.id} (идём с нуля)")
     _sec = round(time.perf_counter() - started, 3)
     phases.append({"name": "Генерация атак", "seconds": _sec})
-    _progress(f"✓ Затравки: {_seeded}/{len(scenarios)} за {_sec}s")
+    _progress(f"✓ Стартовые запросы: {_seeded}/{len(scenarios)} за {_sec}s")
     with EvidenceBundle.from_profile(profile) as bundle:
         adapter = HttpChatAdapter.from_profile(profile)
         try:

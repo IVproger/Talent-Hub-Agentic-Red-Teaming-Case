@@ -21,6 +21,7 @@ from .adapters.base import AdapterFeature
 from .adapters.http_chat import HttpChatAdapter
 from .assertions.registry import required_kinds
 from .campaign.orchestrator import PlannedScenario, run_campaign
+from .campaign.agentic import run_agentic
 from .campaign.authorization import AuthorizationError, authorization_from_mapping
 from .campaign.plan import Campaign, execution_order
 from .campaign.runner import RunnerDeps, ScenarioStep
@@ -152,6 +153,14 @@ def build_parser() -> argparse.ArgumentParser:
     )
     run.add_argument(
         "--smoke", action="store_true", help="добавить проверку штатной работы"
+    )
+    run.add_argument(
+        "--agentic", type=int, metavar="STEPS",
+        help="агентный атакующий: до STEPS шагов, сам выбирает предикат из меню",
+    )
+    run.add_argument(
+        "--agentic-goal", dest="agentic_goal",
+        help="сузить меню агента предикатами через запятую (напр. memory_write,cross_session_effect)",
     )
     run.add_argument(
         "--save-plan", help="новый JSON-файл с точным планом для run --from"
@@ -423,6 +432,8 @@ def _run_scenarios(args) -> int:
         )
     if args.dry_run:
         return _preview_campaign(args)
+    if args.agentic:
+        return _run_agentic(args)
     return _execute_campaign(args)
 
 
@@ -585,6 +596,56 @@ def execute_campaign(profile, planned, modes, trials, output_root, run_id,
         "asr_percent": findings["asr_percent"],
         "findings": len(findings["findings"]),
     }
+
+
+def _predicate_menu(planned) -> list[dict]:
+    """Курируемое меню success-предикатов: цели скомпонованных OWASP-сценариев."""
+    menu, seen = [], set()
+    for scenario in planned:
+        for assertion in scenario.goal:
+            key = json.dumps(assertion, ensure_ascii=False, sort_keys=True)
+            if key not in seen:
+                seen.add(key)
+                menu.append(dict(assertion))
+    return menu
+
+
+def _run_agentic(args) -> int:
+    profile = load_profile(args.profile)
+    authorization = authorization_from_mapping(_config_mapping(args.config)).as_record()
+    planned, _coverage = build_baseline(profile)
+    menu = _predicate_menu(planned)
+    if getattr(args, "agentic_goal", None):
+        wanted = {t.strip() for t in args.agentic_goal.split(",") if t.strip()}
+        menu = [a for a in menu if a.get("type") in wanted] or menu
+    roles = list(profile.identities.get("roles", {})) or ["attacker"]
+    agent = make_llm_client(_role_configs_at(args.config)["attack_generator"])
+    mode = next(iter(profile.modes), None)
+    run_id = new_run_id()
+    with EvidenceBundle.from_profile(profile) as bundle:
+        adapter = HttpChatAdapter.from_profile(profile)
+        try:
+            result = run_agentic(agent, adapter, bundle, surface=surface_of(profile),
+                                 predicate_menu=menu, roles=roles,
+                                 budget=args.agentic, mode=mode)
+        finally:
+            adapter.close()
+        try:
+            bundle.reset()
+        except Exception:
+            pass
+    storage = RunStorage(args.output)
+    run_dir = storage.root / run_id
+    storage.write_json(run_dir, "agentic.json", {
+        "run_id": run_id, "profile": f"{profile.name}@{profile.version}",
+        "authorization": authorization, "menu": menu, **result,
+    })
+    print(json.dumps({
+        "ok": True, "run_id": run_id, "verdict": result["verdict"],
+        "target": result.get("target"), "steps": len(result["steps"]),
+        "run_dir": str(run_dir),
+    }, ensure_ascii=False))
+    return 0
 
 
 def _execute_campaign(args) -> int:

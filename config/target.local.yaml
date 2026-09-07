@@ -9,12 +9,15 @@ authorization:
 
 # Бюджеты автономного атакующего (путь run --briefs), включая
 # ограничения контекста опыта для --strategy adaptive.
+# Локальный Ollama (qwen3:8b) заметно медленнее OpenRouter: commit_memory на цели —
+# это три LLM-прыжка суммаризации, поэтому turn_timeout/judge_timeout здесь
+# существенно больше, чем в config/target.yaml.
 attacker:
-  attempt_timeout: 240
-  turn_timeout: 40
-  evidence_timeout: 30
-  judge_timeout: 120
-  finalize_timeout: 60
+  attempt_timeout: 2700
+  turn_timeout: 480
+  evidence_timeout: 90
+  judge_timeout: 600
+  finalize_timeout: 300
   max_turns: 40
   llm_retries: 2
   experience_max_attempts: 4

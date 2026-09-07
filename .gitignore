@@ -13,7 +13,7 @@ keys.local
 
 # Run outputs — reports, findings, traces, and any future generated artifacts.
 runs/
-
+local-scenarios/
 # Knowledge base
 knowledge.db
 

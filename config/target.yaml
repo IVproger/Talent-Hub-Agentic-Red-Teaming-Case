@@ -10,18 +10,22 @@ authorization:
 # Бюджеты автономного атакующего (путь run --briefs).
 # turn_timeout — лимит одного хода (запрос-ответ): решение атакующего + действие
 # против цели; зависший ход не съедает бюджет попытки.
+# Атаки на память многофазные (внедрение -> commit_memory -> активация у жертвы)
+# и обязаны укладываться в ОДНУ попытку (reset перед попыткой чистит состояние):
+# commit_memory запускает на цели цепочку финализации из трёх LLM-прыжков, поэтому
+# turn_timeout обязан его покрывать, а max_turns — весь цикл с повторами.
 # experience_* ограничивают контекст предыдущих попыток в adaptive-режиме.
 attacker:
-  attempt_timeout: 120
-  turn_timeout: 30
-  evidence_timeout: 20
-  judge_timeout: 45
+  attempt_timeout: 1800
+  turn_timeout: 300
+  evidence_timeout: 60
+  judge_timeout: 240
   # Отдельный post-budget вызов: только submit_attack с summary/learning.
-  finalize_timeout: 30
-  max_turns: 6
-  llm_retries: 1
-  experience_max_attempts: 2
-  experience_max_chars: 6000
+  finalize_timeout: 120
+  max_turns: 40
+  llm_retries: 2
+  experience_max_attempts: 4
+  experience_max_chars: 12000
 
 target:
   name: genai-invest-stand

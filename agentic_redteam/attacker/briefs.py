@@ -105,12 +105,9 @@ class AttackBrief:
     def validate_against_profile(self, profile: TargetProfile) -> None:
         """Проверить ссылки на сущности профиля.
 
-        Генератор обязан использовать только роли, инструменты и принципалов
-        из профиля. Проверяются машинно-распознаваемые ссылки: значения
-        принципалов (присваивания вида ``attr=value`` по атрибутам границ
-        изоляции) и упоминания инструментов (``name(...)``). Ссылка на
-        неизвестную сущность — дефект генерации, а не повод выбросить brief
-        молча.
+        Строго проверяются значения принципалов (``attr=value`` по атрибутам
+        границ изоляции). Эвристические упоминания ``name(...)`` в свободном
+        тексте не доказывают вызов инструмента; см. profile_warnings().
         """
         text = "\n".join((self.objective, self.success_criteria, self.guidance))
         known_principals = _known_principals(profile)
@@ -125,13 +122,21 @@ class AttackBrief:
                         f"'{match.group(0)}' ссылается на принципала, которого нет "
                         f"в ролях профиля (известны: {', '.join(sorted(known_principals))})"
                     )
-        tools = {tool.name for tool in profile.tools}
+    def profile_warnings(self, profile: TargetProfile) -> list[str]:
+        """Advisory only: prose notation is not an executable tool call."""
+        text = "\n".join((self.objective, self.success_criteria, self.guidance))
+        known = {tool.name for tool in profile.tools}
+        known.update(profile.identities.get("roles", {}))
+        known.update(store.id for store in profile.memory)
+        warnings = []
         for match in _TOOL_MENTION.finditer(text):
-            if match.group(1) not in tools:
-                _invalid(
-                    f"упоминание '{match.group(1)}(...)' — инструмент не объявлен "
-                    f"в профиле (объявлены: {', '.join(sorted(tools)) or 'нет'})"
+            if match.group(1) not in known:
+                warnings.append(
+                    f"Упоминание '{match.group(1)}(...)' не соответствует инструменту, "
+                    "роли или хранилищу профиля; проверьте смысл вручную."
                 )
+                known.add(match.group(1))
+        return warnings
 
 
 def _known_principals(profile: TargetProfile) -> set[str]:

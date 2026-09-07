@@ -967,6 +967,7 @@ def _generate_briefs_cmd(args) -> int:
         "briefs": [brief.to_mapping() for brief in result.briefs],
         "files": [str(path) for path in paths],
         "rejected": result.rejected,
+        "warnings": result.warnings,
         "ideas": ideas,
     }
     if args.json:
@@ -976,8 +977,6 @@ def _generate_briefs_cmd(args) -> int:
         for brief in result.briefs:
             refs = ", ".join(brief.standard_refs)
             print(f"  {brief.id} [{refs}]: {brief.objective}")
-        for row in result.rejected:
-            print(f"  отбракован: {row['reason']}")
     return 0
 
 

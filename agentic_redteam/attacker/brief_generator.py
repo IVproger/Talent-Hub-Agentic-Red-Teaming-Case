@@ -70,6 +70,7 @@ class GeneratedBriefs:
     def __init__(self, briefs: list[AttackBrief], rejected: list[dict]):
         self.briefs = briefs
         self.rejected = rejected
+        self.warnings: list[dict] = []
 
 
 def profile_digest(profile: TargetProfile) -> dict:
@@ -160,7 +161,12 @@ def generate_briefs(profile: TargetProfile, llm, count: int = 5,
         briefs, errors = _validate_response(response, profile, count)
         rejected.extend({**error, "generation": generation + 1} for error in errors)
         if briefs:
-            return GeneratedBriefs(briefs, rejected)
+            result = GeneratedBriefs(briefs, rejected)
+            result.warnings = [
+                {"brief_id": brief.id, "reason": warning}
+                for brief in briefs for warning in brief.profile_warnings(profile)
+            ]
+            return result
         request = (
             prompt + "\nПредыдущий ответ не дал ни одного валидного brief. "
             "Исправь ошибки и верни полный JSON-массив. Это единственная попытка коррекции. "

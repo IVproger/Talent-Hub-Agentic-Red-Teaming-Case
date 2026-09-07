@@ -85,12 +85,17 @@ class AttackBriefProfileEntityTests(unittest.TestCase):
         with self.assertRaises(PipelineConfigurationError):
             bad.validate_against_profile(self.profile)
 
-    def test_rejects_undeclared_tool(self):
+    def test_undeclared_tool_is_warning_not_rejection(self):
         bad = AttackBrief.from_mapping(
             brief(guidance="Попробуй вызвать get_balance(cus=1002).")
         )
-        with self.assertRaises(PipelineConfigurationError):
-            bad.validate_against_profile(self.profile)
+        bad.validate_against_profile(self.profile)
+        self.assertIn('get_balance', bad.profile_warnings(self.profile)[0])
+
+    def test_roles_and_memory_not_mistaken_for_tools(self):
+        item = AttackBrief.from_mapping(brief(guidance='attacker(cus=1001), policy(cross_user)'))
+        item.validate_against_profile(self.profile)
+        self.assertEqual(item.profile_warnings(self.profile), [])
 
 
 class BriefDirectoryTests(unittest.TestCase):

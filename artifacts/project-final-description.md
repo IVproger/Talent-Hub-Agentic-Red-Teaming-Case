@@ -595,6 +595,7 @@ security-практикой: **воспроизводимый след, поня
 | Запуск, CLI и артефакты | [`README.md`](../README.md) |
 | Архитектура и системная карта цели | [`docs/architecture.md`](../docs/architecture.md), [`docs/target/system-card.md`](../docs/target/system-card.md) |
 | Дизайн и планы реализации | [`docs/blueprint/`](../docs/blueprint/), статус — [`STATUS.md`](../docs/blueprint/plans/STATUS.md) |
+| Продуктовые материалы (бриф · MVP и сценарий · результаты, риски, пилот) | [`product-artifacts/`](product-artifacts/README.md) |
 | Модель ценности с источниками | [`value.md`](product-artifacts/value.md) |
 | Бренд и позиционирование | [`05-morok-brand-positioning.md`](product-artifacts/05-morok-brand-positioning.md) |
 | Конкуренты и рынок | [`CompetitorResearch.md`](competitors/CompetitorResearch.md) |

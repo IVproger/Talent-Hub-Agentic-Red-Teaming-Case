@@ -619,6 +619,6 @@
 
 - Исходные сценарии: [`user-story-draft.md`](user-story-draft.md).
 - Продуктовый контекст: [`context-pack-day1.md`](context-pack-day1.md).
-- Бриф и границы MVP: [`01-product-brief-final.md`](01-product-brief-final.md), [`02-mvp-and-user-flow-intermediate.md`](02-mvp-and-user-flow-intermediate.md), [`03-validation-risks-plan-intermediate.md`](03-validation-risks-plan-intermediate.md).
+- Бриф и границы MVP: [`01-product-brief-final.md`](01-product-brief-final.md), [`02-mvp-and-user-flow-final.md`](02-mvp-and-user-flow-final.md), [`03-validation-results-and-risks-final.md`](03-validation-results-and-risks-final.md).
 - Позиционирование и модули: [`05-morok-brand-positioning.md`](05-morok-brand-positioning.md).
 - Постановка кейса и Q&A: [`docs/case-description.md`](../../docs/case-description.md).
